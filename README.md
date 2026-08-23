@@ -43,5 +43,22 @@ Foundation prototype. The current surface proves:
 - Omarchy desktop-entry launching
 - native media service access
 
-The next milestone is the persistent split-tree layout model and focus-or-launch
-application behavior.
+## Layout state
+
+OmaDeck stores the active split tree at:
+
+```text
+~/.config/omadeck/layout.json
+```
+
+The tree uses the same basic model as a tiling compositor: split nodes contain
+an orientation, ratio, and two children; leaf nodes contain modules. Changes
+are written atomically and survive shell restarts.
+
+Long-press a module to enter edit mode. In edit mode, drag modules onto one
+another (or tap a source and destination) to swap them, and drag the highlighted
+dividers to resize neighboring modules.
+
+Application buttons inspect Hyprland's live client list before launching. A
+matching running window is focused by address, which moves the primary monitor
+to its workspace; a new application is launched only when no match exists.

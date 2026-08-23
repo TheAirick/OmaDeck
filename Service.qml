@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import "components"
+import "services"
 
 Item {
   id: root
@@ -9,6 +10,10 @@ Item {
   property var manifest: null
   property string targetScreen: "DP-3"
   property string primaryMonitor: "DP-1"
+
+  LayoutController {
+    id: layoutStore
+  }
 
   Variants {
     model: Quickshell.screens
@@ -21,6 +26,7 @@ Item {
       pluginRoot: root
       targetScreen: root.targetScreen
       primaryMonitor: root.primaryMonitor
+      layoutController: layoutStore
     }
   }
 }
