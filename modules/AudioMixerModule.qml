@@ -8,6 +8,7 @@ import "AudioModel.js" as AudioModel
 
 Item {
   id: root
+  clip: true
 
   property string expandedCategory: ""
   property var displayStreams: []
@@ -34,6 +35,14 @@ Item {
     }
     return result
   }
+  readonly property int visibleCategoryCount: {
+    var count = 0
+    var ids = ["media", "games", "voice", "other"]
+    for (var i = 0; i < ids.length; i++) if (streamsFor(ids[i]).length > 0) count++
+    return count
+  }
+  readonly property real expandedChildrenLimit: Math.max(0,
+    height - Style.space(93) - visibleCategoryCount * Style.space(45) - Style.space(13))
 
   function clamp(value) { return Math.max(0, Math.min(1, value)) }
   function streamsFor(category) {
@@ -162,7 +171,9 @@ Item {
     readonly property bool expanded: root.expandedCategory === categoryId
     readonly property bool anotherExpanded: root.expandedCategory !== "" && !expanded
     readonly property real headerHeight: anotherExpanded ? Style.space(45) : Style.space(58)
-    readonly property real childrenHeight: expanded ? Math.min(Style.space(180), childrenColumn.implicitHeight) : 0
+    readonly property real childrenHeight: expanded
+      ? Math.min(Style.space(180), root.expandedChildrenLimit, childrenColumn.implicitHeight)
+      : 0
 
     visible: streams.length > 0
     width: parent ? parent.width : 0
@@ -206,14 +217,26 @@ Item {
       }
       PanelSlider {
         anchors.left: categoryLabel.right
-        anchors.right: parent.right
+        anchors.right: categoryPercent.left
         anchors.leftMargin: Style.spacing.controlGap
+        anchors.rightMargin: Style.spacing.controlGap
         anchors.verticalCenter: parent.verticalCenter
         value: root.categoryVolume(category.categoryId)
         fillColor: Color.accent
         knobColor: Color.accent
         onMoved: value => root.setCategoryVolume(category.categoryId, value)
         onRightClicked: root.toggleCategoryMute(category.categoryId)
+      }
+      Text {
+        id: categoryPercent
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        width: Style.space(38)
+        horizontalAlignment: Text.AlignRight
+        text: Math.round(root.categoryVolume(category.categoryId) * 100) + "%"
+        color: Color.muted
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
       }
     }
 
