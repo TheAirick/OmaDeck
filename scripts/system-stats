@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+
+set -u
+
+runtime_dir="${XDG_RUNTIME_DIR:-/tmp}/omadeck-system"
+mkdir -p "$runtime_dir"
+
+cpu_line=($(awk '/^cpu / {for (i=2; i<=NF; i++) printf "%s ", $i}' /proc/stat))
+cpu_idle=$((cpu_line[3] + cpu_line[4]))
+cpu_total=0
+for value in "${cpu_line[@]}"; do cpu_total=$((cpu_total + value)); done
+cpu_percent=0
+if [[ -r "$runtime_dir/cpu" ]]; then
+  read -r old_total old_idle < "$runtime_dir/cpu" || true
+  delta_total=$((cpu_total - ${old_total:-cpu_total}))
+  delta_idle=$((cpu_idle - ${old_idle:-cpu_idle}))
+  if (( delta_total > 0 )); then cpu_percent=$((100 * (delta_total - delta_idle) / delta_total)); fi
+fi
+printf '%s %s\n' "$cpu_total" "$cpu_idle" > "$runtime_dir/cpu"
+
+mem_total=$(awk '/^MemTotal:/ {print $2}' /proc/meminfo)
+mem_available=$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)
+mem_used=$((mem_total - mem_available))
+mem_percent=$((100 * mem_used / mem_total))
+
+cpu_temp=""
+if command -v sensors >/dev/null 2>&1; then
+  cpu_temp=$(sensors 2>/dev/null | awk '/Tctl:/ {gsub(/[+°C]/, "", $2); print int($2); exit}')
+fi
+
+gpu_percent=""
+gpu_temp=""
+gpu_used=""
+gpu_total=""
+if command -v nvidia-smi >/dev/null 2>&1; then
+  IFS=',' read -r gpu_percent gpu_temp gpu_used gpu_total < <(nvidia-smi --query-gpu=utilization.gpu,temperature.gpu,memory.used,memory.total --format=csv,noheader,nounits 2>/dev/null | head -1)
+  gpu_percent=${gpu_percent// /}; gpu_temp=${gpu_temp// /}; gpu_used=${gpu_used// /}; gpu_total=${gpu_total// /}
+fi
+
+interface=$(ip route show default 2>/dev/null | awk 'NR==1 {print $5}')
+rx_rate=0; tx_rate=0
+if [[ -n "$interface" && -r "/sys/class/net/$interface/statistics/rx_bytes" ]]; then
+  rx=$(<"/sys/class/net/$interface/statistics/rx_bytes")
+  tx=$(<"/sys/class/net/$interface/statistics/tx_bytes")
+  now=$(date +%s)
+  if [[ -r "$runtime_dir/network" ]]; then
+    read -r old_time old_rx old_tx < "$runtime_dir/network" || true
+    elapsed=$((now - ${old_time:-now}))
+    if (( elapsed > 0 )); then
+      rx_rate=$(((rx - ${old_rx:-rx}) / elapsed))
+      tx_rate=$(((tx - ${old_tx:-tx}) / elapsed))
+    fi
+  fi
+  printf '%s %s %s\n' "$now" "$rx" "$tx" > "$runtime_dir/network"
+fi
+
+read -r disk_total disk_used disk_free disk_percent < <(df -B1 --output=size,used,avail,pcent / | tail -1)
+disk_percent=${disk_percent%%%}
+
+clients='[]'
+if command -v hyprctl >/dev/null 2>&1; then
+  clients=$(hyprctl clients -j 2>/dev/null | jq '[.[] | {address, title, class, workspace: .workspace.id, monitor}] | sort_by(.workspace, .class)' 2>/dev/null || printf '[]')
+fi
+
+clipboard_file="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/clipboard-history.json"
+clipboard='[]'
+if [[ -r "$clipboard_file" ]]; then
+  clipboard=$(jq '[to_entries[] | .value + {historyIndex: .key}] | .[0:20]' "$clipboard_file" 2>/dev/null || printf '[]')
+fi
+
+jq -n \
+  --argjson cpu "$cpu_percent" --argjson mem "$mem_percent" \
+  --argjson memUsed "$((mem_used * 1024))" --argjson memTotal "$((mem_total * 1024))" \
+  --arg cpuTemp "$cpu_temp" --arg gpu "$gpu_percent" --arg gpuTemp "$gpu_temp" \
+  --arg gpuUsed "$gpu_used" --arg gpuTotal "$gpu_total" \
+  --arg interface "$interface" --argjson down "$rx_rate" --argjson up "$tx_rate" \
+  --argjson diskUsed "$disk_used" --argjson diskTotal "$disk_total" --argjson diskFree "$disk_free" --argjson diskPercent "$disk_percent" \
+  --argjson clients "$clients" --argjson clipboard "$clipboard" \
+  '{performance:{cpu:$cpu,memory:$mem,memoryUsed:$memUsed,memoryTotal:$memTotal,cpuTemp:$cpuTemp,gpu:$gpu,gpuTemp:$gpuTemp,gpuUsed:$gpuUsed,gpuTotal:$gpuTotal},network:{interface:$interface,down:$down,up:$up},storage:{used:$diskUsed,total:$diskTotal,free:$diskFree,percent:$diskPercent},clients:$clients,clipboard:$clipboard}'

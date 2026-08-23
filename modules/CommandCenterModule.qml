@@ -17,7 +17,7 @@ Item {
       spacing: Style.spacing.panelGap
 
       DrawerButton { edge: "left"; label: "Media"; iconText: "󰝚"; onTriggered: if (root.deck) root.deck.toggleDrawer(edge) }
-      DrawerButton { edge: "right"; label: "Agents"; iconText: "󰚩"; onTriggered: if (root.deck) root.deck.toggleDrawer(edge) }
+      DrawerButton { edge: "right"; label: "System"; iconText: "󰍛"; onTriggered: if (root.deck) root.deck.toggleDrawer(edge) }
     }
 
     MonitorInputModule {

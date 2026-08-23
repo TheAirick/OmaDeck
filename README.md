@@ -68,7 +68,7 @@ Foundation prototype. The current surface proves:
 - live Omarchy theme tokens
 - Hyprland-style gaps and borders
 - a split center layout
-- four retiling edge reveals: Media and Agents on the customizable sides,
+- four retiling edge reveals: Media and System on the customizable sides,
   Workspaces on top, and Applications on the bottom
 - workspace switching on the primary monitor
 - Omarchy desktop-entry launching
@@ -77,6 +77,8 @@ Foundation prototype. The current surface proves:
   play/pause, and an MPRIS-backed scrubber when duration metadata is available
 - a native PipeWire mixer with pinned output and microphone controls
 - animated Media, Games, Voice, and Other stream groups with per-app controls
+- a live System drawer with performance, network, running-window, native
+  Omarchy clipboard-history, and storage views
 
 The mixer tracks PipeWire nodes directly, follows Omarchy's resolved physical
 output sink, and snapshots changing stream models before rendering them. This

@@ -106,7 +106,7 @@ PanelWindow {
     width: root.rightDrawerWidth
     height: parent.height - root.outerGap * 2
 
-    AgentModule {
+    SystemModule {
       anchors.fill: parent
       shell: root.shell
     }
