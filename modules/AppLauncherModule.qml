@@ -25,6 +25,24 @@ Item {
     return String(value || "").trim().toLowerCase().replace(/\.desktop$/, "")
   }
 
+  function luaString(value) {
+    return "\"" + String(value || "").replace(/\\/g, "\\\\").replace(/\"/g, "\\\"") + "\""
+  }
+
+  function focusWindow(address) {
+    Quickshell.execDetached([
+      "hyprctl", "dispatch",
+      "hl.dsp.focus({ window = " + luaString("address:" + address) + " })"
+    ])
+  }
+
+  function focusMonitor(monitor) {
+    Quickshell.execDetached([
+      "hyprctl", "dispatch",
+      "hl.dsp.focus({ monitor = " + luaString(monitor) + " })"
+    ])
+  }
+
   function matches(client, app) {
     var candidates = [client.class, client.initialClass].map(normalize)
     var aliases = app.classes || [app.id]
@@ -90,11 +108,11 @@ Item {
     repeat: false
     onTriggered: {
       if (root.actionAddress) {
-        Quickshell.execDetached(["hyprctl", "dispatch", "focuswindow", "address:" + root.actionAddress])
+        root.focusWindow(root.actionAddress)
         root.actionAddress = ""
         root.actionApp = null
       } else if (root.actionApp) {
-        Quickshell.execDetached(["hyprctl", "dispatch", "focusmonitor", root.primaryMonitor])
+        root.focusMonitor(root.primaryMonitor)
         launchDelay.restart()
       }
     }

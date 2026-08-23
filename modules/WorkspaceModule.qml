@@ -17,10 +17,15 @@ Item {
     return null
   }
 
+  function luaString(value) {
+    return "\"" + String(value || "").replace(/\\/g, "\\\\").replace(/\"/g, "\\\"") + "\""
+  }
+
   function focusWorkspace(id) {
-    Quickshell.execDetached(["bash", "-lc",
-      "hyprctl dispatch focusmonitor " + primaryMonitor
-        + " && hyprctl dispatch workspace " + String(id)])
+    Quickshell.execDetached([
+      "hyprctl", "dispatch",
+      "hl.dsp.focus({ workspace = " + luaString(String(id)) + " })"
+    ])
   }
 
   GridLayout {
