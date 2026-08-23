@@ -1,0 +1,4 @@
+build/
+*.qmlc
+*.jsc
+*.log
