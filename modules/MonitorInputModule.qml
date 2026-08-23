@@ -12,10 +12,11 @@ BorderSurface {
   property string pendingSource: ""
   property string statusText: ""
 
-  height: Style.space(78)
+  height: Style.space(92)
   color: Style.normalFill
   radius: Style.cornerRadius
-  padding: Style.spacing.controlPaddingX
+  padding: 0
+  clip: true
   borderSpec: Border.controlSpec("normal", Color.foreground, Color.accent, Color.urgent)
 
   function switchTo(source) {
@@ -26,58 +27,90 @@ BorderSurface {
     inputSwitch.running = true
   }
 
-  Row {
-    anchors.fill: parent
-    anchors.topMargin: root.contentTopInset
-    anchors.rightMargin: root.contentRightInset
-    anchors.bottomMargin: root.contentBottomInset
-    anchors.leftMargin: root.contentLeftInset
-    spacing: Style.spacing.panelGap
+  Item {
+    id: omarchyButton
+    x: root.contentLeftInset
+    y: root.contentTopInset
+    width: Math.floor((root.width - root.contentLeftInset - root.contentRightInset) / 2)
+    height: root.height - root.contentTopInset - root.contentBottomInset
+    opacity: inputSwitch.running && root.pendingSource !== "omarchy" ? 0.42 : 1
+
+    Rectangle {
+      anchors.fill: parent
+      color: omarchyTap.pressed ? Style.pressedFill : (omarchyHover.hovered ? Style.hoverFill : "transparent")
+    }
 
     Column {
-      width: parent.width - sourceButtons.width - parent.spacing
-      anchors.verticalCenter: parent.verticalCenter
+      anchors.centerIn: parent
       spacing: Style.spacing.labelGap
 
       Text {
-        text: "Alienware input"
+        anchors.horizontalCenter: parent.horizontalCenter
+        text: ""
+        color: Color.accent
+        font.family: "omarchy"
+        font.pixelSize: Style.font.displayLarge
+      }
+
+      Text {
+        anchors.horizontalCenter: parent.horizontalCenter
+        text: root.pendingSource === "omarchy" ? "Switching…" : "Omarchy"
         color: Color.foreground
         font.family: Style.font.family
         font.pixelSize: Style.font.body
         font.bold: true
       }
+    }
+
+    HoverHandler { id: omarchyHover; enabled: !inputSwitch.running }
+    TapHandler { id: omarchyTap; enabled: !inputSwitch.running; onTapped: root.switchTo("omarchy") }
+  }
+
+  Rectangle {
+    anchors.horizontalCenter: parent.horizontalCenter
+    y: root.contentTopInset
+    width: Math.max(1, Style.normalBorderWidth)
+    height: root.height - root.contentTopInset - root.contentBottomInset
+    color: Color.popups.border
+  }
+
+  Item {
+    id: macButton
+    x: Math.ceil(root.width / 2)
+    y: root.contentTopInset
+    width: root.width - x - root.contentRightInset
+    height: root.height - root.contentTopInset - root.contentBottomInset
+    opacity: inputSwitch.running && root.pendingSource !== "mac" ? 0.42 : 1
+
+    Rectangle {
+      anchors.fill: parent
+      color: macTap.pressed ? Style.pressedFill : (macHover.hovered ? Style.hoverFill : "transparent")
+    }
+
+    Column {
+      anchors.centerIn: parent
+      spacing: Style.spacing.labelGap
 
       Text {
-        text: root.statusText || "Choose the active computer"
-        color: root.statusText.indexOf("Failed") === 0 ? Color.urgent : Color.muted
+        anchors.horizontalCenter: parent.horizontalCenter
+        text: "󰀵"
+        color: Color.accent
         font.family: Style.font.family
-        font.pixelSize: Style.font.caption
+        font.pixelSize: Style.font.displayLarge
+      }
+
+      Text {
+        anchors.horizontalCenter: parent.horizontalCenter
+        text: root.pendingSource === "mac" ? "Switching…" : "Mac"
+        color: Color.foreground
+        font.family: Style.font.family
+        font.pixelSize: Style.font.body
+        font.bold: true
       }
     }
 
-    Row {
-      id: sourceButtons
-      anchors.verticalCenter: parent.verticalCenter
-      spacing: Style.spacing.controlGap
-
-      Button {
-        text: "Omarchy"
-        iconText: "󰌢"
-        bordered: true
-        enabled: !inputSwitch.running
-        selected: root.pendingSource === "omarchy"
-        onClicked: root.switchTo("omarchy")
-      }
-
-      Button {
-        text: "Mac"
-        iconText: "󰀵"
-        bordered: true
-        enabled: !inputSwitch.running
-        selected: root.pendingSource === "mac"
-        onClicked: root.switchTo("mac")
-      }
-    }
+    HoverHandler { id: macHover; enabled: !inputSwitch.running }
+    TapHandler { id: macTap; enabled: !inputSwitch.running; onTapped: root.switchTo("mac") }
   }
 
   Process {
