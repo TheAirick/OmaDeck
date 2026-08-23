@@ -16,9 +16,21 @@ Item {
   property real displayedPosition: 0
   property real cachedLength: 0
   property bool seeking: false
+  property bool optimisticPosition: false
 
-  function clampPosition(value) { return Math.max(0, Math.min(player ? player.length : 0, value)) }
+  // Quickshell deliberately returns the current position from `length` when
+  // MPRIS duration metadata disappears. Always clamp against our last real
+  // duration instead, or a late seek gets capped to the old playhead.
+  function clampPosition(value) { return Math.max(0, Math.min(effectiveLength > 0 ? effectiveLength : value, value)) }
   function refreshPosition() { if (!seeking) displayedPosition = player && player.positionSupported ? player.position : 0 }
+  function tickPosition() {
+    if (seeking) return
+    if (optimisticPosition) {
+      if (player && player.isPlaying) displayedPosition = clampPosition(displayedPosition + 0.5)
+    } else {
+      refreshPosition()
+    }
+  }
   function captureDuration() {
     if (player && player.lengthSupported && player.length > 0) cachedLength = player.length
   }
@@ -26,11 +38,13 @@ Item {
     if (!canSeek) return
     player.position = clampPosition(value)
     displayedPosition = clampPosition(value)
+    optimisticPosition = true
   }
   function skip(seconds) {
     if (!canSkip) return
-    player.position = Math.max(0, (player.positionSupported ? player.position : displayedPosition) + seconds)
-    refreshPosition()
+    player.seek(seconds)
+    displayedPosition = clampPosition(displayedPosition + seconds)
+    optimisticPosition = true
   }
   function formatTime(seconds) {
     if (!isFinite(seconds) || seconds < 0) return "0:00"
@@ -43,12 +57,12 @@ Item {
   }
 
   onPlayerChanged: { refreshPosition(); captureDuration() }
-  onTrackKeyChanged: { cachedLength = 0; captureDuration(); refreshPosition() }
+  onTrackKeyChanged: { cachedLength = 0; optimisticPosition = false; captureDuration(); refreshPosition() }
   Timer {
     interval: 500
     running: root.hasPlayer
     repeat: true
-    onTriggered: { root.captureDuration(); root.refreshPosition() }
+    onTriggered: { root.captureDuration(); root.tickPosition() }
   }
   Connections {
     target: root.player
