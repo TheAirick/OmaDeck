@@ -8,13 +8,20 @@ Item {
   property var deck: null
   property var controller: null
 
-  Grid {
+  Column {
     anchors.centerIn: parent
-    columns: 2
     spacing: Style.spacing.panelGap
 
-    DrawerButton { edge: "left"; label: "Media"; iconText: "󰝚"; onTriggered: if (root.deck) root.deck.toggleDrawer(edge) }
-    DrawerButton { edge: "right"; label: "Agents"; iconText: "󰚩"; onTriggered: if (root.deck) root.deck.toggleDrawer(edge) }
+    Row {
+      spacing: Style.spacing.panelGap
+
+      DrawerButton { edge: "left"; label: "Media"; iconText: "󰝚"; onTriggered: if (root.deck) root.deck.toggleDrawer(edge) }
+      DrawerButton { edge: "right"; label: "Agents"; iconText: "󰚩"; onTriggered: if (root.deck) root.deck.toggleDrawer(edge) }
+    }
+
+    MonitorInputModule {
+      width: parent.width
+    }
   }
 
   Text {
