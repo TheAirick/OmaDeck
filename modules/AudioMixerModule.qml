@@ -95,18 +95,28 @@ Item {
     implicitHeight: Style.space(46)
     opacity: available ? 1 : 0.38
 
-    Text {
-      id: volumeIcon
+    Item {
+      id: volumeIconTarget
       anchors.left: parent.left
       anchors.verticalCenter: parent.verticalCenter
-      text: volumeRow.muted ? "󰝟" : volumeRow.glyph
-      color: Color.accent
-      font.family: Style.font.family
-      font.pixelSize: Style.font.displayLarge
+      width: Style.space(30)
+      height: parent.height
+
+      Text {
+        anchors.centerIn: parent
+        text: volumeRow.muted ? "󰝟" : volumeRow.glyph
+        color: volumeRow.muted ? Color.muted : Color.accent
+        font.family: Style.font.family
+        font.pixelSize: Style.font.displayLarge
+      }
+      TapHandler {
+        enabled: volumeRow.available
+        onTapped: volumeRow.muteRequested()
+      }
     }
     Text {
       id: volumeLabel
-      anchors.left: volumeIcon.right
+      anchors.left: volumeIconTarget.right
       anchors.leftMargin: Style.spacing.controlGap
       anchors.verticalCenter: parent.verticalCenter
       width: Style.space(74)
@@ -132,8 +142,7 @@ Item {
     }
     Text {
       id: percent
-      anchors.right: muteButton.left
-      anchors.rightMargin: Style.spacing.sm
+      anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
       width: Style.space(38)
       horizontalAlignment: Text.AlignRight
@@ -141,15 +150,6 @@ Item {
       color: Color.muted
       font.family: Style.font.family
       font.pixelSize: Style.font.caption
-    }
-    Button {
-      id: muteButton
-      anchors.right: parent.right
-      anchors.verticalCenter: parent.verticalCenter
-      text: volumeRow.muted ? "󰝟" : "󰕾"
-      foreground: volumeRow.muted ? Color.muted : Color.accent
-      enabled: volumeRow.available
-      onClicked: volumeRow.muteRequested()
     }
   }
 
@@ -175,56 +175,45 @@ Item {
       width: parent.width
       height: category.headerHeight
 
-      TapHandler { onTapped: root.expandedCategory = category.expanded ? "" : category.categoryId }
-      Text {
-        id: categoryIcon
+      Item {
+        id: categoryIconTarget
         anchors.left: parent.left
         anchors.verticalCenter: parent.verticalCenter
-        text: category.glyph
-        color: Color.accent
-        font.family: Style.font.family
-        font.pixelSize: Style.font.displayLarge
+        width: Style.space(30)
+        height: parent.height
+
+        Text {
+          anchors.centerIn: parent
+          text: root.categoryMuted(category.categoryId) ? "󰝟" : category.glyph
+          color: root.categoryMuted(category.categoryId) ? Color.muted : Color.accent
+          font.family: Style.font.family
+          font.pixelSize: Style.font.displayLarge
+        }
+        TapHandler { onTapped: root.toggleCategoryMute(category.categoryId) }
       }
       Text {
         id: categoryLabel
-        anchors.left: categoryIcon.right
+        anchors.left: categoryIconTarget.right
         anchors.leftMargin: Style.spacing.controlGap
         anchors.verticalCenter: parent.verticalCenter
-        width: Style.space(68)
+        width: Style.space(82)
         text: category.label + "  " + category.streams.length
         color: Color.foreground
         font.family: Style.font.family
         font.pixelSize: Style.font.body
         font.bold: true
+        TapHandler { onTapped: root.expandedCategory = category.expanded ? "" : category.categoryId }
       }
       PanelSlider {
         anchors.left: categoryLabel.right
-        anchors.right: categoryMute.left
+        anchors.right: parent.right
         anchors.leftMargin: Style.spacing.controlGap
-        anchors.rightMargin: Style.spacing.controlGap
         anchors.verticalCenter: parent.verticalCenter
         value: root.categoryVolume(category.categoryId)
         fillColor: Color.accent
         knobColor: Color.accent
         onMoved: value => root.setCategoryVolume(category.categoryId, value)
         onRightClicked: root.toggleCategoryMute(category.categoryId)
-      }
-      Button {
-        id: categoryMute
-        anchors.right: chevron.left
-        anchors.verticalCenter: parent.verticalCenter
-        text: root.categoryMuted(category.categoryId) ? "󰝟" : "󰕾"
-        foreground: root.categoryMuted(category.categoryId) ? Color.muted : Color.accent
-        onClicked: root.toggleCategoryMute(category.categoryId)
-      }
-      Text {
-        id: chevron
-        anchors.right: parent.right
-        anchors.verticalCenter: parent.verticalCenter
-        text: category.expanded ? "󰅀" : "󰅂"
-        color: Color.muted
-        font.family: Style.font.family
-        font.pixelSize: Style.font.body
       }
     }
 
