@@ -202,17 +202,31 @@ Item {
         }
         TapHandler { onTapped: root.toggleCategoryMute(category.categoryId) }
       }
-      Text {
+      Item {
         id: categoryLabel
         anchors.left: categoryIconTarget.right
         anchors.leftMargin: Style.spacing.controlGap
         anchors.verticalCenter: parent.verticalCenter
-        width: Style.space(82)
-        text: category.label + "  " + category.streams.length
-        color: Color.foreground
-        font.family: Style.font.family
-        font.pixelSize: Style.font.body
-        font.bold: true
+        width: Style.space(74)
+        height: Style.space(38)
+
+        Text {
+          anchors.left: parent.left
+          anchors.top: parent.top
+          text: category.label
+          color: Color.foreground
+          font.family: Style.font.family
+          font.pixelSize: Style.font.body
+          font.bold: true
+        }
+        Text {
+          anchors.left: parent.left
+          anchors.bottom: parent.bottom
+          text: category.streams.length + (category.streams.length === 1 ? " source" : " sources")
+          color: Color.muted
+          font.family: Style.font.family
+          font.pixelSize: Style.font.caption
+        }
         TapHandler { onTapped: root.expandedCategory = category.expanded ? "" : category.categoryId }
       }
       PanelSlider {
@@ -272,7 +286,10 @@ Item {
   }
 
   Column {
-    anchors.fill: parent
+    id: mixerColumn
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
     spacing: 0
 
     VolumeRow {
