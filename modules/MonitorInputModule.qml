@@ -66,13 +66,27 @@ BorderSurface {
     TapHandler { id: omarchyTap; enabled: !inputSwitch.running; onTapped: root.switchTo("omarchy") }
   }
 
-  Rectangle {
-    anchors.horizontalCenter: parent.horizontalCenter
-    y: root.contentTopInset
-    width: Math.max(1, Style.normalBorderWidth)
-    height: root.height - root.contentTopInset - root.contentBottomInset
-    color: Color.foreground
-    opacity: 0.16
+  Column {
+    anchors.centerIn: parent
+    spacing: Style.spacing.labelGap
+    z: 5
+
+    Text {
+      anchors.horizontalCenter: parent.horizontalCenter
+      text: "󰍹"
+      color: Color.muted
+      font.family: Style.font.family
+      font.pixelSize: Style.font.icon
+    }
+
+    Text {
+      anchors.horizontalCenter: parent.horizontalCenter
+      text: root.statusText || "Alienware"
+      color: root.statusText.indexOf("Failed") === 0 ? Color.urgent : Color.muted
+      font.family: Style.font.family
+      font.pixelSize: Style.font.caption
+      font.bold: root.statusText !== ""
+    }
   }
 
   Item {

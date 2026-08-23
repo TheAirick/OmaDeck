@@ -9,6 +9,7 @@ Item {
   property var controller: null
 
   Column {
+    id: controlStack
     anchors.centerIn: parent
     spacing: Style.spacing.panelGap
 
@@ -25,6 +26,7 @@ Item {
   }
 
   Text {
+    visible: root.height > Style.space(300)
     anchors.horizontalCenter: parent.horizontalCenter
     anchors.bottom: parent.bottom
     anchors.bottomMargin: Style.spacing.panelGap
