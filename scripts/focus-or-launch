@@ -10,7 +10,7 @@ aliases_csv=${3:-$desktop_id}
 # its release prevents the Edge from immediately reclaiming compositor focus.
 sleep 0.15
 
-client_address=$(
+find_client_address() {
   hyprctl clients -j | jq -r --arg aliases "$aliases_csv" '
     ($aliases | split(",") | map(ascii_downcase | sub("\\.desktop$"; ""))) as $wanted
     | [ .[]
@@ -27,7 +27,9 @@ client_address=$(
     | sort_by(.focusHistoryID // 999999)
     | first.address // empty
   '
-)
+}
+
+client_address=$(find_client_address)
 
 if [[ -n $client_address ]]; then
   address_json=$(jq -n --arg value "address:$client_address" '$value')
@@ -52,3 +54,23 @@ workspace_json=$(jq -n --arg value "$workspace" '$value')
 # The workspace rule is bound to the spawned process, so window placement does
 # not depend on where touch temporarily moved Hyprland's software cursor.
 hyprctl dispatch "hl.dsp.exec_cmd($command_json, { workspace = $workspace_json })" >/dev/null
+
+# Some desktop applications (notably Nautilus) hand the request to an existing
+# background daemon. In that case Hyprland cannot associate the launch rule
+# with the window's real PID. Catch the resulting toplevel and move that exact
+# window after it maps, independent of the cursor and process ancestry.
+for _attempt in {1..50}; do
+  sleep 0.1
+  client_address=$(find_client_address)
+  if [[ -n $client_address ]]; then
+    address_json=$(jq -n --arg value "address:$client_address" '$value')
+    hyprctl dispatch \
+      "hl.dsp.window.move({ workspace = $workspace_json, follow = true, window = $address_json })" \
+      >/dev/null
+    sleep 0.1
+    hyprctl dispatch "hl.dsp.focus({ window = $address_json })" >/dev/null
+    exit 0
+  fi
+done
+
+exit 1
