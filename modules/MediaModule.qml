@@ -112,26 +112,29 @@ Item {
         BorderSurface {
           id: artwork
           anchors.left: parent.left
-          anchors.top: parent.top
-          anchors.bottom: parent.bottom
-          width: Math.min(height, Style.space(150))
+          anchors.verticalCenter: parent.verticalCenter
+          width: Math.min(parent.height, Style.space(190))
+          height: width
           radius: Style.cornerRadius
           color: Style.normalFill
           borderSpec: Border.controlSpec("normal", Color.foreground, Color.accent, Color.urgent)
           clip: true
 
           Image {
+            id: artworkImage
             anchors.fill: parent
             anchors.margins: artwork.borderLeft
             source: root.player && root.player.trackArtUrl ? root.player.trackArtUrl : ""
             fillMode: Image.PreserveAspectCrop
+            horizontalAlignment: Image.AlignHCenter
+            verticalAlignment: Image.AlignVCenter
             asynchronous: true
             cache: true
             visible: status === Image.Ready
           }
           Text {
             anchors.centerIn: parent
-            visible: !root.player || !root.player.trackArtUrl
+            visible: artworkImage.status !== Image.Ready
             text: "󰝚"
             color: Color.accent
             font.family: Style.font.family
