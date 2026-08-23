@@ -19,18 +19,12 @@ Item {
 
   function defaultLayout() {
     return {
-      version: 1,
+      version: 2,
       root: {
         type: "split",
         orientation: "horizontal",
         ratio: 0.36,
-        first: {
-          type: "split",
-          orientation: "vertical",
-          ratio: 0.56,
-          first: { type: "module", moduleId: "clock" },
-          second: { type: "module", moduleId: "workspaces" }
-        },
+        first: { type: "module", moduleId: "clock" },
         second: { type: "module", moduleId: "command-center" }
       }
     }
@@ -51,7 +45,7 @@ Item {
   function load(raw) {
     try {
       var parsed = JSON.parse(String(raw || ""))
-      if (!parsed || parsed.version !== 1 || !validNode(parsed.root)) throw new Error("unsupported layout")
+      if (!parsed || parsed.version !== 2 || !validNode(parsed.root)) throw new Error("unsupported layout")
       layout = parsed
       revision++
       loaded = true

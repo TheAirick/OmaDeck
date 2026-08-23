@@ -11,7 +11,7 @@ workspace monitor on `DP-1`.
 
 - Omarchy owns color, typography, spacing, borders, and motion.
 - Modules behave like tiled windows, not arbitrary dashboard widgets.
-- Edge drawers behave like spatial workspaces and push the center canvas.
+- Edge modules join the tiling region and resize the center canvas.
 - Application actions focus an existing window before launching another.
 - Every module can eventually be pinned, contextual, drawer-only, or hidden.
 - Touch is primary; mouse and keyboard remain valid development fallbacks.
@@ -38,7 +38,8 @@ Foundation prototype. The current surface proves:
 - live Omarchy theme tokens
 - Hyprland-style gaps and borders
 - a split center layout
-- four push-reveal edge drawers
+- four retiling edge reveals: Media and Agents on the customizable sides,
+  Workspaces on top, and Applications on the bottom
 - workspace switching on the primary monitor
 - Omarchy desktop-entry launching
 - native media service access

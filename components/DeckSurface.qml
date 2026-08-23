@@ -15,19 +15,29 @@ PanelWindow {
   property string targetScreen: "DP-3"
   property string primaryMonitor: "DP-1"
   property string openDrawer: ""
-  property real drawerProgress: openDrawer === "" ? 0 : 1
 
   readonly property bool isTarget: screen && screen.name === targetScreen
   readonly property int outerGap: Math.max(1, Style.gapsOut)
   readonly property int innerGap: Style.space(5)
-  readonly property int leftDrawerWidth: Math.round(width * 0.34)
-  readonly property int rightDrawerWidth: Math.round(width * 0.34)
-  readonly property int topDrawerHeight: Math.round(height * 0.44)
-  readonly property int bottomDrawerHeight: Math.round(height * 0.44)
-  readonly property real centerX: openDrawer === "left" ? leftDrawerWidth * drawerProgress
-    : openDrawer === "right" ? -rightDrawerWidth * drawerProgress : 0
-  readonly property real centerY: openDrawer === "top" ? topDrawerHeight * drawerProgress
-    : openDrawer === "bottom" ? -bottomDrawerHeight * drawerProgress : 0
+  readonly property int usableWidth: Math.max(0, width - outerGap * 2)
+  readonly property int usableHeight: Math.max(0, height - outerGap * 2)
+  readonly property int leftDrawerWidth: Math.round(usableWidth * 0.34)
+  readonly property int rightDrawerWidth: Math.round(usableWidth * 0.34)
+  readonly property int topDrawerHeight: Math.round(usableHeight * 0.30)
+  readonly property int bottomDrawerHeight: Math.round(usableHeight * 0.34)
+
+  // Revealed modules reserve space in the same geometry as the center layout.
+  // Animating these four boundaries makes the split tree re-tile instead of
+  // translating intact panels beyond the physical display.
+  property real reservedLeft: openDrawer === "left" ? leftDrawerWidth + innerGap : 0
+  property real reservedRight: openDrawer === "right" ? rightDrawerWidth + innerGap : 0
+  property real reservedTop: openDrawer === "top" ? topDrawerHeight + innerGap : 0
+  property real reservedBottom: openDrawer === "bottom" ? bottomDrawerHeight + innerGap : 0
+
+  Behavior on reservedLeft { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+  Behavior on reservedRight { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+  Behavior on reservedTop { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+  Behavior on reservedBottom { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
 
   visible: isTarget
   anchors { top: true; right: true; bottom: true; left: true }
@@ -73,15 +83,14 @@ PanelWindow {
     color: Color.background
   }
 
-  // Drawers live behind the translated center canvas, so revealing one feels
-  // like moving a tiled workspace rather than opening a floating dialog.
+  // Edge modules and the center split tree share one bounded tiling region.
   EdgeDrawer {
     edge: "left"
     open: root.openDrawer === edge
     x: root.outerGap
     y: root.outerGap
-    width: root.leftDrawerWidth - root.outerGap
-    height: parent.height - root.outerGap * 2
+    width: root.leftDrawerWidth
+    height: root.usableHeight
 
     MediaModule {
       anchors.fill: parent
@@ -94,7 +103,7 @@ PanelWindow {
     open: root.openDrawer === edge
     x: parent.width - root.rightDrawerWidth
     y: root.outerGap
-    width: root.rightDrawerWidth - root.outerGap
+    width: root.rightDrawerWidth
     height: parent.height - root.outerGap * 2
 
     AgentModule {
@@ -108,8 +117,8 @@ PanelWindow {
     open: root.openDrawer === edge
     x: root.outerGap
     y: root.outerGap
-    width: parent.width - root.outerGap * 2
-    height: root.topDrawerHeight - root.outerGap
+    width: root.usableWidth
+    height: root.topDrawerHeight
 
     WorkspaceModule {
       anchors.fill: parent
@@ -122,8 +131,8 @@ PanelWindow {
     open: root.openDrawer === edge
     x: root.outerGap
     y: parent.height - root.bottomDrawerHeight
-    width: parent.width - root.outerGap * 2
-    height: root.bottomDrawerHeight - root.outerGap
+    width: root.usableWidth
+    height: root.bottomDrawerHeight
 
     AppLauncherModule {
       anchors.fill: parent
@@ -134,13 +143,10 @@ PanelWindow {
 
   Item {
     id: centerCanvas
-    x: root.centerX
-    y: root.centerY
-    width: parent.width
-    height: parent.height
-
-    Behavior on x { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
-    Behavior on y { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+    x: root.outerGap + root.reservedLeft
+    y: root.outerGap + root.reservedTop
+    width: Math.max(0, root.usableWidth - root.reservedLeft - root.reservedRight)
+    height: Math.max(0, root.usableHeight - root.reservedTop - root.reservedBottom)
 
     Rectangle {
       anchors.fill: parent
@@ -149,7 +155,6 @@ PanelWindow {
 
     SplitNode {
       anchors.fill: parent
-      anchors.margins: root.outerGap
       controller: root.layoutController
       path: ""
       deck: root
