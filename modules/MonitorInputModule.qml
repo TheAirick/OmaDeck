@@ -71,7 +71,8 @@ BorderSurface {
     y: root.contentTopInset
     width: Math.max(1, Style.normalBorderWidth)
     height: root.height - root.contentTopInset - root.contentBottomInset
-    color: Color.popups.border
+    color: Color.foreground
+    opacity: 0.16
   }
 
   Item {
