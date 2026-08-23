@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "pretty.omadeck",
   "name": "OmaDeck",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": "Erik Holum",
   "license": "MIT",
   "description": "A touch-native Omarchy command surface for secondary displays.",

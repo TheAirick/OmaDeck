@@ -16,6 +16,36 @@ workspace monitor on `DP-1`.
 - Every module can eventually be pinned, contextual, drawer-only, or hidden.
 - Touch is primary; mouse and keyboard remain valid development fallbacks.
 
+## Install on Omarchy
+
+OmaDeck is a native, keep-loaded Omarchy shell service. Install and enable it
+directly from GitHub:
+
+```bash
+omarchy plugin add https://github.com/TheAirick/OmaDeck.git --enable
+```
+
+Enabling the service adds `pretty.omadeck` to
+`~/.config/omarchy/shell.json`. Omarchy starts its shell with Hyprland at every
+login, so OmaDeck starts automatically with the desktop—no separate systemd
+service or duplicate autostart entry is needed.
+
+Update an installed copy with:
+
+```bash
+omarchy plugin update pretty.omadeck
+```
+
+Remove it cleanly with:
+
+```bash
+omarchy plugin remove pretty.omadeck
+```
+
+OmaDeck currently targets a Xeneon Edge named `DP-3` and sends application and
+workspace actions to a primary monitor named `DP-1`. Configurable monitor
+selection is planned before the first general-purpose release.
+
 ## Development install
 
 OmaDeck is loaded as a third-party `service` plugin by `omarchy-shell`.
