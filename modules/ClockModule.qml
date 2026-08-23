@@ -5,6 +5,7 @@ Item {
   id: root
 
   property date now: new Date()
+  property bool use24Hour: false
 
   Timer {
     interval: 1000
@@ -19,7 +20,7 @@ Item {
 
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
-      text: Qt.formatDateTime(root.now, "h:mm")
+      text: Qt.formatDateTime(root.now, root.use24Hour ? "HH:mm" : "h:mm AP")
       color: Color.foreground
       font.family: Style.font.family
       font.pixelSize: Style.font.displayLarge * 2.2

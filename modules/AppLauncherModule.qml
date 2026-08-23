@@ -44,11 +44,12 @@ Item {
     ])
   }
 
-  Column {
+  Item {
     anchors.fill: parent
-    spacing: Style.spacing.controlGap
 
     Text {
+      anchors.left: parent.left
+      anchors.top: parent.top
       text: "Applications"
       color: Color.foreground
       font.family: Style.font.family
@@ -56,53 +57,48 @@ Item {
       font.bold: true
     }
 
-    Item {
-      width: parent.width
-      height: parent.height - y
+    Row {
+      anchors.centerIn: parent
+      spacing: Style.spacing.panelGap
 
-      Row {
-        anchors.centerIn: parent
-        spacing: Style.spacing.panelGap
+      Repeater {
+        model: root.favorites
 
-        Repeater {
-          model: root.favorites
+        BorderSurface {
+          id: launcherButton
+          required property var modelData
 
-          BorderSurface {
-            id: launcherButton
-            required property var modelData
+          width: Style.space(128)
+          height: Style.space(68)
+          color: launcherTap.pressed ? Style.pressedFill : (launcherHover.hovered ? Style.hoverFill : Style.normalFill)
+          radius: Style.cornerRadius
+          borderSpec: Border.controlSpec(launcherHover.hovered ? "hover" : "normal", Color.foreground, Color.accent, Color.urgent)
 
-            width: Style.space(128)
-            height: Style.space(68)
-            color: launcherTap.pressed ? Style.pressedFill : (launcherHover.hovered ? Style.hoverFill : Style.normalFill)
-            radius: Style.cornerRadius
-            borderSpec: Border.controlSpec(launcherHover.hovered ? "hover" : "normal", Color.foreground, Color.accent, Color.urgent)
+          Column {
+            anchors.centerIn: parent
+            spacing: Style.spacing.labelGap
 
-            Column {
-              anchors.centerIn: parent
-              spacing: Style.spacing.labelGap
-
-              Image {
-                anchors.horizontalCenter: parent.horizontalCenter
-                width: Style.space(28)
-                height: width
-                source: Quickshell.iconPath(launcherButton.modelData.icon, true)
-                fillMode: Image.PreserveAspectFit
-                asynchronous: true
-              }
-
-              Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: launcherButton.modelData.name
-                color: Color.foreground
-                font.family: Style.font.family
-                font.pixelSize: Style.font.body
-                font.bold: true
-              }
+            Image {
+              anchors.horizontalCenter: parent.horizontalCenter
+              width: Style.space(28)
+              height: width
+              source: Quickshell.iconPath(launcherButton.modelData.icon, true)
+              fillMode: Image.PreserveAspectFit
+              asynchronous: true
             }
 
-            HoverHandler { id: launcherHover }
-            TapHandler { id: launcherTap; onTapped: root.focusOrLaunch(launcherButton.modelData) }
+            Text {
+              anchors.horizontalCenter: parent.horizontalCenter
+              text: launcherButton.modelData.name
+              color: Color.foreground
+              font.family: Style.font.family
+              font.pixelSize: Style.font.body
+              font.bold: true
+            }
           }
+
+          HoverHandler { id: launcherHover }
+          TapHandler { id: launcherTap; onTapped: root.focusOrLaunch(launcherButton.modelData) }
         }
       }
     }

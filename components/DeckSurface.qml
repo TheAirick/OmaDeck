@@ -24,7 +24,7 @@ PanelWindow {
   readonly property int leftDrawerWidth: Math.round(usableWidth * 0.34)
   readonly property int rightDrawerWidth: Math.round(usableWidth * 0.34)
   readonly property int topDrawerHeight: Style.space(78)
-  readonly property int bottomDrawerHeight: Style.space(136)
+  readonly property int bottomDrawerHeight: Style.space(116)
 
   // Revealed modules reserve space in the same geometry as the center layout.
   // Animating these four boundaries makes the split tree re-tile instead of
@@ -101,7 +101,7 @@ PanelWindow {
   EdgeDrawer {
     edge: "right"
     open: root.openDrawer === edge
-    x: parent.width - root.rightDrawerWidth
+    x: parent.width - root.outerGap - root.rightDrawerWidth
     y: root.outerGap
     width: root.rightDrawerWidth
     height: parent.height - root.outerGap * 2
@@ -132,7 +132,7 @@ PanelWindow {
     edge: "bottom"
     open: root.openDrawer === edge
     x: root.outerGap
-    y: parent.height - root.bottomDrawerHeight
+    y: parent.height - root.outerGap - root.bottomDrawerHeight
     width: root.usableWidth
     height: root.bottomDrawerHeight
 
