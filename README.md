@@ -43,6 +43,13 @@ Foundation prototype. The current surface proves:
 - workspace switching on the primary monitor
 - Omarchy desktop-entry launching
 - native media service access
+- a native PipeWire mixer with pinned output and microphone controls
+- animated Media, Games, Voice, and Other stream groups with per-app controls
+
+The mixer tracks PipeWire nodes directly, follows Omarchy's resolved physical
+output sink, and snapshots changing stream models before rendering them. This
+keeps controls current without destabilizing the shell when applications add or
+remove audio streams.
 
 ## Layout state
 

@@ -11,7 +11,7 @@ Item {
 
   Column {
     anchors.fill: parent
-    spacing: Style.spacing.panelGap
+    spacing: Style.spacing.controlGap
 
     Text {
       text: "Media"
@@ -47,6 +47,13 @@ Item {
       Button { text: "󰒮"; foreground: Color.foreground; enabled: root.player && root.player.canGoPrevious; onClicked: root.media.runAction("previous", false) }
       Button { text: root.player && root.player.isPlaying ? "󰏤" : "󰐊"; foreground: Color.foreground; enabled: !!root.player; onClicked: root.media.runAction("playPause", false) }
       Button { text: "󰒭"; foreground: Color.foreground; enabled: root.player && root.player.canGoNext; onClicked: root.media.runAction("next", false) }
+    }
+
+    Rectangle { width: parent.width; height: 1; color: Color.muted; opacity: 0.25 }
+
+    AudioMixerModule {
+      width: parent.width
+      height: Math.max(0, parent.height - y)
     }
   }
 }
