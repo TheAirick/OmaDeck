@@ -9,6 +9,7 @@ Item {
   id: root
 
   property bool compact: false
+  property bool singleRow: false
   property string primaryMonitor: "DP-1"
 
   function workspaceById(id) {
@@ -30,7 +31,7 @@ Item {
 
   GridLayout {
     anchors.centerIn: parent
-    columns: 5
+    columns: root.singleRow ? 10 : 5
     columnSpacing: Style.spacing.controlGap
     rowSpacing: Style.spacing.controlGap
 

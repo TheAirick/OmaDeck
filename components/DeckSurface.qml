@@ -18,13 +18,13 @@ PanelWindow {
 
   readonly property bool isTarget: screen && screen.name === targetScreen
   readonly property int outerGap: Math.max(1, Style.gapsOut)
-  readonly property int innerGap: Style.space(5)
+  readonly property int innerGap: Style.spacing.panelGap
   readonly property int usableWidth: Math.max(0, width - outerGap * 2)
   readonly property int usableHeight: Math.max(0, height - outerGap * 2)
   readonly property int leftDrawerWidth: Math.round(usableWidth * 0.34)
   readonly property int rightDrawerWidth: Math.round(usableWidth * 0.34)
-  readonly property int topDrawerHeight: Math.round(usableHeight * 0.30)
-  readonly property int bottomDrawerHeight: Math.round(usableHeight * 0.34)
+  readonly property int topDrawerHeight: Style.space(78)
+  readonly property int bottomDrawerHeight: Style.space(136)
 
   // Revealed modules reserve space in the same geometry as the center layout.
   // Animating these four boundaries makes the split tree re-tile instead of
@@ -122,6 +122,8 @@ PanelWindow {
 
     WorkspaceModule {
       anchors.fill: parent
+      compact: true
+      singleRow: true
       primaryMonitor: root.primaryMonitor
     }
   }

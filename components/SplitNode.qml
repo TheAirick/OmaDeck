@@ -17,7 +17,7 @@ Item {
   }
   readonly property bool horizontal: node && node.orientation === "horizontal"
   readonly property real ratio: node && node.ratio !== undefined ? Number(node.ratio) : 0.5
-  readonly property int gap: Style.space(5)
+  readonly property int gap: Style.spacing.panelGap
   readonly property real availableLength: horizontal ? width - gap : height - gap
   readonly property real firstLength: Math.max(0, Math.round(availableLength * ratio))
   readonly property string firstPath: path ? path + "/first" : "first"
