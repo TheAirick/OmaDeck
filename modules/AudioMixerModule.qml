@@ -13,6 +13,7 @@ Item {
   property string expandedCategory: ""
   property var displayStreams: []
   property string volumeSinkName: ""
+  readonly property real contentHeight: mixerColumn.implicitHeight
 
   readonly property var nodes: Pipewire.nodes ? Pipewire.nodes.values : []
   readonly property var defaultSink: Pipewire.defaultAudioSink

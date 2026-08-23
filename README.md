@@ -43,6 +43,8 @@ Foundation prototype. The current surface proves:
 - workspace switching on the primary monitor
 - Omarchy desktop-entry launching
 - native media service access
+- artwork-aware now-playing controls with previous/next, ten-second seeking,
+  play/pause, and an MPRIS-backed scrubber when duration metadata is available
 - a native PipeWire mixer with pinned output and microphone controls
 - animated Media, Games, Voice, and Other stream groups with per-app controls
 
