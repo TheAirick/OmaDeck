@@ -13,7 +13,8 @@ BorderSurface {
   radius: Style.cornerRadius
   padding: Style.spacing.panelPadding
   borderSpec: Border.hyprlandActiveSpec(Color.accent, 2)
-  opacity: open ? 1 : 0.72
+  visible: open || opacity > 0
+  opacity: open ? 1 : 0
 
   Behavior on opacity { NumberAnimation { duration: 160 } }
 

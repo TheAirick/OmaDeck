@@ -10,13 +10,21 @@ Item {
   property var manifest: null
   property string targetScreen: "DP-3"
   property string primaryMonitor: "DP-1"
+  readonly property var targetScreens: {
+    var screens = Quickshell.screens || []
+    var matches = []
+    for (var i = 0; i < screens.length; i++) {
+      if (screens[i].name === targetScreen) matches.push(screens[i])
+    }
+    return matches
+  }
 
   LayoutController {
     id: layoutStore
   }
 
   Variants {
-    model: Quickshell.screens
+    model: root.targetScreens
 
     DeckSurface {
       required property var modelData

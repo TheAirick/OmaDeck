@@ -10,12 +10,14 @@ Item {
   property var shell: null
   property string primaryMonitor: "DP-1"
   property var pendingApp: null
+  property var actionApp: null
+  property string actionAddress: ""
   property var favorites: [
     { id: "com.mitchellh.ghostty", name: "Terminal", icon: "com.mitchellh.ghostty", classes: ["com.mitchellh.ghostty"] },
     { id: "chromium", name: "Browser", icon: "chromium", classes: ["chromium", "google-chrome", "zen"] },
     { id: "org.gnome.Nautilus", name: "Files", icon: "org.gnome.Nautilus", classes: ["org.gnome.nautilus", "nautilus"] },
     { id: "discord", name: "Discord", icon: "discord", classes: ["discord", "vesktop"] },
-    { id: "obsidian", name: "Obsidian", icon: "obsidian", classes: ["obsidian"] },
+    { id: "obsidian", name: "Obsidian", icon: "obsidian", classes: ["md.obsidian.obsidian", "obsidian"] },
     { id: "omawrite", name: "Omawrite", icon: "omawrite", classes: ["omawrite"] }
   ]
 
@@ -65,14 +67,48 @@ Item {
     try {
       var client = bestClient(JSON.parse(String(raw || "[]")), app)
       if (client && client.address) {
-        Quickshell.execDetached(["hyprctl", "dispatch", "focuswindow", "address:" + client.address])
+        actionApp = app
+        actionAddress = client.address
+        actionDelay.restart()
         return
       }
     } catch (error) {
       console.warn("OmaDeck: could not inspect Hyprland clients:", error)
     }
 
-    launchFallback(app)
+    actionApp = app
+    actionAddress = ""
+    actionDelay.restart()
+  }
+
+  // Let the touch release finish before changing monitor focus. Otherwise the
+  // release itself can return focus to the Edge and make a new window inherit
+  // its dedicated workspace.
+  Timer {
+    id: actionDelay
+    interval: 140
+    repeat: false
+    onTriggered: {
+      if (root.actionAddress) {
+        Quickshell.execDetached(["hyprctl", "dispatch", "focuswindow", "address:" + root.actionAddress])
+        root.actionAddress = ""
+        root.actionApp = null
+      } else if (root.actionApp) {
+        Quickshell.execDetached(["hyprctl", "dispatch", "focusmonitor", root.primaryMonitor])
+        launchDelay.restart()
+      }
+    }
+  }
+
+  Timer {
+    id: launchDelay
+    interval: 100
+    repeat: false
+    onTriggered: {
+      var app = root.actionApp
+      root.actionApp = null
+      if (app) root.launchFallback(app)
+    }
   }
 
   Process {
