@@ -10,12 +10,18 @@ Item {
   readonly property var player: media ? media.activePlayer : null
   readonly property bool hasPlayer: !!player
   readonly property bool canSkip: hasPlayer && player.canSeek && player.positionSupported
-  readonly property bool canSeek: canSkip && player.lengthSupported && player.length > 0
+  readonly property string trackKey: player ? [player.trackTitle || "", player.trackArtist || ""].join("|") : ""
+  readonly property real effectiveLength: player && player.lengthSupported && player.length > 0 ? player.length : cachedLength
+  readonly property bool canSeek: canSkip && effectiveLength > 0
   property real displayedPosition: 0
+  property real cachedLength: 0
   property bool seeking: false
 
   function clampPosition(value) { return Math.max(0, Math.min(player ? player.length : 0, value)) }
   function refreshPosition() { if (!seeking) displayedPosition = player && player.positionSupported ? player.position : 0 }
+  function captureDuration() {
+    if (player && player.lengthSupported && player.length > 0) cachedLength = player.length
+  }
   function seekTo(value) {
     if (!canSeek) return
     player.position = clampPosition(value)
@@ -36,8 +42,19 @@ Item {
     return minutes + ":" + String(secs).padStart(2, "0")
   }
 
-  onPlayerChanged: refreshPosition()
-  Timer { interval: 500; running: root.hasPlayer; repeat: true; onTriggered: root.refreshPosition() }
+  onPlayerChanged: { refreshPosition(); captureDuration() }
+  onTrackKeyChanged: { cachedLength = 0; captureDuration(); refreshPosition() }
+  Timer {
+    interval: 500
+    running: root.hasPlayer
+    repeat: true
+    onTriggered: { root.captureDuration(); root.refreshPosition() }
+  }
+  Connections {
+    target: root.player
+    function onLengthChanged() { root.captureDuration() }
+    function onLengthSupportedChanged() { root.captureDuration() }
+  }
 
   Text {
     id: heading
@@ -154,26 +171,31 @@ Item {
 
             Button {
               iconText: "󰒮"; iconSize: Style.font.iconLarge; foreground: Color.accent
+              width: Style.space(42); height: Style.space(42)
               enabled: root.player && root.player.canGoPrevious; opacity: enabled ? 1 : 0.35
               onClicked: root.media.runAction("previous", false)
             }
             Button {
               text: "−10"; fontSize: Style.font.body; foreground: Color.accent
+              width: Style.space(42); height: Style.space(42)
               enabled: root.canSkip; opacity: enabled ? 1 : 0.35; onClicked: root.skip(-10)
             }
             Button {
               iconText: root.player && root.player.isPlaying ? "󰏤" : "󰐊"
               iconSize: Style.font.displayLarge; horizontalPadding: Style.spacing.panelGap
               verticalPadding: Style.spacing.controlPaddingY; foreground: Color.accent
+              width: Style.space(50); height: Style.space(46)
               enabled: root.hasPlayer; opacity: enabled ? 1 : 0.35
               onClicked: root.media.runAction("playPause", false)
             }
             Button {
               text: "+10"; fontSize: Style.font.body; foreground: Color.accent
+              width: Style.space(42); height: Style.space(42)
               enabled: root.canSkip; opacity: enabled ? 1 : 0.35; onClicked: root.skip(10)
             }
             Button {
               iconText: "󰒭"; iconSize: Style.font.iconLarge; foreground: Color.accent
+              width: Style.space(42); height: Style.space(42)
               enabled: root.player && root.player.canGoNext; opacity: enabled ? 1 : 0.35
               onClicked: root.media.runAction("next", false)
             }
@@ -200,7 +222,7 @@ Item {
           anchors.verticalCenter: parent.verticalCenter
           width: parent.width - Style.space(88) - parent.spacing * 2
           minimum: 0
-          maximum: root.player && root.player.lengthSupported ? Math.max(1, root.player.length) : 1
+          maximum: Math.max(1, root.effectiveLength)
           value: root.canSeek ? root.displayedPosition : 0
           enabled: root.canSeek
           fillColor: Color.accent
@@ -211,7 +233,7 @@ Item {
         Text {
           anchors.verticalCenter: parent.verticalCenter
           width: Style.space(44)
-          text: root.player && root.player.lengthSupported ? root.formatTime(root.player.length) : "—:—"
+          text: root.effectiveLength > 0 ? root.formatTime(root.effectiveLength) : "—:—"
           color: Color.muted
           font.family: Style.font.family
           font.pixelSize: Style.font.caption

@@ -13,6 +13,7 @@ Item {
   property string expandedCategory: ""
   property var displayStreams: []
   property string volumeSinkName: ""
+  property bool compact: false
   readonly property real contentHeight: mixerColumn.implicitHeight
 
   readonly property var nodes: Pipewire.nodes ? Pipewire.nodes.values : []
@@ -99,11 +100,18 @@ Item {
     required property real level
     required property bool muted
     property bool available: true
+    property bool revealed: true
+    property bool labelActionEnabled: false
     signal changed(real value)
     signal muteRequested()
+    signal labelRequested()
 
     implicitHeight: Style.space(46)
-    opacity: available ? 1 : 0.38
+    height: revealed ? implicitHeight : 0
+    opacity: revealed ? (available ? 1 : 0.38) : 0
+    clip: true
+    Behavior on height { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+    Behavior on opacity { NumberAnimation { duration: 150 } }
 
     Item {
       id: volumeIconTarget
@@ -130,12 +138,15 @@ Item {
       anchors.leftMargin: Style.spacing.controlGap
       anchors.verticalCenter: parent.verticalCenter
       width: Style.space(74)
+      height: parent.height
+      verticalAlignment: Text.AlignVCenter
       text: volumeRow.label
       color: Color.foreground
       font.family: Style.font.family
       font.pixelSize: Style.font.body
       font.bold: true
       elide: Text.ElideRight
+      TapHandler { enabled: volumeRow.labelActionEnabled; onTapped: volumeRow.labelRequested() }
     }
     PanelSlider {
       anchors.left: volumeLabel.right
@@ -176,11 +187,14 @@ Item {
       ? Math.min(Style.space(180), root.expandedChildrenLimit, childrenColumn.implicitHeight)
       : 0
 
-    visible: streams.length > 0
+    readonly property bool hasStreams: streams.length > 0
+    visible: height > 0 || opacity > 0
     width: parent ? parent.width : 0
-    height: visible ? headerHeight + childrenHeight : 0
+    height: hasStreams && !root.compact ? headerHeight + childrenHeight : 0
+    opacity: hasStreams && !root.compact ? 1 : 0
     clip: true
     Behavior on height { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+    Behavior on opacity { NumberAnimation { duration: 150 } }
 
     Item {
       id: categoryHeader
@@ -300,8 +314,10 @@ Item {
       level: root.volumeSink && root.volumeSink.audio ? root.volumeSink.audio.volume : 0
       muted: root.volumeSink && root.volumeSink.audio ? root.volumeSink.audio.muted : false
       available: !!(root.volumeSink && root.volumeSink.audio)
+      labelActionEnabled: true
       onChanged: value => root.volumeSink.audio.volume = root.clamp(value)
       onMuteRequested: root.volumeSink.audio.muted = !root.volumeSink.audio.muted
+      onLabelRequested: root.compact = !root.compact
     }
     VolumeRow {
       width: parent.width
@@ -310,11 +326,19 @@ Item {
       level: root.source && root.source.audio ? root.source.audio.volume : 0
       muted: root.source && root.source.audio ? root.source.audio.muted : false
       available: !!(root.source && root.source.audio)
+      revealed: !root.compact
       onChanged: value => root.source.audio.volume = root.clamp(value)
       onMuteRequested: root.source.audio.muted = !root.source.audio.muted
     }
 
-    Rectangle { width: parent.width; height: 1; color: Color.muted; opacity: 0.25 }
+    Rectangle {
+      width: parent.width
+      height: root.compact ? 0 : 1
+      color: Color.muted
+      opacity: root.compact ? 0 : 0.25
+      Behavior on height { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+      Behavior on opacity { NumberAnimation { duration: 150 } }
+    }
     Category { categoryId: "media"; label: "Media"; glyph: "󰎆" }
     Category { categoryId: "games"; label: "Games"; glyph: "󰊴" }
     Category { categoryId: "voice"; label: "Voice"; glyph: "󰍬" }
@@ -322,7 +346,7 @@ Item {
 
     Text {
       width: parent.width
-      visible: root.displayStreams.length === 0
+      visible: !root.compact && root.displayStreams.length === 0
       topPadding: Style.spacing.lg
       text: "Audio streams appear here when they start playing."
       color: Color.muted

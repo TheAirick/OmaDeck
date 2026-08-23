@@ -51,7 +51,9 @@ Foundation prototype. The current surface proves:
 The mixer tracks PipeWire nodes directly, follows Omarchy's resolved physical
 output sink, and snapshots changing stream models before rendering them. This
 keeps controls current without destabilizing the shell when applications add or
-remove audio streams.
+remove audio streams. Tapping the Output label folds the mixer to its master
+row, allowing the now-playing surface to reclaim the drawer; tapping it again
+expands the microphone and categorized stream controls.
 
 ## Layout state
 
