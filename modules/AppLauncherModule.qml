@@ -9,9 +9,7 @@ Item {
 
   property var shell: null
   property string primaryMonitor: "DP-1"
-  property var pendingApp: null
-  property var actionApp: null
-  property string actionAddress: ""
+  property string launcherScript: Quickshell.env("HOME") + "/Projects/Omadeck/scripts/focus-or-launch"
   property var favorites: [
     { id: "com.mitchellh.ghostty", name: "Terminal", icon: "com.mitchellh.ghostty", classes: ["com.mitchellh.ghostty"] },
     { id: "chromium", name: "Browser", icon: "chromium", classes: ["chromium", "google-chrome", "zen"] },
@@ -23,24 +21,6 @@ Item {
 
   function normalize(value) {
     return String(value || "").trim().toLowerCase().replace(/\.desktop$/, "")
-  }
-
-  function luaString(value) {
-    return "\"" + String(value || "").replace(/\\/g, "\\\\").replace(/\"/g, "\\\"") + "\""
-  }
-
-  function focusWindow(address) {
-    Quickshell.execDetached([
-      "hyprctl", "dispatch",
-      "hl.dsp.focus({ window = " + luaString("address:" + address) + " })"
-    ])
-  }
-
-  function focusMonitor(monitor) {
-    Quickshell.execDetached([
-      "hyprctl", "dispatch",
-      "hl.dsp.focus({ monitor = " + luaString(monitor) + " })"
-    ])
   }
 
   function matches(client, app) {
@@ -55,86 +35,13 @@ Item {
     return false
   }
 
-  function bestClient(clients, app) {
-    var matchesList = []
-    for (var i = 0; i < clients.length; i++) {
-      if (clients[i].mapped !== false && matches(clients[i], app)) matchesList.push(clients[i])
-    }
-    matchesList.sort(function(left, right) {
-      return Number(left.focusHistoryID === undefined ? 999999 : left.focusHistoryID)
-        - Number(right.focusHistoryID === undefined ? 999999 : right.focusHistoryID)
-    })
-    return matchesList.length > 0 ? matchesList[0] : null
-  }
-
-  function launchFallback(app) {
-    if (shell && shell.appLibrary) shell.appLibrary.launch(app.id, app.name)
-    else Quickshell.execDetached(["uwsm-app", "--", "gtk-launch", app.id + ".desktop"])
-  }
-
   function focusOrLaunch(app) {
-    pendingApp = app
-    if (!clientScan.running) clientScan.running = true
-  }
-
-  function handleClients(raw) {
-    var app = pendingApp
-    pendingApp = null
-    if (!app) return
-
-    try {
-      var client = bestClient(JSON.parse(String(raw || "[]")), app)
-      if (client && client.address) {
-        actionApp = app
-        actionAddress = client.address
-        actionDelay.restart()
-        return
-      }
-    } catch (error) {
-      console.warn("OmaDeck: could not inspect Hyprland clients:", error)
-    }
-
-    actionApp = app
-    actionAddress = ""
-    actionDelay.restart()
-  }
-
-  // Let the touch release finish before changing monitor focus. Otherwise the
-  // release itself can return focus to the Edge and make a new window inherit
-  // its dedicated workspace.
-  Timer {
-    id: actionDelay
-    interval: 140
-    repeat: false
-    onTriggered: {
-      if (root.actionAddress) {
-        root.focusWindow(root.actionAddress)
-        root.actionAddress = ""
-        root.actionApp = null
-      } else if (root.actionApp) {
-        root.focusMonitor(root.primaryMonitor)
-        launchDelay.restart()
-      }
-    }
-  }
-
-  Timer {
-    id: launchDelay
-    interval: 100
-    repeat: false
-    onTriggered: {
-      var app = root.actionApp
-      root.actionApp = null
-      if (app) root.launchFallback(app)
-    }
-  }
-
-  Process {
-    id: clientScan
-    command: ["hyprctl", "clients", "-j"]
-    stdout: StdioCollector {
-      onStreamFinished: root.handleClients(text)
-    }
+    Quickshell.execDetached([
+      launcherScript,
+      app.id,
+      primaryMonitor,
+      (app.classes || [app.id]).join(",")
+    ])
   }
 
   Column {

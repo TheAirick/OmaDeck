@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+
+set -u
+
+desktop_id=${1:?desktop id required}
+primary_monitor=${2:?primary monitor required}
+aliases_csv=${3:-$desktop_id}
+
+# A layer-surface tap is still finishing when this process starts. Waiting for
+# its release prevents the Edge from immediately reclaiming compositor focus.
+sleep 0.15
+
+client_address=$(
+  hyprctl clients -j | jq -r --arg aliases "$aliases_csv" '
+    ($aliases | split(",") | map(ascii_downcase | sub("\\.desktop$"; ""))) as $wanted
+    | [ .[]
+        | select(.mapped != false)
+        | . as $client
+        | ((.class // "") | ascii_downcase | sub("\\.desktop$"; "")) as $class
+        | ((.initialClass // "") | ascii_downcase | sub("\\.desktop$"; "")) as $initial
+        | select(any($wanted[]; . as $alias
+            | $class == $alias
+              or $initial == $alias
+              or ($class | endswith("." + $alias))
+              or ($initial | endswith("." + $alias))))
+      ]
+    | sort_by(.focusHistoryID // 999999)
+    | first.address // empty
+  '
+)
+
+if [[ -n $client_address ]]; then
+  address_json=$(jq -n --arg value "address:$client_address" '$value')
+  hyprctl dispatch "hl.dsp.focus({ window = $address_json })" >/dev/null
+  exit 0
+fi
+
+workspace=$(
+  hyprctl monitors -j | jq -r --arg monitor "$primary_monitor" '
+    .[] | select(.name == $monitor) | .activeWorkspace.name
+  '
+)
+
+if [[ -z $workspace ]]; then
+  exit 1
+fi
+
+launch_command="uwsm-app -- gtk-launch $(printf '%q' "$desktop_id.desktop")"
+command_json=$(jq -n --arg value "$launch_command" '$value')
+workspace_json=$(jq -n --arg value "$workspace" '$value')
+
+# The workspace rule is bound to the spawned process, so window placement does
+# not depend on where touch temporarily moved Hyprland's software cursor.
+hyprctl dispatch "hl.dsp.exec_cmd($command_json, { workspace = $workspace_json })" >/dev/null
