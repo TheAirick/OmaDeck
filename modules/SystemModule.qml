@@ -273,20 +273,21 @@ Item {
     property string iconText: ""
     property string title: ""
     property string summary: ""
+    property bool navigable: true
     signal triggered()
     width: parent ? parent.width : 0
     height: Style.space(48)
-    color: stripTap.pressed ? Style.pressedFill : (stripHover.hovered ? Style.hoverFill : Style.normalFill)
+    color: strip.navigable && stripTap.pressed ? Style.pressedFill : (strip.navigable && stripHover.hovered ? Style.hoverFill : Style.normalFill)
     radius: Style.cornerRadius
-    borderSpec: Border.controlSpec(stripHover.hovered ? "hover" : "normal", Color.foreground, Color.accent, Color.urgent)
+    borderSpec: Border.controlSpec(strip.navigable && stripHover.hovered ? "hover" : "normal", Color.foreground, Color.accent, Color.urgent)
     Text { id: stripIcon; anchors.left: parent.left; anchors.leftMargin: Style.spacing.panelGap; anchors.verticalCenter: parent.verticalCenter; text: strip.iconText; color: Color.accent; font.family: Style.font.family; font.pixelSize: Style.font.display }
     Column { anchors.left: stripIcon.right; anchors.leftMargin: Style.spacing.panelGap; anchors.right: stripArrow.left; anchors.rightMargin: Style.spacing.controlGap; anchors.verticalCenter: parent.verticalCenter; spacing: Style.spacing.labelGap
       Text { width: parent.width; text: strip.title; color: Color.foreground; font.family: Style.font.family; font.pixelSize: Style.font.body; font.bold: true }
       Text { width: parent.width; text: strip.summary; color: Color.muted; font.family: Style.font.family; font.pixelSize: Style.font.caption; elide: Text.ElideRight }
     }
-    Text { id: stripArrow; anchors.right: parent.right; anchors.rightMargin: Style.spacing.panelGap; anchors.verticalCenter: parent.verticalCenter; text: "󰅂"; color: Color.muted; font.family: Style.font.family; font.pixelSize: Style.font.body }
-    HoverHandler { id: stripHover }
-    TapHandler { id: stripTap; onTapped: strip.triggered() }
+    Text { id: stripArrow; visible: strip.navigable; anchors.right: parent.right; anchors.rightMargin: Style.spacing.panelGap; anchors.verticalCenter: parent.verticalCenter; text: "󰅂"; color: Color.muted; font.family: Style.font.family; font.pixelSize: Style.font.body }
+    HoverHandler { id: stripHover; enabled: strip.navigable }
+    TapHandler { id: stripTap; enabled: strip.navigable; onTapped: strip.triggered() }
   }
 
   component BreadcrumbPart: Item {
@@ -555,8 +556,8 @@ Item {
   Component { id: storageDetail
     Column { spacing: Style.spacing.panelGap
       Meter { width: parent.width; label: "System disk"; value: root.stats.storage.percent; valueText: root.stats.storage.percent + "%" }
-      SystemStrip { iconText: "󰋊"; title: "Used"; summary: root.bytes(root.stats.storage.used) }
-      SystemStrip { iconText: "󰉋"; title: "Available"; summary: root.bytes(root.stats.storage.free) }
+      SystemStrip { iconText: "󰋊"; title: "Used"; summary: root.bytes(root.stats.storage.used); navigable: false }
+      SystemStrip { iconText: "󰉋"; title: "Available"; summary: root.bytes(root.stats.storage.free); navigable: false }
       ActionButton { width: parent.width; iconText: "󰓅"; label: "Run disk speed test"; onTriggered: root.summon("omarchy.disk-speedtest") }
     }
   }
