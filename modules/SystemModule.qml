@@ -247,9 +247,9 @@ Item {
         spacing: Style.spacing.controlGap
 
         BreadcrumbPart { label: "System"; navigable: true; onTriggered: root.returnToSystem() }
-        Text { height: parent.height; text: "󰅂"; color: Color.muted; font.family: Style.font.family; font.pixelSize: Style.font.body; verticalAlignment: Text.AlignVCenter }
+        Text { text: "󰅂"; color: Color.muted; font.family: Style.font.family; font.pixelSize: Style.font.body }
         BreadcrumbPart { label: root.sectionTitle(root.selectedSection); navigable: root.hasLeaf(); onTriggered: root.returnToSection() }
-        Text { visible: root.hasLeaf(); height: parent.height; text: "󰅂"; color: Color.muted; font.family: Style.font.family; font.pixelSize: Style.font.body; verticalAlignment: Text.AlignVCenter }
+        Text { visible: root.hasLeaf(); text: "󰅂"; color: Color.muted; font.family: Style.font.family; font.pixelSize: Style.font.body }
         BreadcrumbPart { visible: root.hasLeaf(); label: root.leafTitle(); navigable: false }
       }
     }
@@ -298,13 +298,13 @@ Item {
     height: parent ? parent.height : Style.space(34)
     Text {
       id: crumbText
-      anchors.fill: parent
+      anchors.left: parent.left
+      anchors.top: parent.top
       text: crumb.label
       color: crumb.navigable ? Color.accent : Color.foreground
       font.family: Style.font.family
       font.pixelSize: Style.font.title
       font.bold: !crumb.navigable
-      verticalAlignment: Text.AlignVCenter
     }
     HoverHandler { id: crumbHover; enabled: crumb.navigable }
     TapHandler { enabled: crumb.navigable; onTapped: crumb.triggered() }
