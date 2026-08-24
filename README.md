@@ -1,113 +1,105 @@
 # OmaDeck
 
-OmaDeck is a touch-native Omarchy command surface for secondary displays. It
-translates Hyprland's spatial model—workspaces, tiled windows, split resizing,
-special workspaces, and focus-aware launching—into a persistent touch deck.
+OmaDeck is a touch-native command surface for [Omarchy](https://omarchy.org/)
+and Hyprland. It turns a secondary touchscreen into a small tiled desktop for
+media, audio, applications, workspaces, monitor inputs, clipboard history, and
+live system information.
 
-The first target is the Corsair Xeneon Edge on `DP-3`, paired with a primary
-workspace monitor on `DP-1`.
+> [!IMPORTANT]
+> OmaDeck is an early, hardware-specific release. It currently targets a
+> Corsair Xeneon Edge on `DP-3` and a primary workspace monitor on `DP-1`.
+> Monitor selection and launcher editing do not have settings screens yet.
 
-## Design rules
+<p align="center">
+  <img src="assets/omadeck-demo.gif" alt="OmaDeck retiling drawer demonstration" width="100%">
+</p>
 
-- Omarchy owns color, typography, spacing, borders, and motion.
-- Modules behave like tiled windows, not arbitrary dashboard widgets.
-- Edge modules join the tiling region and resize the center canvas.
-- Application actions focus an existing window before launching another.
-- Every module can eventually be pinned, contextual, drawer-only, or hidden.
-- Touch is primary; mouse and keyboard remain valid development fallbacks.
+[Higher-quality MP4 demo](assets/omadeck-demo-web.mp4)
 
-## Install on Omarchy
+## What it does
 
-OmaDeck is a native, keep-loaded Omarchy shell service. Install and enable it
-directly from GitHub:
+- Retiles the center surface when edge drawers appear instead of covering it.
+- Controls MPRIS media with artwork, seeking, and transport controls.
+- Mixes PipeWire output, microphone, categories, and individual app streams.
+- Focuses an existing Hyprland window before launching another copy.
+- Switches workspaces on the primary monitor without moving touch focus there.
+- Exposes live CPU, GPU, memory, temperature, network, and storage information.
+- Provides a touch task manager with Focus, Close, and confirmed Force Kill.
+- Browses native Omarchy clipboard history with text and image previews.
+- Summons Omarchy's native network and disk speed tests.
+- Follows the active Omarchy theme, typography, borders, gaps, and motion.
+
+## Gallery
+
+### Media and live audio
+
+![Media drawer with now-playing and PipeWire controls](assets/screenshots/media.png)
+
+### System performance
+
+![System performance history charts](assets/screenshots/performance.png)
+
+### Touch launcher
+
+![Bottom application launcher retiling the center layout](assets/screenshots/applications.png)
+
+## Install
+
+Install and enable OmaDeck as a native Omarchy shell service:
 
 ```bash
 omarchy plugin add https://github.com/TheAirick/OmaDeck.git --enable
 ```
 
-Enabling the service adds `pretty.omadeck` to
-`~/.config/omarchy/shell.json`. Omarchy starts its shell with Hyprland at every
-login, so OmaDeck starts automatically with the desktop—no separate systemd
-service or duplicate autostart entry is needed.
+It starts with `omarchy-shell` at login; no separate autostart service is
+required.
 
-Update an installed copy with:
+Update or remove it with:
 
 ```bash
 omarchy plugin update pretty.omadeck
-```
-
-Remove it cleanly with:
-
-```bash
 omarchy plugin remove pretty.omadeck
 ```
 
-OmaDeck currently targets a Xeneon Edge named `DP-3` and sends application and
-workspace actions to a primary monitor named `DP-1`. Configurable monitor
-selection is planned before the first general-purpose release.
+Read the [setup and interaction guide](docs/USER_GUIDE.md) before installing on
+different hardware.
 
-## Development install
+## Current layout
 
-OmaDeck is loaded as a third-party `service` plugin by `omarchy-shell`.
-During development, link this repository into the user plugin directory:
+| Edge | Surface |
+| --- | --- |
+| Left | Media and audio mixer |
+| Right | System overview and tools |
+| Top | Workspaces |
+| Bottom | Application launcher |
+
+The center starts with Clock and Command Center modules. Revealing a drawer
+resizes this split tree with the same spatial logic that makes Hyprland feel
+coherent.
+
+## Documentation
+
+- [User guide](docs/USER_GUIDE.md)
+- [Configuration](docs/CONFIGURATION.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Roadmap](ROADMAP.md)
+- [Contributing](CONTRIBUTING.md)
+
+## Development
+
+Clone the repository and link it into the user plugin directory:
 
 ```bash
+git clone https://github.com/TheAirick/OmaDeck.git "$HOME/Projects/Omadeck"
 ln -s "$HOME/Projects/Omadeck" "$HOME/.config/omarchy/plugins/pretty.omadeck"
 ```
 
-Then add `pretty.omadeck` to the top-level `plugins` array in
-`~/.config/omarchy/shell.json`. Omarchy discovers the linked directory; during
-local development, run `omarchy-shell shell rescanPlugins` after edits because
-recursive filesystem watching does not follow every symlink target reliably.
+Add `pretty.omadeck` to the top-level `plugins` array in
+`~/.config/omarchy/shell.json`, then reload after edits:
 
-## Status
-
-Foundation prototype. The current surface proves:
-
-- DP-3 targeting
-- live Omarchy theme tokens
-- Hyprland-style gaps and borders
-- a split center layout
-- four retiling edge reveals: Media and System on the customizable sides,
-  Workspaces on top, and Applications on the bottom
-- workspace switching on the primary monitor
-- Omarchy desktop-entry launching
-- native media service access
-- artwork-aware now-playing controls with previous/next, ten-second seeking,
-  play/pause, and an MPRIS-backed scrubber when duration metadata is available
-- a native PipeWire mixer with pinned output and microphone controls
-- animated Media, Games, Voice, and Other stream groups with per-app controls
-- a live System drawer with performance, network, running-window, native
-  Omarchy clipboard-history, and storage views
-- rolling CPU, GPU, memory, download, and upload history charts
-- native Omarchy internet and disk speed-test actions
-- full clipboard text and image inspection with copy, hold-to-copy, and delete
-- a touch task manager with per-window process state, resource use, focus,
-  graceful close, and confirmed force-kill controls
-
-The mixer tracks PipeWire nodes directly, follows Omarchy's resolved physical
-output sink, and snapshots changing stream models before rendering them. This
-keeps controls current without destabilizing the shell when applications add or
-remove audio streams. Tapping the Output label folds the mixer to its master
-row, allowing the now-playing surface to reclaim the drawer; tapping it again
-expands the microphone and categorized stream controls.
-
-## Layout state
-
-OmaDeck stores the active split tree at:
-
-```text
-~/.config/omadeck/layout.json
+```bash
+omarchy-shell shell rescanPlugins
 ```
 
-The tree uses the same basic model as a tiling compositor: split nodes contain
-an orientation, ratio, and two children; leaf nodes contain modules. Changes
-are written atomically and survive shell restarts.
-
-Long-press a module to enter edit mode. In edit mode, drag modules onto one
-another (or tap a source and destination) to swap them, and drag the highlighted
-dividers to resize neighboring modules.
-
-Application buttons inspect Hyprland's live client list before launching. A
-matching running window is focused by address, which moves the primary monitor
-to its workspace; a new application is launched only when no match exists.
+OmaDeck is licensed under the [MIT License](LICENSE).
