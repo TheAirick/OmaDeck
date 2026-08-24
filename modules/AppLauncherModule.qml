@@ -11,12 +11,12 @@ Item {
   property string primaryMonitor: "DP-1"
   property string launcherScript: Quickshell.env("HOME") + "/Projects/Omadeck/scripts/focus-or-launch"
   property var favorites: [
-    { id: "com.mitchellh.ghostty", name: "Terminal", icon: "com.mitchellh.ghostty", classes: ["com.mitchellh.ghostty"] },
-    { id: "chromium", name: "Browser", icon: "chromium", classes: ["chromium", "google-chrome", "zen"] },
-    { id: "org.gnome.Nautilus", name: "Files", icon: "org.gnome.Nautilus", classes: ["org.gnome.nautilus", "nautilus"] },
-    { id: "discord", name: "Discord", icon: "discord", classes: ["discord", "vesktop"] },
-    { id: "obsidian", name: "Obsidian", icon: "obsidian", classes: ["md.obsidian.obsidian", "obsidian"] },
-    { id: "omawrite", name: "Omawrite", icon: "omawrite", classes: ["omawrite"] }
+    { id: "com.mitchellh.ghostty", name: "Terminal", iconText: "󰆍", classes: ["com.mitchellh.ghostty"] },
+    { id: "chromium", name: "Browser", iconText: "󰖟", classes: ["chromium", "google-chrome", "zen"] },
+    { id: "org.gnome.Nautilus", name: "Files", iconText: "󰉋", classes: ["org.gnome.nautilus", "nautilus"] },
+    { id: "discord", name: "Discord", iconText: "󰙯", classes: ["discord", "vesktop"] },
+    { id: "obsidian", name: "Obsidian", iconText: "󰠮", classes: ["md.obsidian.obsidian", "obsidian"] },
+    { id: "omawrite", name: "Omawrite", iconText: "󰈙", classes: ["omawrite"] }
   ]
 
   function normalize(value) {
@@ -78,13 +78,12 @@ Item {
             anchors.centerIn: parent
             spacing: Style.spacing.labelGap
 
-            Image {
+            Text {
               anchors.horizontalCenter: parent.horizontalCenter
-              width: Style.space(28)
-              height: width
-              source: Quickshell.iconPath(launcherButton.modelData.icon, true)
-              fillMode: Image.PreserveAspectFit
-              asynchronous: true
+              text: launcherButton.modelData.iconText
+              color: Color.accent
+              font.family: Style.font.family
+              font.pixelSize: Style.font.displayLarge
             }
 
             Text {

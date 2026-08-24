@@ -85,6 +85,17 @@ Item {
   function focusClient(client) {
     if (client && client.address) Quickshell.execDetached(["hyprctl", "dispatch", "focuswindow", "address:" + client.address])
   }
+  function applicationIcon(client) {
+    var value = String(client && client.class || "").toLowerCase()
+    if (value.indexOf("ghostty") !== -1 || value.indexOf("terminal") !== -1) return "󰆍"
+    if (value === "zen" || value.indexOf("chrom") !== -1 || value.indexOf("firefox") !== -1) return "󰖟"
+    if (value.indexOf("nautilus") !== -1 || value.indexOf("file") !== -1) return "󰉋"
+    if (value.indexOf("discord") !== -1 || value.indexOf("vesktop") !== -1) return "󰙯"
+    if (value.indexOf("obsidian") !== -1) return "󰠮"
+    if (value.indexOf("hermes") !== -1) return "󰚩"
+    if (value.indexOf("omawrite") !== -1) return "󰈙"
+    return "󰣆"
+  }
   function inspectClient(client) { if (client) selectedClientAddress = client.address || "" }
   function currentClient() {
     for (var i = 0; i < stats.clients.length; i++) if (stats.clients[i].address === selectedClientAddress) return stats.clients[i]
@@ -205,16 +216,16 @@ Item {
       Text {
         id: backIcon
         anchors.left: parent.left
-        anchors.verticalCenter: parent.verticalCenter
+        anchors.top: parent.top
         text: "󰅁"
         color: Color.accent
         font.family: Style.font.family
-        font.pixelSize: Style.font.display
+        font.pixelSize: Style.font.title
       }
       Text {
         anchors.left: backIcon.right
         anchors.leftMargin: Style.spacing.controlGap
-        anchors.verticalCenter: parent.verticalCenter
+        anchors.top: parent.top
         text: root.sectionTitle(root.selectedSection)
         color: Color.foreground
         font.family: Style.font.family
@@ -374,7 +385,7 @@ Item {
     Flickable { clip: true; contentHeight: appsColumn.height; boundsBehavior: Flickable.StopAtBounds
       Column { id: appsColumn; width: parent.width; spacing: Style.spacing.controlGap
         Repeater { model: root.stats.clients
-          SystemStrip { required property var modelData; iconText: "󰣆"; title: modelData.class || "Application"; summary: root.processState(modelData) + "  ·  " + Number(modelData.cpu || 0).toFixed(1) + "% CPU  ·  " + root.bytes(modelData.rss); onTriggered: root.inspectClient(modelData) }
+          SystemStrip { required property var modelData; iconText: root.applicationIcon(modelData); title: modelData.class || "Application"; summary: root.processState(modelData) + "  ·  " + Number(modelData.cpu || 0).toFixed(1) + "% CPU  ·  " + root.bytes(modelData.rss); onTriggered: root.inspectClient(modelData) }
         }
       }
     }
@@ -399,7 +410,7 @@ Item {
       property var client: root.currentClient()
       Column { anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; spacing: Style.spacing.controlGap
         BorderSurface { width: parent.width; height: Style.space(72); color: Style.normalFill; radius: Style.cornerRadius; borderSpec: Border.controlSpec("normal", Color.foreground, Color.accent, Color.urgent)
-          Text { id: appIcon; anchors.left: parent.left; anchors.leftMargin: Style.spacing.panelGap; anchors.verticalCenter: parent.verticalCenter; text: "󰣆"; color: Color.accent; font.family: Style.font.family; font.pixelSize: Style.font.displayLarge }
+          Text { id: appIcon; anchors.left: parent.left; anchors.leftMargin: Style.spacing.panelGap; anchors.verticalCenter: parent.verticalCenter; text: root.applicationIcon(inspector.client); color: Color.accent; font.family: Style.font.family; font.pixelSize: Style.font.displayLarge }
           Column { anchors.left: appIcon.right; anchors.leftMargin: Style.spacing.panelGap; anchors.right: parent.right; anchors.rightMargin: Style.spacing.panelGap; anchors.verticalCenter: parent.verticalCenter; spacing: Style.spacing.labelGap
             Text { width: parent.width; text: inspector.client ? (inspector.client.class || "Application") : "Application closed"; color: Color.foreground; font.family: Style.font.family; font.pixelSize: Style.font.subtitle; font.bold: true; elide: Text.ElideRight }
             Text { width: parent.width; text: inspector.client ? (inspector.client.title || "Untitled") : "The process is no longer running"; color: Color.muted; font.family: Style.font.family; font.pixelSize: Style.font.caption; elide: Text.ElideRight }
