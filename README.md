@@ -29,6 +29,8 @@ live system information.
 - Summons Omarchy's native network and disk speed tests.
 - Publishes a mouse-accessible system-tray control center and health report.
 - Reconnects its isolated touchscreen automatically after USB or suspend cycles.
+- Adds current weather to the clock, using Omarchy's location and providers.
+- Saves touch-configurable clock, weather, detail, visibility, and unit choices.
 - Follows the active Omarchy theme, typography, borders, gaps, and motion.
 
 ## Gallery
@@ -87,7 +89,9 @@ different hardware.
 | Top | Workspaces |
 | Bottom | Application launcher |
 
-The center starts with Clock and Command Center modules. Revealing a drawer
+The center starts with Clock/Weather and Command Center modules. Tap the gear in
+the clock card to change its layout, time format, weather treatment, detail,
+visibility, and units. Revealing a drawer
 resizes this split tree with the same spatial logic that makes Hyprland feel
 coherent.
 

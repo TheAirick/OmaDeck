@@ -8,6 +8,8 @@ Item {
   property string path: ""
   property var deck: null
   property var shell: null
+  property var appearanceController: null
+  property var weatherController: null
   property string primaryMonitor: "DP-1"
 
   readonly property int observedRevision: controller ? controller.revision : 0
@@ -32,7 +34,9 @@ Item {
       path: loader.nodePath,
       deck: root.deck,
       shell: root.shell,
-      primaryMonitor: root.primaryMonitor
+      primaryMonitor: root.primaryMonitor,
+      appearanceController: root.appearanceController,
+      weatherController: root.weatherController
     })
   }
 

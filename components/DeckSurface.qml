@@ -13,6 +13,8 @@ PanelWindow {
   property var shell: null
   property var pluginRoot: null
   property var layoutController: null
+  property var appearanceController: null
+  property var weatherController: null
   property string targetScreen: "DP-3"
   property string primaryMonitor: "DP-1"
   property string openDrawer: ""
@@ -225,6 +227,8 @@ PanelWindow {
       deck: root
       shell: root.shell
       primaryMonitor: root.primaryMonitor
+      appearanceController: root.appearanceController
+      weatherController: root.weatherController
     }
 
     TapHandler {

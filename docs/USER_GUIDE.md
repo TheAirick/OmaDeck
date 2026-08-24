@@ -31,6 +31,25 @@ restart the Omarchy shell after confirmation.
 The tray's **Configuration guide** action opens the source-level options
 described in [Configuration](CONFIGURATION.md).
 
+## Clock and weather
+
+The left center card combines the clock with current weather. OmaDeck uses
+Omarchy's existing weather location and refreshes every 15 minutes. Its scene
+visual changes for clear skies, clouds, fog, drizzle, rain, snow, hail, and
+thunderstorms. When the provider is unreachable, the clock remains usable and
+the weather area reports that it is unavailable.
+
+Tap the gear in the card's upper-right corner to open its settings sheet. You
+can change clock layout and time format, show seconds, hide weather, select a
+weather visual and detail level, switch temperature units, refresh immediately,
+or open Omarchy's location editor. Every appearance choice persists across
+shell restarts and computer locks.
+
+If automatic location is unavailable, choose **Set in Omarchy** and enter a
+city in the weather panel that opens on the primary display. The deck will
+refresh after Omarchy saves its weather location; **Refresh** is also available
+in the sheet.
+
 ## Touch interactions
 
 ### Edge drawers
@@ -91,6 +110,10 @@ sends `SIGKILL` to its primary process after a second confirmation tap.
 Long-press a center module to enter edit mode. Select or drag modules to swap
 them, and drag the highlighted divider to resize the split. Changes are saved
 to `~/.config/omadeck/layout.json`.
+
+The Clock/Weather gear is separate from layout editing. A normal tap opens card
+settings; continue to use a long press anywhere else in the center module to
+edit the split layout.
 
 ## Monitor input switching
 

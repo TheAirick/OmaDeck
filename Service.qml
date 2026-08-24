@@ -29,6 +29,15 @@ Item {
     id: layoutStore
   }
 
+  AppearanceController {
+    id: appearanceStore
+  }
+
+  WeatherController {
+    id: weatherStore
+    pluginDir: root.pluginDir
+  }
+
   Process {
     id: trayController
     command: [root.pluginDir + "/scripts/run-tray", root.pluginDir,
@@ -48,6 +57,8 @@ Item {
       targetScreen: root.targetScreen
       primaryMonitor: root.primaryMonitor
       layoutController: layoutStore
+      appearanceController: appearanceStore
+      weatherController: weatherStore
     }
   }
 }

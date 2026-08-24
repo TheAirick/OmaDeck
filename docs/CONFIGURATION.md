@@ -1,7 +1,35 @@
 # Configuration
 
-OmaDeck does not yet have a settings interface. These options are currently
-source-level defaults; a persistent settings model is planned.
+OmaDeck now has a touch-friendly settings sheet for its Clock/Weather card.
+Monitor selection and launcher entries remain source-level options.
+
+## Clock and weather
+
+Tap the gear in the upper-right of the Clock/Weather card. The sheet controls:
+
+- Hero, Split, or Compact clock layout
+- 12- or 24-hour time and optional seconds
+- Weather visibility and manual refresh
+- Scene, Glyph, or Minimal weather visuals
+- Compact, Standard, or Full weather information
+- Fahrenheit or Celsius
+
+These choices are saved atomically to
+`~/.config/omadeck/appearance.json`. Removing that file restores the defaults.
+
+OmaDeck deliberately shares Omarchy's weather location instead of keeping a
+second copy. Choose **Set in Omarchy** from the settings sheet, or run:
+
+```bash
+omarchy-weather-location --set "Seattle" "47.6062,-122.3321"
+```
+
+Omit coordinates to let the provider resolve a city name. Run
+`omarchy-weather-location --clear` to return to automatic IP-based location.
+Location and forecast requests use the same public `wttr.in` and Open-Meteo
+services as Omarchy's built-in weather panel. A saved location name or
+coordinates, or the network-derived IP location, is therefore sent to those
+providers when weather is enabled.
 
 ## Monitor names
 
@@ -67,6 +95,10 @@ status `0` reports success; another status reports failure.
 The center split tree is stored at `~/.config/omadeck/layout.json`. Removing it
 recreates the default Clock/Command Center layout and resets saved positions and
 ratios.
+
+Clock and weather preferences are stored separately in
+`~/.config/omadeck/appearance.json`, so rearranging the layout never resets
+appearance choices.
 
 ## Theme behavior
 

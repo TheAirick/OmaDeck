@@ -30,6 +30,11 @@ roadmap is directional rather than a release promise.
 
 ## Presentation
 
-- OmaDeck logo and compact monochrome shell mark
 - Screenshots across multiple Omarchy themes
 - Versioned releases and changelog
+
+## Completed foundations
+
+- Persistent touch settings for Clock/Weather appearance
+- Current weather with Omarchy-shared location and animated condition scenes
+- Mouse-accessible tray diagnostics and touch reconnection

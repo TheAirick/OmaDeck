@@ -9,6 +9,10 @@ a web server, Electron process, or separate system daemon.
 - `Service.qml` selects the target screen and owns persistent services.
 - `components/DeckSurface.qml` creates the layer surface, drawers, IPC entry
   points, and bounded tiling region.
+- `services/AppearanceController.qml` validates and atomically persists the
+  Clock/Weather presentation model.
+- `services/WeatherController.qml` owns refresh state and normalizes provider
+  condition codes for the UI.
 
 ## Layout model
 
@@ -30,6 +34,12 @@ overlaying or translating complete panels off-screen.
 
 Small shell helpers under `scripts/` bridge system data or actions that are
 awkward to express safely in QML.
+
+`scripts/weather-json` reads Omarchy's location state, uses `wttr.in` for
+automatic or name-only location resolution, and fetches structured current and
+daily conditions from Open-Meteo. The controller preserves the last good result
+across transient failures; the renderer maps provider codes to clear, cloud,
+fog, drizzle, rain, snow, hail, and thunderstorm presentation states.
 
 OmaDeck also contains two native Qt components:
 
@@ -63,3 +73,7 @@ and process metadata, control PipeWire streams, focus and close windows, signal
 user processes, and exclusively read the selected direct touchscreen input
 node. It does not require root when normal input-device permissions are
 configured. Force Kill has an expiring two-tap confirmation.
+
+Weather is optional, but enabled by default. As with Omarchy's built-in weather
+panel, enabling it sends a configured location—or the public-IP-derived
+location when automatic—to `wttr.in` and Open-Meteo.

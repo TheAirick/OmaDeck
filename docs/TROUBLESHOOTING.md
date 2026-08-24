@@ -61,6 +61,20 @@ Stream categories are inferred from metadata and may fall back to Other.
 NVIDIA readings require `nvidia-smi`; CPU temperature requires a sensor exposed
 by `sensors` as `Tctl`. Other System features continue working without them.
 
+## Weather says unavailable
+
+Open the Clock/Weather gear and tap **Refresh**. If automatic IP location is not
+available, choose **Set in Omarchy** and save a city, or configure one directly:
+
+```bash
+omarchy-weather-location --set "Seattle" "47.6062,-122.3321"
+```
+
+OmaDeck keeps the clock operational when `wttr.in` or Open-Meteo is offline and
+tries again every 15 minutes. If Omarchy's built-in weather panel is also
+unavailable, the issue is upstream connectivity or location resolution rather
+than the OmaDeck card.
+
 ## Monitor input switching fails
 
 Run the configured script directly and inspect its exit code. Input switching

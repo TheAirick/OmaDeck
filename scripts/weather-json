@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+
+set -u
+
+location_file="${OMADECK_WEATHER_LOCATION_FILE:-${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/settings/weather.json}"
+location_name=""
+latitude=""
+longitude=""
+
+if [[ -r "$location_file" ]]; then
+  location_name=$(jq -r '.name // ""' "$location_file" 2>/dev/null || true)
+  latitude=$(jq -r '.latitude // ""' "$location_file" 2>/dev/null || true)
+  longitude=$(jq -r '.longitude // ""' "$location_file" 2>/dev/null || true)
+fi
+
+number_pattern='^-?[0-9]+([.][0-9]+)?$'
+if [[ ! "$latitude" =~ $number_pattern || ! "$longitude" =~ $number_pattern ]]; then
+  latitude=""
+  longitude=""
+fi
+
+wttr=""
+if [[ -z "$latitude" || -z "$longitude" ]]; then
+  query=$(jq -rn --arg place "$location_name" '$place | @uri')
+  wttr=$(curl -fsS --max-time 8 "https://wttr.in/${query}?format=j1" 2>/dev/null || true)
+  if [[ -n "$wttr" ]]; then
+    latitude=$(jq -r '.nearest_area[0].latitude // ""' <<< "$wttr")
+    longitude=$(jq -r '.nearest_area[0].longitude // ""' <<< "$wttr")
+    if [[ -z "$location_name" ]]; then
+      location_name=$(jq -r '.nearest_area[0].areaName[0].value // "Current location"' <<< "$wttr")
+    fi
+  fi
+fi
+
+if [[ -n "$latitude" && -n "$longitude" ]]; then
+  forecast=$(curl -fsS --max-time 8 \
+    "https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=2&timezone=auto" \
+    2>/dev/null || true)
+  if [[ -n "$forecast" ]]; then
+    jq -c --arg location "${location_name:-Current location}" \
+      '{ok:true,provider:"Open-Meteo",location:$location,latitude:.latitude,longitude:.longitude,
+        temperatureC:.current.temperature_2m,feelsLikeC:.current.apparent_temperature,
+        humidity:.current.relative_humidity_2m,windKph:.current.wind_speed_10m,
+        code:.current.weather_code,isDay:(.current.is_day == 1),
+        highC:.daily.temperature_2m_max[0],lowC:.daily.temperature_2m_min[0],
+        nextCode:.daily.weather_code[1],nextHighC:.daily.temperature_2m_max[1],nextLowC:.daily.temperature_2m_min[1]}' \
+      <<< "$forecast"
+    exit 0
+  fi
+fi
+
+if [[ -n "$wttr" ]]; then
+  jq -c --arg location "${location_name:-Current location}" \
+    '{ok:true,provider:"wttr.in",location:$location,
+      temperatureC:(.current_condition[0].temp_C | tonumber),
+      feelsLikeC:(.current_condition[0].FeelsLikeC | tonumber),
+      humidity:(.current_condition[0].humidity | tonumber),
+      windKph:(.current_condition[0].windspeedKmph | tonumber),
+      code:(.current_condition[0].weatherCode | tonumber),isDay:true,
+      highC:(.weather[0].maxtempC | tonumber),lowC:(.weather[0].mintempC | tonumber),
+      nextCode:(.weather[1].hourly[4].weatherCode | tonumber),
+      nextHighC:(.weather[1].maxtempC | tonumber),nextLowC:(.weather[1].mintempC | tonumber)}' \
+    <<< "$wttr"
+  exit 0
+fi
+
+jq -nc '{ok:false,error:"Weather unavailable"}'
+exit 1
