@@ -55,14 +55,18 @@ Item {
     if (entry.type === "image") {
       Quickshell.execDetached(["omarchy-clipboard-paste-file", "--copy-only", entry.mime || "image/png", entry.path])
     } else {
-      Quickshell.execDetached(["omarchy-clipboard-paste-text", "--copy-only", "--history-index", String(entry.historyIndex)])
+      Quickshell.execDetached(["omarchy-clipboard-paste-text", "--copy-only", entry.text || ""])
     }
     clipboardNotice = "Copied"
     noticeTimer.restart()
   }
   function deleteClipboard(entry) {
     if (!entry) return
-    Quickshell.execDetached([Quickshell.env("HOME") + "/.config/omarchy/plugins/pretty.omadeck/scripts/clipboard-delete", String(entry.historyIndex)])
+    Quickshell.execDetached([
+      Quickshell.env("HOME") + "/.config/omarchy/plugins/pretty.omadeck/scripts/clipboard-delete",
+      entry.type || "text",
+      entry.type === "image" ? (entry.path || "") : (entry.text || "")
+    ])
     selectedClipboard = null
     clipboardNotice = "Deleted"
     noticeTimer.restart()
@@ -140,7 +144,7 @@ Item {
   }
 
   Timer { id: refreshTimer; interval: 250; onTriggered: if (!statsProcess.running) statsProcess.running = true }
-  Timer { id: noticeTimer; interval: 1600; onTriggered: root.clipboardNotice = "" }
+  Timer { id: noticeTimer; interval: 2400; onTriggered: root.clipboardNotice = "" }
   Timer { id: killTimer; interval: 2500; onTriggered: root.forceKillArmed = false }
 
   Item {
@@ -330,9 +334,9 @@ Item {
     color: actionTap.pressed ? Style.pressedFill : (actionHover.hovered ? Style.hoverFill : Style.normalFill)
     radius: Style.cornerRadius
     borderSpec: Border.controlSpec(actionHover.hovered ? "hover" : "normal", Color.foreground, Color.accent, Color.urgent)
-    Row { anchors.centerIn: parent; spacing: Style.spacing.controlGap
-      Text { text: action.iconText; color: Color.accent; font.family: Style.font.family; font.pixelSize: Style.font.display }
-      Text { text: action.label; color: Color.foreground; font.family: Style.font.family; font.pixelSize: Style.font.body; font.bold: true }
+    Row { anchors.centerIn: parent; height: Style.space(28); spacing: Style.spacing.controlGap
+      Text { width: Style.space(28); height: parent.height; text: action.iconText; color: Color.accent; font.family: Style.font.family; font.pixelSize: Style.font.display; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+      Text { height: parent.height; text: action.label; color: Color.foreground; font.family: Style.font.family; font.pixelSize: Style.font.body; font.bold: true; verticalAlignment: Text.AlignVCenter }
     }
     HoverHandler { id: actionHover }
     TapHandler { id: actionTap; onTapped: action.triggered() }
@@ -412,7 +416,7 @@ Item {
         }
       }
       Row { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; spacing: Style.spacing.controlGap
-        ActionButton { width: (parent.width - parent.spacing * 2) / 3; iconText: "󰈹"; label: "Focus"; onTriggered: root.focusClient(inspector.client) }
+        ActionButton { width: (parent.width - parent.spacing * 2) / 3; iconText: "󰁔"; label: "Focus"; onTriggered: root.focusClient(inspector.client) }
         ActionButton { width: (parent.width - parent.spacing * 2) / 3; iconText: "󰅖"; label: "Close"; onTriggered: root.closeClient(inspector.client) }
         ActionButton { width: (parent.width - parent.spacing * 2) / 3; iconText: "󰆴"; label: root.forceKillArmed ? "Tap again" : "Force kill"; onTriggered: root.forceKillClient(inspector.client) }
       }
@@ -459,6 +463,18 @@ Item {
 
   Component { id: clipboardInspector
     Item {
+      BorderSurface {
+        z: 2
+        visible: root.clipboardNotice === "Copied"
+        anchors.top: parent.top; anchors.right: parent.right
+        width: Style.space(150); height: Style.space(38)
+        color: Style.hoverFill; radius: Style.cornerRadius
+        borderSpec: Border.controlSpec("hover", Color.foreground, Color.accent, Color.urgent)
+        Row { anchors.centerIn: parent; height: Style.space(24); spacing: Style.spacing.controlGap
+          Text { height: parent.height; text: "󰆏"; color: Color.accent; font.family: Style.font.family; font.pixelSize: Style.font.body; verticalAlignment: Text.AlignVCenter }
+          Text { height: parent.height; text: "Copied to clipboard"; color: Color.foreground; font.family: Style.font.family; font.pixelSize: Style.font.caption; font.bold: true; verticalAlignment: Text.AlignVCenter }
+        }
+      }
       BorderSurface {
         anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.bottom: actions.top
         anchors.bottomMargin: Style.spacing.panelGap
