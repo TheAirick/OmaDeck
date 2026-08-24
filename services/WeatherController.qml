@@ -87,6 +87,12 @@ Item {
           if (!next.ok) throw new Error(next.error || "weather unavailable")
           next.condition = root.normalizeCode(next.code)
           next.conditionLabel = root.conditionLabel(next.condition)
+          var forecast = next.forecast || []
+          for (var i = 0; i < forecast.length; i++) {
+            forecast[i].condition = root.normalizeCode(forecast[i].code)
+            forecast[i].conditionLabel = root.conditionLabel(forecast[i].condition)
+          }
+          next.forecast = forecast
           root.current = next
           root.error = ""
           root.updatedAt = new Date()

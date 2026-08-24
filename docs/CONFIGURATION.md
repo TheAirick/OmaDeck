@@ -10,8 +10,8 @@ Tap the gear in the upper-right of the Clock/Weather card. The sheet controls:
 - Hero, Split, or Compact clock layout
 - 12- or 24-hour time and optional seconds
 - Weather visibility and manual refresh
-- Scene, Glyph, or Minimal weather visuals
-- Compact, Standard, or Full weather information
+- Rich, Glyph, or Minimal weather visuals
+- Compact current conditions, Standard two-day forecast, or Full three-day forecast
 - Fahrenheit or Celsius
 
 These choices are saved atomically to

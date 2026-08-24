@@ -34,7 +34,7 @@ fi
 
 if [[ -n "$latitude" && -n "$longitude" ]]; then
   forecast=$(curl -fsS --max-time 8 \
-    "https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=2&timezone=auto" \
+    "https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=4&timezone=auto" \
     2>/dev/null || true)
   if [[ -n "$forecast" ]]; then
     jq -c --arg location "${location_name:-Current location}" \
@@ -43,7 +43,10 @@ if [[ -n "$latitude" && -n "$longitude" ]]; then
         humidity:.current.relative_humidity_2m,windKph:.current.wind_speed_10m,
         code:.current.weather_code,isDay:(.current.is_day == 1),
         highC:.daily.temperature_2m_max[0],lowC:.daily.temperature_2m_min[0],
-        nextCode:.daily.weather_code[1],nextHighC:.daily.temperature_2m_max[1],nextLowC:.daily.temperature_2m_min[1]}' \
+        forecast:[range(1; (.daily.time | length)) as $i | {
+          date:.daily.time[$i],code:.daily.weather_code[$i],
+          highC:.daily.temperature_2m_max[$i],lowC:.daily.temperature_2m_min[$i]
+        }]}' \
       <<< "$forecast"
     exit 0
   fi
@@ -58,8 +61,10 @@ if [[ -n "$wttr" ]]; then
       windKph:(.current_condition[0].windspeedKmph | tonumber),
       code:(.current_condition[0].weatherCode | tonumber),isDay:true,
       highC:(.weather[0].maxtempC | tonumber),lowC:(.weather[0].mintempC | tonumber),
-      nextCode:(.weather[1].hourly[4].weatherCode | tonumber),
-      nextHighC:(.weather[1].maxtempC | tonumber),nextLowC:(.weather[1].mintempC | tonumber)}' \
+      forecast:[.weather[1:4][] | {
+        date:.date,code:(.hourly[4].weatherCode | tonumber),
+        highC:(.maxtempC | tonumber),lowC:(.mintempC | tonumber)
+      }]}' \
     <<< "$wttr"
   exit 0
 fi

@@ -38,8 +38,8 @@ awkward to express safely in QML.
 `scripts/weather-json` reads Omarchy's location state, uses `wttr.in` for
 automatic or name-only location resolution, and fetches structured current and
 daily conditions from Open-Meteo. The controller preserves the last good result
-across transient failures; the renderer maps provider codes to clear, cloud,
-fog, drizzle, rain, snow, hail, and thunderstorm presentation states.
+across transient failures; the renderer maps provider codes to Omarchy's clear,
+cloud, fog, drizzle, rain, snow, hail, and thunderstorm glyph language.
 
 OmaDeck also contains two native Qt components:
 

@@ -34,10 +34,10 @@ described in [Configuration](CONFIGURATION.md).
 ## Clock and weather
 
 The left center card combines the clock with current weather. OmaDeck uses
-Omarchy's existing weather location and refreshes every 15 minutes. Its scene
-visual changes for clear skies, clouds, fog, drizzle, rain, snow, hail, and
-thunderstorms. When the provider is unreachable, the clock remains usable and
-the weather area reports that it is unavailable.
+Omarchy's existing weather location and refreshes every 15 minutes. Its Rich
+visual uses Omarchy's recognizable condition glyphs, current-condition stats,
+and a multi-day forecast. When the provider is unreachable, the clock remains
+usable and the weather area reports that it is unavailable.
 
 Tap the gear in the card's upper-right corner to open its settings sheet. You
 can change clock layout and time format, show seconds, hide weather, select a

@@ -29,7 +29,8 @@ live system information.
 - Summons Omarchy's native network and disk speed tests.
 - Publishes a mouse-accessible system-tray control center and health report.
 - Reconnects its isolated touchscreen automatically after USB or suspend cycles.
-- Adds current weather to the clock, using Omarchy's location and providers.
+- Adds current weather, aligned stats, and a multi-day forecast to the clock,
+  using Omarchy's location, condition glyphs, and providers.
 - Saves touch-configurable clock, weather, detail, visibility, and unit choices.
 - Follows the active Omarchy theme, typography, borders, gaps, and motion.
 

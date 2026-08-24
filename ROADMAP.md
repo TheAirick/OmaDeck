@@ -36,5 +36,5 @@ roadmap is directional rather than a release promise.
 ## Completed foundations
 
 - Persistent touch settings for Clock/Weather appearance
-- Current weather with Omarchy-shared location and animated condition scenes
+- Current weather with Omarchy-shared location, condition glyphs, and forecast
 - Mouse-accessible tray diagnostics and touch reconnection

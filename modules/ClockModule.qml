@@ -239,7 +239,7 @@ Item {
       SettingRow {
         label: "Visual"
         enabled: root.showWeather
-        options: [{label:"Scene", value:"scene"}, {label:"Glyph", value:"glyph"}, {label:"Minimal", value:"minimal"}]
+        options: [{label:"Rich", value:"scene"}, {label:"Glyph", value:"glyph"}, {label:"Minimal", value:"minimal"}]
         selectedValue: root.weatherStyle
         onChosen: function(value) { root.setOption("weatherStyle", value) }
       }
