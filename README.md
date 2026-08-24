@@ -79,6 +79,11 @@ Foundation prototype. The current surface proves:
 - animated Media, Games, Voice, and Other stream groups with per-app controls
 - a live System drawer with performance, network, running-window, native
   Omarchy clipboard-history, and storage views
+- rolling CPU, GPU, memory, download, and upload history charts
+- native Omarchy internet and disk speed-test actions
+- full clipboard text and image inspection with copy, hold-to-copy, and delete
+- a touch task manager with per-window process state, resource use, focus,
+  graceful close, and confirmed force-kill controls
 
 The mixer tracks PipeWire nodes directly, follows Omarchy's resolved physical
 output sink, and snapshots changing stream models before rendering them. This

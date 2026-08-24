@@ -76,6 +76,28 @@ PanelWindow {
     function ratio(path: string, value: real): void {
       if (root.layoutController) root.layoutController.setRatio(path, value)
     }
+
+    function system(section: string): void {
+      if (["performance", "network", "applications", "clipboard", "storage"].indexOf(section) === -1) return
+      root.openDrawer = "right"
+      systemDrawer.selectedClipboard = null
+      systemDrawer.selectedClientAddress = ""
+      systemDrawer.selectedSection = section
+    }
+
+    function clipboard(index: int): void {
+      if (index < 0 || index >= systemDrawer.stats.clipboard.length) return
+      root.openDrawer = "right"
+      systemDrawer.selectedSection = "clipboard"
+      systemDrawer.selectedClipboard = systemDrawer.stats.clipboard[index]
+    }
+
+    function application(index: int): void {
+      if (index < 0 || index >= systemDrawer.stats.clients.length) return
+      root.openDrawer = "right"
+      systemDrawer.selectedSection = "applications"
+      systemDrawer.selectedClientAddress = systemDrawer.stats.clients[index].address
+    }
   }
 
   Rectangle {
@@ -107,6 +129,7 @@ PanelWindow {
     height: parent.height - root.outerGap * 2
 
     SystemModule {
+      id: systemDrawer
       anchors.fill: parent
       shell: root.shell
     }
