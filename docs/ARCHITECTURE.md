@@ -21,8 +21,10 @@ orientation, ratio, and two children; leaves contain module IDs.
 `services/LayoutController.qml` validates and atomically persists layout state.
 
 Edge drawers participate in the same geometry. Four animated reserved-space
-values alter the center boundaries, creating retiling motion rather than
-overlaying or translating complete panels off-screen.
+values alter both the drawer positions and center boundaries, creating one
+synchronized retiling motion rather than an overlay. Cards clip their content
+to their live bounds; dense modules scale or progressively hide secondary
+details when a split becomes constrained.
 
 ## Native integrations
 

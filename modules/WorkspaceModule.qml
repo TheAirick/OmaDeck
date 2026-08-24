@@ -11,6 +11,9 @@ Item {
   property bool compact: false
   property bool singleRow: false
   property string primaryMonitor: "DP-1"
+  readonly property real workspaceScale: Math.min(1,
+    Math.max(0, width - Style.spacing.controlGap * 2) / Math.max(1, workspaceGrid.implicitWidth),
+    Math.max(0, height - Style.spacing.controlGap * 2) / Math.max(1, workspaceGrid.implicitHeight))
 
   function workspaceById(id) {
     var values = Hyprland.workspaces.values
@@ -30,10 +33,15 @@ Item {
   }
 
   GridLayout {
+    id: workspaceGrid
     anchors.centerIn: parent
     columns: root.singleRow ? 10 : 5
     columnSpacing: Style.spacing.controlGap
     rowSpacing: Style.spacing.controlGap
+    scale: root.workspaceScale
+    transformOrigin: Item.Center
+
+    Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
     Repeater {
       model: 10

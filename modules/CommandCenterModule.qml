@@ -7,11 +7,18 @@ Item {
 
   property var deck: null
   property var controller: null
+  readonly property real contentScale: Math.min(1,
+    Math.max(0, width - Style.spacing.panelGap * 2) / Math.max(1, controlStack.implicitWidth),
+    Math.max(0, height - Style.spacing.panelGap * 2) / Math.max(1, controlStack.implicitHeight))
 
   Column {
     id: controlStack
     anchors.centerIn: parent
     spacing: Style.spacing.panelGap
+    scale: root.contentScale
+    transformOrigin: Item.Center
+
+    Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
     Row {
       spacing: Style.spacing.panelGap

@@ -16,6 +16,9 @@ Tap the gear in the upper-right of the Clock/Weather card. The sheet controls:
 
 These choices are saved atomically to
 `~/.config/omadeck/appearance.json`. Removing that file restores the defaults.
+The selected weather detail is a maximum: OmaDeck temporarily removes forecast,
+location, or secondary stats when a drawer or edited split leaves too little
+room, then restores them automatically as the card expands.
 
 OmaDeck deliberately shares Omarchy's weather location instead of keeping a
 second copy. Choose **Set in Omarchy** from the settings sheet, or run:

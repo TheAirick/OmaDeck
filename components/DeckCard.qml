@@ -10,6 +10,8 @@ BorderSurface {
   property bool active: false
   default property alias content: contentHost.data
 
+  readonly property real headerWidth: width - contentLeftInset - contentRightInset
+
   color: Color.popups.background
   radius: Style.cornerRadius
   padding: Style.spacing.panelPadding
@@ -26,18 +28,24 @@ BorderSurface {
     spacing: Style.spacing.rowGap
 
     Row {
+      id: headerRow
       width: parent.width
       spacing: Style.spacing.controlGap
 
       Text {
+        id: titleText
+        width: subtitleText.visible ? implicitWidth : parent.width
         text: root.title
         color: Color.foreground
         font.family: Style.font.family
         font.pixelSize: Style.font.subtitle
         font.bold: true
+        elide: Text.ElideRight
       }
 
       Text {
+        id: subtitleText
+        visible: root.headerWidth >= titleText.implicitWidth + implicitWidth + headerRow.spacing
         width: parent.width - x
         text: root.subtitle
         color: Color.muted
@@ -52,6 +60,7 @@ BorderSurface {
       id: contentHost
       width: parent.width
       height: parent.height - y
+      clip: true
     }
   }
 }

@@ -150,7 +150,7 @@ PanelWindow {
   EdgeDrawer {
     edge: "left"
     open: root.openDrawer === edge
-    x: root.outerGap
+    x: root.outerGap - root.leftDrawerWidth - root.innerGap + root.reservedLeft
     y: root.outerGap
     width: root.leftDrawerWidth
     height: root.usableHeight
@@ -165,7 +165,7 @@ PanelWindow {
   EdgeDrawer {
     edge: "right"
     open: root.openDrawer === edge
-    x: parent.width - root.outerGap - root.rightDrawerWidth
+    x: parent.width - root.outerGap + root.innerGap - root.reservedRight
     y: root.outerGap
     width: root.rightDrawerWidth
     height: parent.height - root.outerGap * 2
@@ -181,7 +181,7 @@ PanelWindow {
     edge: "top"
     open: root.openDrawer === edge
     x: root.outerGap
-    y: root.outerGap
+    y: root.outerGap - root.topDrawerHeight - root.innerGap + root.reservedTop
     width: root.usableWidth
     height: root.topDrawerHeight
 
@@ -197,7 +197,7 @@ PanelWindow {
     edge: "bottom"
     open: root.openDrawer === edge
     x: root.outerGap
-    y: parent.height - root.outerGap - root.bottomDrawerHeight
+    y: parent.height - root.outerGap + root.innerGap - root.reservedBottom
     width: root.usableWidth
     height: root.bottomDrawerHeight
 

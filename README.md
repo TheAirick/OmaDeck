@@ -18,7 +18,9 @@ live system information.
 
 ## What it does
 
-- Retiles the center surface when edge drawers appear instead of covering it.
+- Retiles the center surface in step with edge drawers instead of covering it.
+- Responsively simplifies dense modules while space is constrained, restoring
+  their selected detail as panels expand.
 - Controls MPRIS media with artwork, seeking, and transport controls.
 - Mixes PipeWire output, microphone, categories, and individual app streams.
 - Focuses an existing Hyprland window before launching another copy.
@@ -92,9 +94,9 @@ different hardware.
 
 The center starts with Clock/Weather and Command Center modules. Tap the gear in
 the clock card to change its layout, time format, weather treatment, detail,
-visibility, and units. Revealing a drawer
-resizes this split tree with the same spatial logic that makes Hyprland feel
-coherent.
+visibility, and units. Revealing a drawer moves it and resizes this split tree
+through one shared animated boundary. Cards, controls, and weather details adapt
+to their live dimensions throughout the transition.
 
 ## Documentation
 

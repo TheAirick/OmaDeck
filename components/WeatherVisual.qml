@@ -11,13 +11,24 @@ Item {
   property bool loading: false
   property string error: ""
 
+  clip: true
+
   readonly property bool available: weather && weather.ok
   readonly property string condition: available ? String(weather.condition || "cloudy") : "cloudy"
   readonly property bool isDay: !available || weather.isDay !== false
   readonly property string unitLetter: temperatureUnit === "celsius" ? "C" : "F"
+  // Detail is a preference ceiling. Live panel geometry can temporarily shed
+  // secondary information, then restore it as the split tree expands.
+  readonly property string effectiveDetail: detailMode === "compact"
+    || height < Style.space(72) || width < Style.space(230) ? "compact"
+    : detailMode === "full" && (height < Style.space(150) || width < Style.space(460)) ? "standard"
+    : detailMode
+  readonly property bool showDetailedMetrics: effectiveDetail !== "compact" && width >= Style.space(350)
+  readonly property bool showDetailedLocation: effectiveDetail !== "compact" && height >= Style.space(108)
+  readonly property bool showDetailedForecast: effectiveDetail !== "compact" && height >= Style.space(180)
   readonly property var forecastDays: {
     var days = available && weather.forecast ? weather.forecast : []
-    return days.slice(0, detailMode === "full" ? 3 : 2)
+    return days.slice(0, effectiveDetail === "full" ? 3 : 2)
   }
 
   function glyphFor(conditionName, day) {
@@ -83,15 +94,20 @@ Item {
       Row {
         id: currentRow
         width: parent.width
-        height: root.detailMode === "compact" ? Math.max(Style.space(76), root.height * 0.48)
-          : Math.max(Style.space(60), root.height * 0.32)
+        height: Math.min(root.height, root.effectiveDetail === "compact"
+          ? Math.max(Style.space(56), root.height * 0.68)
+          : Math.max(Style.space(52), root.height * 0.32))
         spacing: Style.spacing.panelGap
+
+        Behavior on height { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
         Row {
           id: hero
-          width: root.detailMode === "compact" ? parent.width : Math.min(parent.width * 0.48, Style.space(245))
+          width: root.showDetailedMetrics ? Math.min(parent.width * 0.48, Style.space(245)) : parent.width
           anchors.verticalCenter: parent.verticalCenter
           spacing: Style.spacing.controlGap
+
+          Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
           Text {
             anchors.verticalCenter: parent.verticalCenter
@@ -126,10 +142,13 @@ Item {
         }
 
         Row {
-          visible: root.detailMode !== "compact"
+          visible: opacity > 0
+          opacity: root.showDetailedMetrics ? 1 : 0
           width: Math.max(0, parent.width - x)
           anchors.verticalCenter: parent.verticalCenter
           spacing: Math.max(Style.spacing.controlGap, (width - feelsMetric.width - windMetric.width - humidMetric.width) / 2)
+
+          Behavior on opacity { NumberAnimation { duration: 120 } }
 
           WeatherMetric {
             id: feelsMetric
@@ -149,87 +168,109 @@ Item {
         }
       }
 
-      Row {
-        visible: root.detailMode !== "compact"
+      Item {
+        id: locationArea
+        visible: height > 0 || opacity > 0
         width: parent.width
-        height: Style.space(26)
-        spacing: Style.spacing.controlGap
+        height: root.showDetailedLocation ? Style.space(26) : 0
+        opacity: root.showDetailedLocation ? 1 : 0
+        clip: true
 
-        Text {
-          anchors.verticalCenter: parent.verticalCenter
-          text: ""
-          color: Color.muted
-          font.family: Style.font.family
-          font.pixelSize: Style.font.caption
-        }
-        Text {
-          anchors.verticalCenter: parent.verticalCenter
-          width: Math.max(0, parent.width - x - highLow.width - Style.spacing.controlGap)
-          text: String(root.weather.location || "Current location").toUpperCase()
-          color: Color.muted
-          font.family: Style.font.family
-          font.pixelSize: Style.font.caption
-          font.letterSpacing: 0.8
-          elide: Text.ElideRight
-        }
-        Text {
-          id: highLow
-          anchors.verticalCenter: parent.verticalCenter
-          text: "H " + root.temp(root.weather.highC, false) + "   L " + root.temp(root.weather.lowC, false)
-          color: Color.muted
-          font.family: Style.font.family
-          font.pixelSize: Style.font.caption
+        Behavior on height { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+        Behavior on opacity { NumberAnimation { duration: 120 } }
+
+        Row {
+          anchors.fill: parent
+          spacing: Style.spacing.controlGap
+
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            text: ""
+            color: Color.muted
+            font.family: Style.font.family
+            font.pixelSize: Style.font.caption
+          }
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            width: Math.max(0, parent.width - x - highLow.width - Style.spacing.controlGap)
+            text: String(root.weather.location || "Current location").toUpperCase()
+            color: Color.muted
+            font.family: Style.font.family
+            font.pixelSize: Style.font.caption
+            font.letterSpacing: 0.8
+            elide: Text.ElideRight
+          }
+          Text {
+            id: highLow
+            anchors.verticalCenter: parent.verticalCenter
+            text: "H " + root.temp(root.weather.highC, false) + "   L " + root.temp(root.weather.lowC, false)
+            color: Color.muted
+            font.family: Style.font.family
+            font.pixelSize: Style.font.caption
+          }
         }
       }
 
-      Rectangle {
-        visible: root.detailMode !== "compact" && root.forecastDays.length > 0
+      Item {
+        id: forecastArea
+        visible: height > 0 || opacity > 0
         width: parent.width
-        height: 1
-        color: Color.foreground
-        opacity: 0.12
-      }
+        height: root.showDetailedForecast && root.forecastDays.length > 0
+          ? Style.space(44) + Style.spacing.controlGap + 1 : 0
+        opacity: root.showDetailedForecast && root.forecastDays.length > 0 ? 1 : 0
+        clip: true
 
-      Row {
-        visible: root.detailMode !== "compact" && root.forecastDays.length > 0
-        width: parent.width
-        height: Style.space(44)
-        spacing: Style.spacing.controlGap
+        Behavior on height { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+        Behavior on opacity { NumberAnimation { duration: 120 } }
 
-        Repeater {
-          model: root.forecastDays
+        Rectangle {
+          width: parent.width
+          height: 1
+          color: Color.foreground
+          opacity: 0.12
+        }
 
-          Item {
-            required property var modelData
-            width: (parent.width - Math.max(0, (root.forecastDays.length - 1)) * parent.spacing) / Math.max(1, root.forecastDays.length)
-            height: parent.height
+        Row {
+          y: Style.spacing.controlGap + 1
+          width: parent.width
+          height: Style.space(44)
+          spacing: Style.spacing.controlGap
 
-            Row {
-              anchors.centerIn: parent
-              spacing: Style.spacing.labelGap
+          Repeater {
+            model: root.forecastDays
 
-              Text {
-                anchors.verticalCenter: parent.verticalCenter
-                text: root.glyphFor(modelData.condition, true)
-                color: Color.foreground
-                font.family: Style.font.family
-                font.pixelSize: Style.font.display
-              }
-              Column {
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: Style.space(2)
+            Item {
+              required property var modelData
+              width: (parent.width - Math.max(0, (root.forecastDays.length - 1)) * parent.spacing) / Math.max(1, root.forecastDays.length)
+              height: parent.height
+
+              Row {
+                anchors.centerIn: parent
+                spacing: Style.spacing.labelGap
+
                 Text {
-                  text: root.dayName(modelData.date)
-                  color: Color.muted
-                  font.family: Style.font.family
-                  font.pixelSize: Style.font.caption
-                  font.letterSpacing: 0.8
-                }
-                Text {
-                  text: root.temp(modelData.highC, false) + "  " + root.temp(modelData.lowC, false)
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: root.glyphFor(modelData.condition, true)
                   color: Color.foreground
                   font.family: Style.font.family
-                  font.pixelSize: Style.font.caption
+                  font.pixelSize: Style.font.display
+                }
+                Column {
+                  anchors.verticalCenter: parent.verticalCenter
+                  spacing: Style.space(2)
+                  Text {
+                    text: root.dayName(modelData.date)
+                    color: Color.muted
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.caption
+                    font.letterSpacing: 0.8
+                  }
+                  Text {
+                    text: root.temp(modelData.highC, false) + "  " + root.temp(modelData.lowC, false)
+                    color: Color.foreground
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.caption
+                  }
                 }
               }
             }
@@ -264,13 +305,13 @@ Item {
           font.bold: true
         }
         Text {
-          text: root.weather.conditionLabel + (root.detailMode === "compact" ? "" : "  ·  " + root.weather.location)
+          text: root.weather.conditionLabel + (root.effectiveDetail === "compact" ? "" : "  ·  " + root.weather.location)
           color: Color.muted
           font.family: Style.font.family
           font.pixelSize: Style.font.body
         }
         Text {
-          visible: root.detailMode === "full"
+          visible: root.effectiveDetail === "full"
           text: "Feels " + root.temp(root.weather.feelsLikeC, true) + "  ·  " + root.wind(root.weather.windKph) + "  ·  " + Math.round(Number(root.weather.humidity || 0)) + "% humidity"
           color: Color.muted
           font.family: Style.font.family
@@ -310,7 +351,7 @@ Item {
         font.pixelSize: Style.font.body
       }
       Text {
-        visible: root.detailMode !== "compact"
+        visible: root.effectiveDetail !== "compact"
         anchors.verticalCenter: parent.verticalCenter
         text: "H " + root.temp(root.weather.highC, false) + "  L " + root.temp(root.weather.lowC, false)
         color: Color.muted

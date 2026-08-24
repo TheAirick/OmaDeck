@@ -62,7 +62,10 @@ in the sheet.
   canvas to dismiss it.
 
 Drawers reserve space and re-tile the center modules. They do not cover or push
-the intact layout beyond the display.
+the intact layout beyond the display. The drawer and center cards move on the
+same animated boundary. During a tighter layout, modules preserve primary
+controls and may temporarily reduce secondary text, weather stats, or forecast
+days; the chosen detail returns automatically when space is available again.
 
 ### Applications
 

@@ -18,6 +18,9 @@ Item {
     { id: "obsidian", name: "Obsidian", iconText: "󰠮", classes: ["md.obsidian.obsidian", "obsidian"] },
     { id: "omawrite", name: "Omawrite", iconText: "󰈙", classes: ["omawrite"] }
   ]
+  readonly property real launcherScale: Math.min(1,
+    Math.max(0, width - Style.spacing.panelGap * 2) / Math.max(1, launcherRow.implicitWidth),
+    Math.max(0, height - Style.spacing.panelGap * 2) / Math.max(1, launcherRow.implicitHeight))
 
   function normalize(value) {
     return String(value || "").trim().toLowerCase().replace(/\.desktop$/, "")
@@ -58,8 +61,13 @@ Item {
     }
 
     Row {
+      id: launcherRow
       anchors.centerIn: parent
       spacing: Style.spacing.panelGap
+      scale: root.launcherScale
+      transformOrigin: Item.Center
+
+      Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
       Repeater {
         model: root.favorites

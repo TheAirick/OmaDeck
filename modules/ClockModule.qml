@@ -6,6 +6,8 @@ import "../components"
 Item {
   id: root
 
+  clip: true
+
   property var controller: null
   property var weather: null
   property date now: new Date()
