@@ -71,9 +71,13 @@ omarchy-weather-location --set "Seattle" "47.6062,-122.3321"
 ```
 
 OmaDeck keeps the clock operational when `wttr.in` or Open-Meteo is offline and
-tries again every 15 minutes. If Omarchy's built-in weather panel is also
+refreshes normally every 15 minutes. If Omarchy's built-in weather panel is also
 unavailable, the issue is upstream connectivity or location resolution rather
 than the OmaDeck card.
+
+When a location is saved for the first time after OmaDeck starts, the card
+detects the new Omarchy location file within ten seconds and refreshes. A
+transient provider failure retries after one minute.
 
 ## Monitor input switching fails
 

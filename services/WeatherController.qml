@@ -11,12 +11,20 @@ Item {
   property string error: ""
   property var current: ({ ok: false })
   property date updatedAt: new Date(0)
+  property string locationState: ""
 
   function refresh() {
     if (!weatherProcess.running && pluginDir !== "") {
       loading = true
       weatherProcess.running = true
     }
+  }
+
+  function observeLocation(raw) {
+    var next = String(raw || "")
+    if (next === locationState) return
+    locationState = next
+    refreshDelay.restart()
   }
 
   function normalizeCode(code) {
@@ -92,16 +100,38 @@ Item {
   }
 
   FileView {
+    id: locationFile
     path: root.locationPath
     watchChanges: true
     printErrors: false
-    onFileChanged: {
-      reload()
+    onLoaded: root.observeLocation(text())
+    onLoadFailed: {
+      if (root.locationState === "") return
+      root.locationState = ""
       refreshDelay.restart()
     }
+    onFileChanged: reload()
   }
 
   Timer { id: refreshDelay; interval: 300; repeat: false; onTriggered: root.refresh() }
+
+  // FileView cannot watch a location file that did not exist at startup. A
+  // cheap periodic reload detects its first creation without polling weather.
+  Timer {
+    interval: 10 * 1000
+    running: true
+    repeat: true
+    onTriggered: locationFile.reload()
+  }
+
+  // Transient provider failures recover promptly instead of waiting for the
+  // normal 15-minute forecast interval.
+  Timer {
+    interval: 60 * 1000
+    running: root.error !== ""
+    repeat: true
+    onTriggered: root.refresh()
+  }
 
   Timer {
     interval: 15 * 60 * 1000
