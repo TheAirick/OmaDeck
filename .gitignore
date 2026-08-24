@@ -2,3 +2,6 @@ build/
 *.qmlc
 *.jsc
 *.log
+native/build/
+native/bin/
+native/OmaDeck/Touch/libomadecktouchplugin.so

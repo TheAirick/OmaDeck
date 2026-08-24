@@ -13,12 +13,23 @@ The current release assumes the deck is `DP-3` and the primary monitor is
 
 ## Starting OmaDeck
 
-After installation, OmaDeck is loaded by the Omarchy shell at every login. To
-reload it manually:
+After installation and `scripts/build-native`, OmaDeck is loaded by the Omarchy
+shell at every login. To reload it manually:
 
 ```bash
 omarchy restart shell
 ```
+
+## System-tray control center
+
+OmaDeck adds an icon to the primary desktop's system tray. Click it with the
+mouse to open diagnostics even when the deck touchscreen is unavailable. The
+Control Center shows monitor, touchscreen, native-build, input-script, and
+command health. It can copy a sanitized report, request touch reconnection, and
+restart the Omarchy shell after confirmation.
+
+The tray's **Configuration guide** action opens the source-level options
+described in [Configuration](CONFIGURATION.md).
 
 ## Touch interactions
 

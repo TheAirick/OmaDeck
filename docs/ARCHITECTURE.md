@@ -31,6 +31,19 @@ overlaying or translating complete panels off-screen.
 Small shell helpers under `scripts/` bridge system data or actions that are
 awkward to express safely in QML.
 
+OmaDeck also contains two native Qt components:
+
+- `TouchBridge` exclusively reads the direct touchscreen evdev node and injects
+  pointer events only into the OmaDeck window. It automatically releases dead
+  descriptors and retries after USB re-enumeration or suspend.
+- `omadeck-tray` is a separate `QSystemTrayIcon` process. It remains usable by
+  mouse when deck touch is unavailable and runs the same health checks exposed
+  by `scripts/omadeck-doctor`.
+
+`scripts/build-native` configures and builds both components. Generated build
+artifacts are deliberately not stored in Git because they are tied to the
+local Qt and Quickshell ABI.
+
 ## IPC
 
 The `pretty.omadeck` target exposes navigation and layout methods useful for
@@ -40,11 +53,13 @@ automation and deterministic captures:
 omarchy-shell pretty.omadeck drawer left
 omarchy-shell pretty.omadeck system performance
 omarchy-shell pretty.omadeck closeDrawer
+omarchy-shell pretty.omadeck reconnectTouch
 ```
 
 ## Security model
 
 OmaDeck runs as the logged-in user. It can read that user's clipboard history
-and process metadata, control PipeWire streams, focus and close windows, and
-signal user processes. It does not require root. Force Kill has an expiring
-two-tap confirmation.
+and process metadata, control PipeWire streams, focus and close windows, signal
+user processes, and exclusively read the selected direct touchscreen input
+node. It does not require root when normal input-device permissions are
+configured. Force Kill has an expiring two-tap confirmation.

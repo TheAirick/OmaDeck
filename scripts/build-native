@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+project_dir=$(cd -- "$script_dir/.." && pwd)
+source_dir="$project_dir/native"
+build_dir="$source_dir/build"
+
+for command_name in cmake c++; do
+  if ! command -v "$command_name" >/dev/null 2>&1; then
+    printf 'Missing required build command: %s\n' "$command_name" >&2
+    exit 1
+  fi
+done
+
+cmake -S "$source_dir" -B "$build_dir" -DCMAKE_BUILD_TYPE=Release
+cmake --build "$build_dir" --parallel
+
+printf 'Built OmaDeck native components:\n'
+printf '  %s\n' "$source_dir/OmaDeck/Touch/libomadecktouchplugin.so"
+printf '  %s\n' "$source_dir/bin/omadeck-tray"

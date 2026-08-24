@@ -5,6 +5,7 @@ import Quickshell.Wayland
 import qs.Commons
 import qs.Ui
 import "../modules"
+import "../native/OmaDeck/Touch" as NativeTouch
 
 PanelWindow {
   id: root
@@ -45,7 +46,18 @@ PanelWindow {
   exclusionMode: ExclusionMode.Ignore
   WlrLayershell.namespace: "omadeck"
   WlrLayershell.layer: WlrLayer.Bottom
-  WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+  // OmaDeck never requests compositor keyboard focus. Its direct-touch bridge
+  // owns the Xeneon evdev node and injects events only into this backing window.
+  WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+
+  NativeTouch.TouchBridge {
+    id: directTouch
+  }
+
+  Component.onCompleted: {
+    directTouch.window = centerCanvas
+    directTouch.start()
+  }
 
   function toggleDrawer(edge) {
     openDrawer = openDrawer === edge ? "" : edge
@@ -65,6 +77,11 @@ PanelWindow {
 
     function closeDrawer(): void {
       root.closeDrawer()
+    }
+
+    function reconnectTouch(): void {
+      directTouch.stop()
+      directTouch.start()
     }
 
     function edit(enabled: bool): void {

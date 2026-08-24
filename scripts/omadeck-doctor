@@ -1,0 +1,174 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+plugin_dir=$(cd -- "$script_dir/.." && pwd)
+target_screen=DP-3
+primary_monitor=DP-1
+summary_only=false
+
+while (($#)); do
+  case "$1" in
+    --summary)
+      summary_only=true
+      shift
+      ;;
+    --plugin-dir)
+      plugin_dir=${2:?--plugin-dir requires a path}
+      shift 2
+      ;;
+    --target-screen)
+      target_screen=${2:?--target-screen requires a name}
+      shift 2
+      ;;
+    --primary-monitor)
+      primary_monitor=${2:?--primary-monitor requires a name}
+      shift 2
+      ;;
+    --help|-h)
+      printf 'Usage: omadeck-doctor [--summary] [--plugin-dir PATH] [--target-screen NAME] [--primary-monitor NAME]\n'
+      exit 0
+      ;;
+    *)
+      printf 'Unknown option: %s\n' "$1" >&2
+      exit 2
+      ;;
+  esac
+done
+
+declare -a report_lines=()
+core_issues=0
+advisories=0
+touch_device=""
+touch_owned=false
+
+ok() {
+  report_lines+=("[OK] $1")
+}
+
+fail() {
+  report_lines+=("[FAIL] $1")
+  ((core_issues += 1))
+}
+
+warn() {
+  report_lines+=("[WARN] $1")
+  ((advisories += 1))
+}
+
+if pgrep -x quickshell >/dev/null 2>&1; then
+  ok "Omarchy shell is running"
+else
+  fail "Omarchy shell is not running"
+fi
+
+monitor_json=$(hyprctl -j monitors 2>/dev/null || true)
+if [[ -n $monitor_json ]] && command -v jq >/dev/null 2>&1; then
+  if jq -e --arg name "$target_screen" 'any(.[]; .name == $name)' <<<"$monitor_json" >/dev/null 2>&1; then
+    ok "Deck monitor $target_screen is connected"
+  else
+    fail "Deck monitor $target_screen is not connected"
+  fi
+  if jq -e --arg name "$primary_monitor" 'any(.[]; .name == $name)' <<<"$monitor_json" >/dev/null 2>&1; then
+    ok "Primary monitor $primary_monitor is connected"
+  else
+    fail "Primary monitor $primary_monitor is not connected"
+  fi
+else
+  fail "Could not inspect Hyprland monitors"
+fi
+
+for event_path in /dev/input/event*; do
+  [[ -e $event_path ]] || continue
+  properties=$(udevadm info -q property -n "$event_path" 2>/dev/null || true)
+  [[ $properties == *"ID_INPUT_TOUCHSCREEN=1"* ]] || continue
+  if [[ $properties == *"wch.cn"* || $properties == *"WCH.CN"* || $properties == *"XENEON"* ]]; then
+    touch_device=$event_path
+    break
+  fi
+  [[ -n $touch_device ]] || touch_device=$event_path
+done
+
+if [[ -n $touch_device ]]; then
+  if [[ -r $touch_device ]]; then
+    ok "Touchscreen is available and readable at $touch_device"
+  else
+    fail "Touchscreen exists at $touch_device but is not readable"
+  fi
+else
+  fail "No direct touchscreen input device was found"
+fi
+
+if [[ -n $touch_device ]]; then
+  while IFS= read -r shell_pid; do
+    for fd_path in "/proc/$shell_pid/fd/"*; do
+      [[ -e $fd_path ]] || continue
+      if [[ $(readlink "$fd_path" 2>/dev/null || true) == "$touch_device" ]]; then
+        touch_owned=true
+        break 2
+      fi
+    done
+  done < <(pgrep -x quickshell 2>/dev/null || true)
+fi
+
+if $touch_owned; then
+  ok "OmaDeck touch bridge owns $touch_device"
+else
+  fail "OmaDeck touch bridge is not connected to the touchscreen"
+fi
+
+if [[ -f $plugin_dir/native/OmaDeck/Touch/libomadecktouchplugin.so ]]; then
+  ok "Native touch bridge is built"
+else
+  fail "Native touch bridge is not built; run scripts/build-native"
+fi
+
+if [[ -x $plugin_dir/native/bin/omadeck-tray ]]; then
+  ok "System-tray controller is built"
+else
+  warn "System-tray controller is not built; run scripts/build-native"
+fi
+
+for command_path in \
+  "$HOME/.local/bin/alienware-to-omarchy" \
+  "$HOME/.local/bin/alienware-to-mac"; do
+  if [[ -x $command_path ]]; then
+    ok "Monitor input command is executable: $command_path"
+  else
+    warn "Monitor input command is missing or not executable: $command_path"
+  fi
+done
+
+for command_name in hyprctl jq omarchy omarchy-shell wpctl; do
+  if command -v "$command_name" >/dev/null 2>&1; then
+    ok "Required command is available: $command_name"
+  else
+    fail "Required command is missing: $command_name"
+  fi
+done
+
+if $summary_only; then
+  if ((core_issues == 0)); then
+    if ((advisories == 0)); then
+      printf 'Healthy — touchscreen connected\n'
+    else
+      printf 'Healthy — %d advisor%s\n' "$advisories" "$([[ $advisories -eq 1 ]] && printf y || printf ies)"
+    fi
+  else
+    printf 'Attention — %d health issue%s\n' "$core_issues" "$([[ $core_issues -eq 1 ]] || printf s)"
+  fi
+  exit 0
+fi
+
+printf 'OmaDeck diagnostics\n'
+printf 'Plugin: %s\n' "$plugin_dir"
+printf 'Deck monitor: %s    Primary monitor: %s\n\n' "$target_screen" "$primary_monitor"
+printf '%s\n' "${report_lines[@]}"
+printf '\n'
+if ((core_issues == 0)); then
+  printf 'Overall: healthy'
+  ((advisories == 0)) || printf ' with %d advisory item(s)' "$advisories"
+  printf '\n'
+else
+  printf 'Overall: attention required (%d health issue(s), %d advisory item(s))\n' "$core_issues" "$advisories"
+fi

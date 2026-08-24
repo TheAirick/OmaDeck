@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import "components"
 import "services"
 
@@ -10,6 +11,11 @@ Item {
   property var manifest: null
   property string targetScreen: "DP-3"
   property string primaryMonitor: "DP-1"
+  readonly property string pluginDir: {
+    if (manifest && manifest.__sourceDir) return String(manifest.__sourceDir)
+    var resolved = String(Qt.resolvedUrl("."))
+    return resolved.replace(/^file:\/\//, "").replace(/\/$/, "")
+  }
   readonly property var targetScreens: {
     var screens = Quickshell.screens || []
     var matches = []
@@ -21,6 +27,13 @@ Item {
 
   LayoutController {
     id: layoutStore
+  }
+
+  Process {
+    id: trayController
+    command: [root.pluginDir + "/scripts/run-tray", root.pluginDir,
+              root.targetScreen, root.primaryMonitor]
+    running: root.pluginDir !== ""
   }
 
   Variants {

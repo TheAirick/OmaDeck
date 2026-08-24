@@ -18,17 +18,30 @@ application actions.
 
 ## Touch mapping
 
-Hyprland must map the touchscreen input device to OmaDeck's output. OmaDeck
-deliberately does not move the software mouse pointer during touch actions.
-Confirm device and output names with:
+OmaDeck's native bridge discovers a direct touchscreen, prefers devices named
+WCH.CN or XENEON, exclusively grabs its evdev node, and injects events only into
+the deck window. This prevents touch from moving the desktop mouse pointer or
+activating windows on another monitor.
+
+The logged-in user must be able to read the touchscreen event node. Confirm the
+device and the bridge state with:
 
 ```bash
-hyprctl devices
-hyprctl monitors
+./scripts/omadeck-doctor
 ```
 
-Configure input-to-output mapping through your normal Omarchy or Hyprland
-monitor configuration.
+The bridge automatically retries once per second when suspend or a USB reset
+temporarily removes the device.
+
+## System tray
+
+OmaDeck launches a small system-tray controller with the service. Click its
+icon from the primary desktop to open the OmaDeck Control Center, inspect touch
+and monitor health, copy a sanitized report, request a touch reconnect, or
+restart the Omarchy shell. This path does not require the deck touchscreen.
+
+The tray is built by `scripts/build-native`. If the tray is missing, rebuild and
+restart the shell.
 
 ## Application launcher
 

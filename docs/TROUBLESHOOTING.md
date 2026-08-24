@@ -8,8 +8,32 @@ For a linked checkout, run `omarchy-shell shell rescanPlugins`.
 
 ## Touch affects the wrong monitor
 
-The touchscreen is mapped by Hyprland, not QML. Compare `hyprctl devices` with
-`hyprctl monitors` and map the touch device to OmaDeck's output.
+Current OmaDeck releases isolate the direct touchscreen in a native bridge and
+inject it only into the deck window. Run `scripts/omadeck-doctor` and confirm
+that the expected WCH.CN/Xeneon device is both readable and owned by the bridge.
+
+## Touch stops after suspend or a USB reset
+
+The bridge automatically closes the dead evdev descriptor and retries once per
+second until the touchscreen returns. If it does not recover, open the OmaDeck
+system-tray icon with the mouse and choose **Reconnect touchscreen**, or run:
+
+```bash
+omarchy-shell pretty.omadeck reconnectTouch
+```
+
+The Control Center's copied report identifies a missing device, permission
+problem, absent native build, or disconnected bridge without including
+clipboard contents or window titles.
+
+## The OmaDeck tray icon is missing
+
+Rebuild the native components and restart the shell:
+
+```bash
+~/.config/omarchy/plugins/pretty.omadeck/scripts/build-native
+omarchy restart shell
+```
 
 ## Applications open on the deck
 
@@ -51,3 +75,9 @@ omarchy debug --no-sudo --print
 
 Reports should include the OmaDeck commit, Omarchy version, monitor names,
 logs, and reproduction steps. Remove private clipboard text and window titles.
+
+For a focused, sanitized report, run:
+
+```bash
+~/.config/omarchy/plugins/pretty.omadeck/scripts/omadeck-doctor
+```
