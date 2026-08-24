@@ -35,9 +35,36 @@ Item {
   }
   function rate(value) { return bytes(value) + "/s" }
   function sectionTitle(section) {
-    if (section === "clipboard" && selectedClipboard) return "Clipboard entry"
-    if (section === "applications" && selectedClientAddress !== "") return "Application"
     return ({performance:"Performance", network:"Network", applications:"Applications", clipboard:"Clipboard", storage:"Storage"})[section] || "System"
+  }
+  function hasLeaf() {
+    return (selectedSection === "clipboard" && selectedClipboard)
+      || (selectedSection === "applications" && selectedClientAddress !== "")
+  }
+  function leafTitle() {
+    if (selectedSection === "clipboard" && selectedClipboard) return selectedClipboard.type === "image" ? "Image" : "Text"
+    if (selectedSection === "applications") {
+      var client = currentClient()
+      if (!client) return "Closed"
+      var name = String(client.class || "Application")
+      if (name === "zen") return "Zen"
+      if (name === "discord") return "Discord"
+      if (name.indexOf("ghostty") !== -1) return "Ghostty"
+      if (name.indexOf("Nautilus") !== -1) return "Files"
+      return name.charAt(0).toUpperCase() + name.slice(1)
+    }
+    return ""
+  }
+  function returnToSystem() {
+    selectedClipboard = null
+    selectedClientAddress = ""
+    forceKillArmed = false
+    selectedSection = ""
+  }
+  function returnToSection() {
+    selectedClipboard = null
+    selectedClientAddress = ""
+    forceKillArmed = false
   }
   function appendSample(history, value) { return history.concat([Number(value || 0)]).slice(-45) }
   function peak(history) {
@@ -213,27 +240,18 @@ Item {
       width: parent.width
       height: Style.space(34)
 
-      Text {
-        id: backIcon
+      Row {
         anchors.left: parent.left
         anchors.top: parent.top
-        text: "󰅁"
-        color: Color.accent
-        font.family: Style.font.family
-        font.pixelSize: Style.font.title
+        height: parent.height
+        spacing: Style.spacing.controlGap
+
+        BreadcrumbPart { label: "System"; navigable: true; onTriggered: root.returnToSystem() }
+        Text { height: parent.height; text: "󰅂"; color: Color.muted; font.family: Style.font.family; font.pixelSize: Style.font.body; verticalAlignment: Text.AlignVCenter }
+        BreadcrumbPart { label: root.sectionTitle(root.selectedSection); navigable: root.hasLeaf(); onTriggered: root.returnToSection() }
+        Text { visible: root.hasLeaf(); height: parent.height; text: "󰅂"; color: Color.muted; font.family: Style.font.family; font.pixelSize: Style.font.body; verticalAlignment: Text.AlignVCenter }
+        BreadcrumbPart { visible: root.hasLeaf(); label: root.leafTitle(); navigable: false }
       }
-      Text {
-        anchors.left: backIcon.right
-        anchors.leftMargin: Style.spacing.controlGap
-        anchors.top: parent.top
-        text: root.sectionTitle(root.selectedSection)
-        color: Color.foreground
-        font.family: Style.font.family
-        font.pixelSize: Style.font.title
-        font.bold: true
-      }
-      HoverHandler { id: backHover }
-      TapHandler { onTapped: root.goBack() }
     }
 
     Loader {
@@ -269,6 +287,27 @@ Item {
     Text { id: stripArrow; anchors.right: parent.right; anchors.rightMargin: Style.spacing.panelGap; anchors.verticalCenter: parent.verticalCenter; text: "󰅂"; color: Color.muted; font.family: Style.font.family; font.pixelSize: Style.font.body }
     HoverHandler { id: stripHover }
     TapHandler { id: stripTap; onTapped: strip.triggered() }
+  }
+
+  component BreadcrumbPart: Item {
+    id: crumb
+    property string label: ""
+    property bool navigable: false
+    signal triggered()
+    width: crumbText.implicitWidth
+    height: parent ? parent.height : Style.space(34)
+    Text {
+      id: crumbText
+      anchors.fill: parent
+      text: crumb.label
+      color: crumb.navigable ? Color.accent : Color.foreground
+      font.family: Style.font.family
+      font.pixelSize: Style.font.title
+      font.bold: !crumb.navigable
+      verticalAlignment: Text.AlignVCenter
+    }
+    HoverHandler { id: crumbHover; enabled: crumb.navigable }
+    TapHandler { enabled: crumb.navigable; onTapped: crumb.triggered() }
   }
 
   component Meter: Item {
