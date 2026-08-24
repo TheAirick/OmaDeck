@@ -55,6 +55,11 @@ Item {
     if (hours > 0) return hours + ":" + String(minutes).padStart(2, "0") + ":" + String(secs).padStart(2, "0")
     return minutes + ":" + String(secs).padStart(2, "0")
   }
+  function setMixerCompact(compact) { mixer.compact = compact }
+  function setMixerCategory(category) {
+    mixer.compact = false
+    mixer.expandedCategory = ["media", "games", "voice", "other"].indexOf(category) !== -1 ? category : ""
+  }
 
   onPlayerChanged: { refreshPosition(); captureDuration() }
   onTrackKeyChanged: { cachedLength = 0; optimisticPosition = false; captureDuration(); refreshPosition() }

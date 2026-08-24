@@ -98,6 +98,28 @@ PanelWindow {
       systemDrawer.selectedSection = "applications"
       systemDrawer.selectedClientAddress = systemDrawer.stats.clients[index].address
     }
+
+    function systemBack(): void {
+      systemDrawer.goBack()
+    }
+
+    function clipboardCopy(): void {
+      systemDrawer.copyClipboard(systemDrawer.selectedClipboard)
+    }
+
+    function clipboardDelete(): void {
+      systemDrawer.deleteClipboard(systemDrawer.selectedClipboard)
+    }
+
+    function mediaCompact(compact: bool): void {
+      root.openDrawer = "left"
+      mediaDrawer.setMixerCompact(compact)
+    }
+
+    function mediaCategory(category: string): void {
+      root.openDrawer = "left"
+      mediaDrawer.setMixerCategory(category)
+    }
   }
 
   Rectangle {
@@ -115,6 +137,7 @@ PanelWindow {
     height: root.usableHeight
 
     MediaModule {
+      id: mediaDrawer
       anchors.fill: parent
       shell: root.shell
     }
