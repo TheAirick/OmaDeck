@@ -4,6 +4,7 @@
 #include <QDir>
 #include <QFileInfoList>
 #include <QMouseEvent>
+#include <QPointer>
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QSocketNotifier>
@@ -20,6 +21,8 @@
 #include <unistd.h>
 
 namespace {
+QPointer<TouchBridge> activeBridge;
+
 template <size_t N>
 bool bitSet(const unsigned long (&bits)[N], unsigned int bit)
 {
@@ -104,7 +107,8 @@ QString TouchBridge::findTouchscreen() const
     QString fallback;
 
     for (const QFileInfo &entry : entries) {
-        const int fd = ::open(entry.absoluteFilePath().toUtf8().constData(), O_RDONLY | O_NONBLOCK);
+        const int fd = ::open(entry.absoluteFilePath().toUtf8().constData(),
+                              O_RDONLY | O_NONBLOCK | O_CLOEXEC);
         if (fd < 0)
             continue;
         QString name;
@@ -127,6 +131,15 @@ bool TouchBridge::start()
     m_wantsActive = true;
     if (active())
         return true;
+
+    // Quickshell can recover from a QML crash inside the same process. The old
+    // plugin object may survive that engine reset long enough to retain its
+    // EVIOCGRAB, so explicitly hand ownership to the replacement instance.
+    if (activeBridge && activeBridge != this) {
+        qInfo() << "[OmaDeckTouch] releasing stale bridge before reconnect";
+        activeBridge->stop();
+    }
+
     const QString path = findTouchscreen();
     if (path.isEmpty()) {
         setStatus(QStringLiteral("No accessible direct touchscreen found"));
@@ -143,9 +156,25 @@ bool TouchBridge::start()
 
 bool TouchBridge::openDevice(const QString &path)
 {
-    m_fd = ::open(path.toUtf8().constData(), O_RDONLY | O_NONBLOCK);
+    // Never leak the exclusive evdev file description into helpers launched
+    // by Quickshell. A leaked duplicate keeps EVIOCGRAB alive after the bridge
+    // or shell restarts, making the replacement bridge look connected while
+    // all touch remains permanently blocked.
+    m_fd = ::open(path.toUtf8().constData(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
     if (m_fd < 0) {
         setStatus(QStringLiteral("Cannot open %1: %2").arg(path, QString::fromLocal8Bit(std::strerror(errno))));
+        return false;
+    }
+
+    // Belt-and-suspenders: Quickshell launches many long-lived helpers from
+    // this process. Confirm the descriptor flag directly instead of relying
+    // only on the atomic open flag.
+    const int descriptorFlags = ::fcntl(m_fd, F_GETFD);
+    if (descriptorFlags < 0 || ::fcntl(m_fd, F_SETFD, descriptorFlags | FD_CLOEXEC) < 0) {
+        setStatus(QStringLiteral("Cannot protect %1 from descriptor inheritance: %2")
+                      .arg(path, QString::fromLocal8Bit(std::strerror(errno))));
+        ::close(m_fd);
+        m_fd = -1;
         return false;
     }
 
@@ -184,10 +213,12 @@ bool TouchBridge::openDevice(const QString &path)
     m_devicePath = path;
     m_notifier = new QSocketNotifier(m_fd, QSocketNotifier::Read, this);
     connect(m_notifier, &QSocketNotifier::activated, this, &TouchBridge::readEvents);
+    activeBridge = this;
     setStatus(QStringLiteral("Isolated direct touch: %1").arg(name));
     qInfo() << "[OmaDeckTouch] grabbed" << path << name
             << "multitouch" << m_hasMultitouch
-            << "axes" << m_xMin << m_xMax << m_yMin << m_yMax;
+            << "axes" << m_xMin << m_xMax << m_yMin << m_yMax
+            << "closeOnExec" << bool(::fcntl(m_fd, F_GETFD) & FD_CLOEXEC);
     emit devicePathChanged();
     emit activeChanged();
     return true;
@@ -202,8 +233,12 @@ void TouchBridge::stop()
 
 void TouchBridge::closeDevice(const QString &status)
 {
-    if (m_fd < 0)
+    if (m_fd < 0) {
+        if (activeBridge == this)
+            activeBridge.clear();
+        setStatus(status);
         return;
+    }
     if (m_pointerDown && m_window) {
         QMouseEvent release(QEvent::MouseButtonRelease, m_lastPosition,
                             m_window->mapToGlobal(m_lastPosition), Qt::LeftButton,
@@ -216,6 +251,8 @@ void TouchBridge::closeDevice(const QString &status)
     ::ioctl(m_fd, EVIOCGRAB, 0);
     ::close(m_fd);
     m_fd = -1;
+    if (activeBridge == this)
+        activeBridge.clear();
     m_devicePath.clear();
     resetInputState();
     setStatus(status);
@@ -367,5 +404,6 @@ void TouchBridge::setStatus(const QString &status)
     if (m_status == status)
         return;
     m_status = status;
+    qInfo() << "[OmaDeckTouch] status" << m_status;
     emit statusChanged();
 }

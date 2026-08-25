@@ -64,6 +64,25 @@ device and the bridge state with:
 The bridge automatically retries once per second when suspend or a USB reset
 temporarily removes the device.
 
+For a dedicated Xeneon Edge, disconnect both of its normalized libinput views
+from Hyprland so the compositor cannot race the bridge after a shell restart.
+Add the names reported by `hyprctl devices` to `~/.config/hypr/input.lua`:
+
+```lua
+hl.device({
+  name = "wch.cn-touchscreen",
+  enabled = false,
+})
+
+hl.device({
+  name = "wch.cn-touchscreen-1",
+  enabled = false,
+})
+```
+
+Reload with `hyprctl reload` and confirm `hyprctl configerrors` is empty. Other
+touchscreen models can use different normalized names.
+
 ## System tray
 
 OmaDeck launches a small system-tray controller with the service. Click its

@@ -35,6 +35,7 @@ roadmap is directional rather than a release promise.
 
 ## Completed foundations
 
+- Crash-safe touch ownership and PipeWire stream teardown
 - Responsive module density and synchronized drawer retiling
 - Persistent touch settings for Clock/Weather appearance
 - Current weather with Omarchy-shared location, condition glyphs, and forecast

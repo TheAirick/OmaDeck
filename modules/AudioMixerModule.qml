@@ -14,6 +14,7 @@ Item {
   property var displayStreams: []
   property string volumeSinkName: ""
   property bool compact: false
+  readonly property int streamRowCapacity: 16
   readonly property real contentHeight: mixerColumn.implicitHeight
 
   readonly property var nodes: Pipewire.nodes ? Pipewire.nodes.values : []
@@ -283,17 +284,24 @@ Item {
         id: childrenColumn
         width: parent.width
         Repeater {
-          model: category.streams
+          // Keep the QQuickRepeater model stable while PipeWire destroys and
+          // recreates PwNode objects. Rebinding a Repeater directly to the
+          // shrinking QObject array can crash inside QQmlObjectModel while
+          // PwNode::unbindHooks is notifying QML.
+          model: root.streamRowCapacity
           delegate: VolumeRow {
-            required property var modelData
+            required property int index
+            readonly property var streamNode: index < category.streams.length
+              ? category.streams[index] : null
             width: childrenColumn.width
-            label: AudioModel.streamLabel(modelData)
+            label: AudioModel.streamLabel(streamNode)
             glyph: "󰎆"
-            level: modelData && modelData.audio ? modelData.audio.volume : 0
-            muted: modelData && modelData.audio ? modelData.audio.muted : false
-            available: !!(modelData && modelData.audio)
-            onChanged: value => modelData.audio.volume = root.clamp(value)
-            onMuteRequested: modelData.audio.muted = !modelData.audio.muted
+            level: streamNode && streamNode.audio ? streamNode.audio.volume : 0
+            muted: streamNode && streamNode.audio ? streamNode.audio.muted : false
+            available: !!(streamNode && streamNode.audio)
+            revealed: available
+            onChanged: value => { if (streamNode && streamNode.audio) streamNode.audio.volume = root.clamp(value) }
+            onMuteRequested: if (streamNode && streamNode.audio) streamNode.audio.muted = !streamNode.audio.muted
           }
         }
       }

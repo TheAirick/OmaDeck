@@ -26,6 +26,27 @@ The Control Center's copied report identifies a missing device, permission
 problem, absent native build, or disconnected bridge without including
 clipboard contents or window titles.
 
+## Touch stops after Quickshell recovers from a crash
+
+OmaDeck releases a previous in-process bridge before the recovered QML engine
+acquires touch, and its evdev descriptor is protected from inheritance by tray,
+editor, and watcher processes. Rebuild native components after updating so that
+protection is active:
+
+```bash
+~/.config/omarchy/plugins/pretty.omadeck/scripts/build-native
+omarchy restart shell
+```
+
+The dedicated touch endpoints must also be disabled in Hyprland as described in
+[Configuration](CONFIGURATION.md#touch-mapping). Otherwise Hyprland can claim
+the device during the brief gap between bridge instances. A healthy restart
+logs `[OmaDeckTouch] grabbed` and `closeOnExec true`.
+
+If Quickshell itself dumped core during an audio-device change, inspect it with
+`coredumpctl info quickshell`. OmaDeck keeps its per-stream repeater model fixed
+so PipeWire node removal does not regenerate Qt delegates during node teardown.
+
 ## The OmaDeck tray icon is missing
 
 Rebuild the native components and restart the shell:

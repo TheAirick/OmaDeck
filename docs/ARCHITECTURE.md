@@ -47,7 +47,9 @@ OmaDeck also contains two native Qt components:
 
 - `TouchBridge` exclusively reads the direct touchscreen evdev node and injects
   pointer events only into the OmaDeck window. It automatically releases dead
-  descriptors and retries after USB re-enumeration or suspend.
+  descriptors, hands ownership between QML-engine instances after crash
+  recovery, marks the device close-on-exec, and retries after USB
+  re-enumeration or suspend.
 - `omadeck-tray` is a separate `QSystemTrayIcon` process. It remains usable by
   mouse when deck touch is unavailable and runs the same health checks exposed
   by `scripts/omadeck-doctor`.
@@ -55,6 +57,10 @@ OmaDeck also contains two native Qt components:
 `scripts/build-native` configures and builds both components. Generated build
 artifacts are deliberately not stored in Git because they are tied to the
 local Qt and Quickshell ABI.
+
+The audio mixer snapshots live PipeWire streams before presenting them. Its
+per-stream delegates use a fixed repeater model so `PwNode` removal never asks
+Qt to regenerate a `QQuickRepeater` while Quickshell is unbinding that node.
 
 ## IPC
 
