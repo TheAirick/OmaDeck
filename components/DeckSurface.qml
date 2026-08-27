@@ -117,6 +117,15 @@ PanelWindow {
       return JSON.stringify(root.drawerDiagnostics())
     }
 
+    function touchState(): string {
+      return JSON.stringify({
+        active: directTouch.active,
+        exclusiveGrab: directTouch.active,
+        devicePath: directTouch.devicePath,
+        status: directTouch.status
+      })
+    }
+
     function reconnectTouch(): void {
       directTouch.stop()
       directTouch.start()

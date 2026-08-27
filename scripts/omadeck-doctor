@@ -6,6 +6,17 @@ plugin_dir=$(cd -- "$script_dir/.." && pwd)
 target_screen=DP-3
 primary_monitor=DP-1
 summary_only=false
+input_root=${OMADECK_INPUT_ROOT:-/dev/input}
+proc_root=${OMADECK_PROC_ROOT:-/proc}
+touch_state_attempts=${OMADECK_TOUCH_STATE_ATTEMPTS:-4}
+touch_state_retry_delay=${OMADECK_TOUCH_STATE_RETRY_DELAY:-0.1}
+
+[[ $touch_state_attempts =~ ^[1-9][0-9]*$ ]] || touch_state_attempts=4
+((touch_state_attempts <= 10)) || touch_state_attempts=10
+case "$touch_state_retry_delay" in
+  0|0.0|0.00|0.000|0.1|0.10|0.100|0.2|0.20|0.200|0.25|0.250) ;;
+  *) touch_state_retry_delay=0.1 ;;
+esac
 
 while (($#)); do
   case "$1" in
@@ -40,7 +51,11 @@ declare -a report_lines=()
 core_issues=0
 advisories=0
 touch_device=""
-touch_owned=false
+touch_open=false
+touch_state=""
+touch_state_device=""
+touch_state_active=false
+touch_state_exclusive=false
 
 ok() {
   report_lines+=("[OK] $1")
@@ -78,7 +93,7 @@ else
   fail "Could not inspect Hyprland monitors"
 fi
 
-for event_path in /dev/input/event*; do
+for event_path in "$input_root"/event*; do
   [[ -e $event_path ]] || continue
   properties=$(udevadm info -q property -n "$event_path" 2>/dev/null || true)
   [[ $properties == *"ID_INPUT_TOUCHSCREEN=1"* ]] || continue
@@ -101,20 +116,41 @@ fi
 
 if [[ -n $touch_device ]]; then
   while IFS= read -r shell_pid; do
-    for fd_path in "/proc/$shell_pid/fd/"*; do
+    for fd_path in "$proc_root/$shell_pid/fd/"*; do
       [[ -e $fd_path ]] || continue
       if [[ $(readlink "$fd_path" 2>/dev/null || true) == "$touch_device" ]]; then
-        touch_owned=true
+        touch_open=true
         break 2
       fi
     done
   done < <(pgrep -x quickshell 2>/dev/null || true)
 fi
 
-if $touch_owned; then
-  ok "OmaDeck touch bridge owns $touch_device"
+if command -v omarchy-shell >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+  for ((attempt = 1; attempt <= touch_state_attempts; attempt++)); do
+    touch_state=$(omarchy-shell pretty.omadeck touchState 2>/dev/null || true)
+    if jq -e 'type == "object" and .active == true and .exclusiveGrab == true' \
+        <<<"$touch_state" >/dev/null 2>&1; then
+      break
+    fi
+    ((attempt == touch_state_attempts)) || sleep "$touch_state_retry_delay"
+  done
+  if jq -e 'type == "object"' <<<"$touch_state" >/dev/null 2>&1; then
+    touch_state_device=$(jq -r '.devicePath // ""' <<<"$touch_state")
+    [[ $(jq -r '.active // false' <<<"$touch_state") == true ]] && touch_state_active=true
+    [[ $(jq -r '.exclusiveGrab // false' <<<"$touch_state") == true ]] && touch_state_exclusive=true
+  fi
+fi
+
+if [[ -n $touch_device ]] && $touch_state_active && $touch_state_exclusive \
+    && [[ $touch_state_device == "$touch_device" ]]; then
+  ok "OmaDeck touch bridge reports an active exclusive grab of $touch_device"
+elif $touch_open; then
+  fail "Touchscreen $touch_device is open by Quickshell, but OmaDeck does not report an active exclusive grab"
+elif [[ -n $touch_state_device && $touch_state_device != "$touch_device" ]]; then
+  fail "OmaDeck touch bridge reports a different device: $touch_state_device"
 else
-  fail "OmaDeck touch bridge is not connected to the touchscreen"
+  fail "OmaDeck touch bridge does not report an active exclusive grab of the touchscreen"
 fi
 
 if [[ -f $plugin_dir/native/OmaDeck/Touch/libomadecktouchplugin.so ]]; then
@@ -157,7 +193,8 @@ if $summary_only; then
   else
     printf 'Attention — %d health issue%s\n' "$core_issues" "$([[ $core_issues -eq 1 ]] || printf s)"
   fi
-  exit 0
+  ((core_issues == 0)) && exit 0
+  exit 1
 fi
 
 printf 'OmaDeck diagnostics\n'
@@ -172,3 +209,6 @@ if ((core_issues == 0)); then
 else
   printf 'Overall: attention required (%d health issue(s), %d advisory item(s))\n' "$core_issues" "$advisories"
 fi
+
+((core_issues == 0)) && exit 0
+exit 1
