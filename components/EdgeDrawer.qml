@@ -7,7 +7,12 @@ BorderSurface {
 
   property string edge: "left"
   property bool open: false
+  readonly property real dismissInset: edge === "left" ? contentRightInset
+    : edge === "right" ? contentLeftInset
+    : edge === "top" ? contentBottomInset
+    : contentTopInset
   default property alias content: contentHost.data
+  signal dismissRequested()
 
   color: Color.popups.background
   radius: Style.cornerRadius
@@ -25,5 +30,18 @@ BorderSurface {
     anchors.rightMargin: root.contentRightInset
     anchors.bottomMargin: root.contentBottomInset
     anchors.leftMargin: root.contentLeftInset
+  }
+
+  // Reverse swipes start only in the inner padding strip, outside content and
+  // its pointer handlers. Sliders and other controls therefore retain grabs in
+  // both directions while the padding remains a dedicated dismissal region.
+  EdgeSwipeArea {
+    edge: root.edge
+    reverse: true
+    enabled: root.open
+    gestureThickness: root.dismissInset
+    x: root.edge === "left" ? root.width - width : 0
+    y: root.edge === "top" ? root.height - height : 0
+    onTriggered: root.dismissRequested()
   }
 }

@@ -5,6 +5,7 @@ import Quickshell.Wayland
 import qs.Commons
 import qs.Ui
 import "../modules"
+import "DrawerGesture.js" as DrawerGesture
 import "../native/OmaDeck/Touch" as NativeTouch
 
 PanelWindow {
@@ -62,7 +63,11 @@ PanelWindow {
   }
 
   function toggleDrawer(edge) {
-    openDrawer = openDrawer === edge ? "" : edge
+    openDrawer = DrawerGesture.toggleDrawer(openDrawer, edge)
+  }
+
+  function dismissDrawer(edge) {
+    openDrawer = DrawerGesture.dismissDrawer(openDrawer, edge)
   }
 
   function closeDrawer() {
@@ -150,6 +155,7 @@ PanelWindow {
   EdgeDrawer {
     edge: "left"
     open: root.openDrawer === edge
+    onDismissRequested: root.dismissDrawer(edge)
     x: root.outerGap - root.leftDrawerWidth - root.innerGap + root.reservedLeft
     y: root.outerGap
     width: root.leftDrawerWidth
@@ -165,6 +171,7 @@ PanelWindow {
   EdgeDrawer {
     edge: "right"
     open: root.openDrawer === edge
+    onDismissRequested: root.dismissDrawer(edge)
     x: parent.width - root.outerGap + root.innerGap - root.reservedRight
     y: root.outerGap
     width: root.rightDrawerWidth
@@ -180,6 +187,7 @@ PanelWindow {
   EdgeDrawer {
     edge: "top"
     open: root.openDrawer === edge
+    onDismissRequested: root.dismissDrawer(edge)
     x: root.outerGap
     y: root.outerGap - root.topDrawerHeight - root.innerGap + root.reservedTop
     width: root.usableWidth
@@ -196,6 +204,7 @@ PanelWindow {
   EdgeDrawer {
     edge: "bottom"
     open: root.openDrawer === edge
+    onDismissRequested: root.dismissDrawer(edge)
     x: root.outerGap
     y: parent.height - root.outerGap + root.innerGap - root.reservedBottom
     width: root.usableWidth
@@ -231,11 +240,6 @@ PanelWindow {
       weatherController: root.weatherController
     }
 
-    TapHandler {
-      enabled: root.openDrawer !== ""
-      acceptedButtons: Qt.LeftButton
-      onTapped: if (root.openDrawer !== "") root.closeDrawer()
-    }
   }
 
   // Generous touch zones begin the drawer gesture. The first foundation uses
