@@ -48,6 +48,7 @@ Item {
     height - Style.space(93) - visibleCategoryCount * Style.space(45) - Style.space(13))
 
   function clamp(value) { return Math.max(0, Math.min(1, value)) }
+  function streamAudio(stream) { return stream && stream.audio ? stream.audio : null }
   function streamsFor(category) {
     var result = []
     for (var i = 0; i < displayStreams.length; i++)
@@ -57,25 +58,38 @@ Item {
   function categoryVolume(category) {
     var streams = streamsFor(category)
     var maximum = 0
-    for (var i = 0; i < streams.length; i++) maximum = Math.max(maximum, streams[i].audio.volume)
+    for (var i = 0; i < streams.length; i++) {
+      var audio = streamAudio(streams[i])
+      if (audio) maximum = Math.max(maximum, audio.volume)
+    }
     return maximum
   }
   function categoryMuted(category) {
     var streams = streamsFor(category)
-    if (!streams.length) return false
-    for (var i = 0; i < streams.length; i++) if (!streams[i].audio.muted) return false
-    return true
+    var hasAudio = false
+    for (var i = 0; i < streams.length; i++) {
+      var audio = streamAudio(streams[i])
+      if (!audio) continue
+      hasAudio = true
+      if (!audio.muted) return false
+    }
+    return hasAudio
   }
   function setCategoryVolume(category, target) {
     var streams = streamsFor(category)
     var current = categoryVolume(category)
-    for (var i = 0; i < streams.length; i++)
-      streams[i].audio.volume = current > 0 ? clamp(streams[i].audio.volume * target / current) : clamp(target)
+    for (var i = 0; i < streams.length; i++) {
+      var audio = streamAudio(streams[i])
+      if (audio) audio.volume = current > 0 ? clamp(audio.volume * target / current) : clamp(target)
+    }
   }
   function toggleCategoryMute(category) {
     var streams = streamsFor(category)
     var next = !categoryMuted(category)
-    for (var i = 0; i < streams.length; i++) streams[i].audio.muted = next
+    for (var i = 0; i < streams.length; i++) {
+      var audio = streamAudio(streams[i])
+      if (audio) audio.muted = next
+    }
   }
   function refreshStreams() { displayStreams = liveStreams.slice() }
   function resolveVolumeSink() { if (!sinkResolver.running) sinkResolver.running = true }

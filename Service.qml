@@ -36,6 +36,7 @@ Item {
   WeatherController {
     id: weatherStore
     pluginDir: root.pluginDir
+    enabled: appearanceStore.loaded && appearanceStore.showWeather
   }
 
   Process {

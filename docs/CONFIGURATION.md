@@ -9,7 +9,9 @@ Tap the gear in the upper-right of the Clock/Weather card. The sheet controls:
 
 - Hero, Split, or Compact clock layout
 - 12- or 24-hour time and optional seconds
-- Weather visibility and manual refresh
+- Weather visibility and manual refresh. Choosing **Hidden** is a privacy
+  opt-out: OmaDeck stops weather refreshes, retry work, and location polling,
+  and does not start weather provider requests until weather is shown again.
 - Rich, Glyph, or Minimal weather visuals
 - Compact current conditions, Standard two-day forecast, or Full three-day forecast
 - Fahrenheit or Celsius

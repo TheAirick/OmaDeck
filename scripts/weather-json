@@ -2,6 +2,34 @@
 
 set -u
 
+weather_curl_pid=""
+weather_output_file=""
+weather_response=""
+
+terminate_weather_request() {
+  if [[ -n "$weather_curl_pid" ]]; then
+    kill "$weather_curl_pid" 2>/dev/null || true
+    wait "$weather_curl_pid" 2>/dev/null || true
+  fi
+  [[ -z "$weather_output_file" ]] || rm -f "$weather_output_file"
+  exit 143
+}
+
+fetch_json() {
+  weather_output_file=$(mktemp)
+  curl -fsS --max-time 8 "$@" >"$weather_output_file" &
+  weather_curl_pid=$!
+  wait "$weather_curl_pid"
+  local status=$?
+  weather_curl_pid=""
+  weather_response=$(<"$weather_output_file")
+  rm -f "$weather_output_file"
+  weather_output_file=""
+  return "$status"
+}
+
+trap terminate_weather_request TERM INT
+
 location_file="${OMADECK_WEATHER_LOCATION_FILE:-${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/settings/weather.json}"
 location_name=""
 latitude=""
@@ -22,7 +50,8 @@ fi
 wttr=""
 if [[ -z "$latitude" || -z "$longitude" ]]; then
   query=$(jq -rn --arg place "$location_name" '$place | @uri')
-  wttr=$(curl -fsS --max-time 8 "https://wttr.in/${query}?format=j1" 2>/dev/null || true)
+  fetch_json "https://wttr.in/${query}?format=j1" 2>/dev/null || true
+  wttr="$weather_response"
   if [[ -n "$wttr" ]]; then
     latitude=$(jq -r '.nearest_area[0].latitude // ""' <<< "$wttr")
     longitude=$(jq -r '.nearest_area[0].longitude // ""' <<< "$wttr")
@@ -33,9 +62,10 @@ if [[ -z "$latitude" || -z "$longitude" ]]; then
 fi
 
 if [[ -n "$latitude" && -n "$longitude" ]]; then
-  forecast=$(curl -fsS --max-time 8 \
+  fetch_json \
     "https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=4&timezone=auto" \
-    2>/dev/null || true)
+    2>/dev/null || true
+  forecast="$weather_response"
   if [[ -n "$forecast" ]]; then
     jq -c --arg location "${location_name:-Current location}" \
       '{ok:true,provider:"Open-Meteo",location:$location,latitude:.latitude,longitude:.longitude,

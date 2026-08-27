@@ -1,30 +1,70 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "WeatherPolicy.js" as WeatherPolicy
 
 Item {
   id: root
 
   property string pluginDir: ""
+  property bool enabled: false
   readonly property string locationPath: Quickshell.env("HOME") + "/.local/state/omarchy/settings/weather.json"
   property bool loading: false
   property string error: ""
   property var current: ({ ok: false })
   property date updatedAt: new Date(0)
   property string locationState: ""
+  property int generation: 0
+  property bool refreshQueued: false
+  property bool requestActive: false
+  property bool processExited: true
+  property bool streamFinished: true
 
-  function refresh() {
-    if (!weatherProcess.running && pluginDir !== "") {
-      loading = true
-      weatherProcess.running = true
+  function refresh(trigger) {
+    var source = String(trigger || "manual")
+    if (!WeatherPolicy.canHandleTrigger(enabled, source, pluginDir)) return
+    if (requestActive) {
+      refreshQueued = true
+      return
     }
+    loading = true
+    refreshQueued = false
+    requestActive = true
+    processExited = false
+    streamFinished = false
+    weatherProcess.requestGeneration = generation
+    weatherProcess.running = true
+  }
+
+  function finishRequest() {
+    if (!processExited || !streamFinished) return
+    loading = false
+    requestActive = false
+    if (enabled && refreshQueued) refresh("periodic")
   }
 
   function observeLocation(raw) {
     var next = String(raw || "")
     if (next === locationState) return
     locationState = next
+    if (!enabled) return
     refreshDelay.restart()
+  }
+
+  onEnabledChanged: {
+    generation = WeatherPolicy.nextGeneration(generation)
+    refreshQueued = false
+    refreshDelay.stop()
+    if (!enabled) {
+      loading = false
+      if (weatherProcess.running) {
+        weatherProcess.running = false
+        forceStopDelay.restart()
+      }
+      return
+    }
+    locationFile.reload()
+    refresh("startup")
   }
 
   function normalizeCode(code) {
@@ -80,52 +120,70 @@ Item {
   Process {
     id: weatherProcess
     command: [root.pluginDir + "/scripts/weather-json"]
+    property int requestGeneration: -1
     stdout: StdioCollector {
       onStreamFinished: {
-        try {
-          var next = JSON.parse(text)
-          if (!next.ok) throw new Error(next.error || "weather unavailable")
-          next.condition = root.normalizeCode(next.code)
-          next.conditionLabel = root.conditionLabel(next.condition)
-          var forecast = next.forecast || []
-          for (var i = 0; i < forecast.length; i++) {
-            forecast[i].condition = root.normalizeCode(forecast[i].code)
-            forecast[i].conditionLabel = root.conditionLabel(forecast[i].condition)
+        if (WeatherPolicy.acceptsResult(root.enabled, weatherProcess.requestGeneration, root.generation)) {
+          try {
+            var next = JSON.parse(text)
+            if (!next.ok) throw new Error(next.error || "weather unavailable")
+            next.condition = root.normalizeCode(next.code)
+            next.conditionLabel = root.conditionLabel(next.condition)
+            var forecast = next.forecast || []
+            for (var i = 0; i < forecast.length; i++) {
+              forecast[i].condition = root.normalizeCode(forecast[i].code)
+              forecast[i].conditionLabel = root.conditionLabel(forecast[i].condition)
+            }
+            next.forecast = forecast
+            root.current = next
+            root.error = ""
+            root.updatedAt = new Date()
+          } catch (exception) {
+            root.error = "Weather unavailable"
+            console.warn("OmaDeck weather:", exception)
           }
-          next.forecast = forecast
-          root.current = next
-          root.error = ""
-          root.updatedAt = new Date()
-        } catch (exception) {
-          root.error = "Weather unavailable"
-          console.warn("OmaDeck weather:", exception)
         }
+        root.streamFinished = true
+        root.finishRequest()
       }
     }
-    onExited: root.loading = false
+    onExited: {
+      root.processExited = true
+      root.finishRequest()
+    }
+  }
+
+  // Process.running = false sends SIGTERM. Escalate if an in-flight helper
+  // fails to cooperate so hiding weather does not leave it running.
+  Timer {
+    id: forceStopDelay
+    interval: 500
+    repeat: false
+    onTriggered: if (!root.enabled && weatherProcess.running) weatherProcess.signal(9)
   }
 
   FileView {
     id: locationFile
     path: root.locationPath
-    watchChanges: true
+    watchChanges: root.enabled
     printErrors: false
     onLoaded: root.observeLocation(text())
     onLoadFailed: {
       if (root.locationState === "") return
       root.locationState = ""
+      if (!root.enabled) return
       refreshDelay.restart()
     }
     onFileChanged: reload()
   }
 
-  Timer { id: refreshDelay; interval: 300; repeat: false; onTriggered: root.refresh() }
+  Timer { id: refreshDelay; interval: 300; repeat: false; onTriggered: root.refresh("location") }
 
   // FileView cannot watch a location file that did not exist at startup. A
   // cheap periodic reload detects its first creation without polling weather.
   Timer {
     interval: 10 * 1000
-    running: true
+    running: root.enabled
     repeat: true
     onTriggered: locationFile.reload()
   }
@@ -134,16 +192,15 @@ Item {
   // normal 15-minute forecast interval.
   Timer {
     interval: 60 * 1000
-    running: root.error !== ""
+    running: root.enabled && root.error !== ""
     repeat: true
-    onTriggered: root.refresh()
+    onTriggered: root.refresh("retry")
   }
 
   Timer {
     interval: 15 * 60 * 1000
-    running: true
+    running: root.enabled
     repeat: true
-    triggeredOnStart: true
-    onTriggered: root.refresh()
+    onTriggered: root.refresh("periodic")
   }
 }
