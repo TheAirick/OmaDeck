@@ -20,13 +20,16 @@ Item {
   }
   readonly property string moduleId: node ? String(node.moduleId || "") : ""
   readonly property bool selected: controller && controller.selectedPath === path
+  readonly property bool commandControlsRevealed: moduleId === "command-center"
+    && !(controller && controller.editMode)
+    && moduleLoader.item && moduleLoader.item.pointerRevealed === true
   readonly property string moduleTitle: moduleId === "clock" ? "OmaDeck"
     : moduleId === "workspaces" ? "Workspaces"
     : moduleId === "command-center" ? "Command center"
     : moduleId
   readonly property string moduleSubtitle: moduleId === "clock" ? "DP-3 · edge workspace"
     : moduleId === "workspaces" ? "Tap to focus on " + primaryMonitor
-    : moduleId === "command-center" ? "Swipe from any edge"
+    : moduleId === "command-center" ? (commandControlsRevealed ? "Swipe from any edge" : "")
     : ""
 
   z: moduleDrag.active ? 50 : 1
@@ -53,6 +56,7 @@ Item {
     active: root.selected || (root.moduleId === "clock" && !root.controller.editMode)
 
     Loader {
+      id: moduleLoader
       anchors.fill: parent
       sourceComponent: root.moduleId === "clock" ? clockComponent
         : root.moduleId === "workspaces" ? workspaceComponent
