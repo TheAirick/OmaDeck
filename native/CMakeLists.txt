@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Widgets)
+include(CTest)
 
 add_library(omadecktouchplugin SHARED
   TouchBridge.cpp
@@ -26,6 +27,7 @@ set_target_properties(omadecktouchplugin PROPERTIES
 
 add_executable(omadeck-tray
   TrayApp.cpp
+  TrayCallbacks.h
 )
 
 target_link_libraries(omadeck-tray PRIVATE
@@ -37,3 +39,43 @@ target_link_libraries(omadeck-tray PRIVATE
 set_target_properties(omadeck-tray PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bin"
 )
+
+if(BUILD_TESTING)
+  find_package(Qt6 REQUIRED COMPONENTS Test)
+
+  add_executable(touchbridge-lifetime-test
+    tests/TouchBridgeLifetimeTest.cpp
+    TouchBridge.cpp
+    TouchBridge.h
+  )
+
+  target_link_libraries(touchbridge-lifetime-test PRIVATE
+    Qt6::Core
+    Qt6::Gui
+    Qt6::Qml
+    Qt6::Quick
+    Qt6::Test
+  )
+
+  add_test(NAME touchbridge-lifetime COMMAND touchbridge-lifetime-test)
+  set_tests_properties(touchbridge-lifetime PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+  )
+
+  add_executable(tray-callback-test
+    tests/TrayCallbackTest.cpp
+    TrayCallbacks.h
+  )
+
+  target_link_libraries(tray-callback-test PRIVATE
+    Qt6::Core
+    Qt6::Gui
+    Qt6::Widgets
+    Qt6::Test
+  )
+
+  add_test(NAME tray-callback COMMAND tray-callback-test)
+  set_tests_properties(tray-callback PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+  )
+endif()

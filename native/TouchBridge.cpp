@@ -73,21 +73,29 @@ TouchBridge::~TouchBridge()
 
 QObject *TouchBridge::window() const
 {
-    return m_target;
+    return m_target.data();
 }
 
 void TouchBridge::setWindow(QObject *window)
 {
-    if (window == m_target)
+    if (window == m_target.data())
         return;
     if (m_target)
-        disconnect(m_target, nullptr, this, nullptr);
+        disconnect(m_target.data(), nullptr, this, nullptr);
     m_target = window;
+    m_window.clear();
+    if (m_target) {
+        connect(m_target.data(), &QObject::destroyed, this, [this] {
+            m_target.clear();
+            m_window.clear();
+            emit windowChanged();
+        });
+    }
     auto *quickWindow = qobject_cast<QQuickWindow *>(window);
     if (!quickWindow) {
         if (auto *item = qobject_cast<QQuickItem *>(window)) {
             quickWindow = item->window();
-            connect(item, &QQuickItem::windowChanged, this, [this, item](QQuickWindow *attachedWindow) {
+            connect(item, &QQuickItem::windowChanged, this, [this](QQuickWindow *attachedWindow) {
                 m_window = attachedWindow;
                 qInfo() << "[OmaDeckTouch] target window attached" << m_window
                         << (m_window ? m_window->size() : QSize());
@@ -239,18 +247,17 @@ void TouchBridge::closeDevice(const QString &status)
         setStatus(status);
         return;
     }
-    if (m_pointerDown && m_window) {
-        QMouseEvent release(QEvent::MouseButtonRelease, m_lastPosition,
-                            m_window->mapToGlobal(m_lastPosition), Qt::LeftButton,
-                            Qt::NoButton, Qt::NoModifier);
-        QCoreApplication::sendEvent(m_window, &release);
-    }
+
+    const int descriptor = m_fd;
+    m_fd = -1;
+    const QPointer<QQuickWindow> window = m_window;
+    const bool sendRelease = m_pointerDown && window;
+    const QPointF releasePosition = m_lastPosition;
     m_pointerDown = false;
     delete m_notifier;
     m_notifier = nullptr;
-    ::ioctl(m_fd, EVIOCGRAB, 0);
-    ::close(m_fd);
-    m_fd = -1;
+    ::ioctl(descriptor, EVIOCGRAB, 0);
+    ::close(descriptor);
     if (activeBridge == this)
         activeBridge.clear();
     m_devicePath.clear();
@@ -258,6 +265,16 @@ void TouchBridge::closeDevice(const QString &status)
     setStatus(status);
     emit devicePathChanged();
     emit activeChanged();
+
+    // Deliver the final release only after teardown is complete. Qt event
+    // handlers run synchronously and may call stop() again; by this point that
+    // nested call observes an already-inactive bridge and cannot double-close.
+    if (sendRelease && window) {
+        QMouseEvent release(QEvent::MouseButtonRelease, releasePosition,
+                            window->mapToGlobal(releasePosition), Qt::LeftButton,
+                            Qt::NoButton, Qt::NoModifier);
+        QCoreApplication::sendEvent(window.data(), &release);
+    }
 }
 
 void TouchBridge::scheduleReconnect()
@@ -338,7 +355,8 @@ void TouchBridge::readEvents()
 
 void TouchBridge::dispatch(bool pressed, bool released)
 {
-    if (!m_window)
+    const QPointer<QQuickWindow> window = m_window;
+    if (!window)
         return;
     // A multitouch tracking ID is cleared before the release SYN_REPORT.  At
     // that point there is no active slot to read, so keep the position from
@@ -355,7 +373,7 @@ void TouchBridge::dispatch(bool pressed, bool released)
         }
         const qreal nx = std::clamp(qreal(rawX - m_xMin) / qreal(m_xMax - m_xMin), 0.0, 1.0);
         const qreal ny = std::clamp(qreal(rawY - m_yMin) / qreal(m_yMax - m_yMin), 0.0, 1.0);
-        m_lastPosition = QPointF(nx * m_window->width(), ny * m_window->height());
+        m_lastPosition = QPointF(nx * window->width(), ny * window->height());
     }
 
     if (pressed || released)
@@ -363,7 +381,7 @@ void TouchBridge::dispatch(bool pressed, bool released)
                 << "raw" << (released && m_hasMultitouch ? QStringLiteral("last") : QString::number(rawX))
                 << (released && m_hasMultitouch ? QStringLiteral("last") : QString::number(rawY))
                 << "local" << m_lastPosition
-                << "window" << m_window->size();
+                << "window" << window->size();
 
     QEvent::Type type = QEvent::MouseMove;
     Qt::MouseButton button = Qt::NoButton;
@@ -382,10 +400,10 @@ void TouchBridge::dispatch(bool pressed, bool released)
         return;
     }
 
-    QMouseEvent mouseEvent(type, m_lastPosition, m_window->mapToGlobal(m_lastPosition),
+    QMouseEvent mouseEvent(type, m_lastPosition, window->mapToGlobal(m_lastPosition),
                            button, buttons, Qt::NoModifier);
     mouseEvent.setTimestamp(0);
-    const bool delivered = QCoreApplication::sendEvent(m_window, &mouseEvent);
+    const bool delivered = QCoreApplication::sendEvent(window.data(), &mouseEvent);
     if (pressed || released)
         qInfo() << "[OmaDeckTouch] Qt delivery" << delivered
                 << "accepted" << mouseEvent.isAccepted();
@@ -393,9 +411,9 @@ void TouchBridge::dispatch(bool pressed, bool released)
     // A direct touch has no persistent pointer position.  Without a leave
     // event, Qt keeps HoverHandlers under the synthetic mouse release active
     // until a real mouse moves or another touch occurs.
-    if (released) {
+    if (released && window) {
         QEvent leaveEvent(QEvent::Leave);
-        QCoreApplication::sendEvent(m_window, &leaveEvent);
+        QCoreApplication::sendEvent(window.data(), &leaveEvent);
     }
 }
 

@@ -1,3 +1,5 @@
+#include "TrayCallbacks.h"
+
 #include <QAction>
 #include <QApplication>
 #include <QClipboard>
@@ -164,13 +166,13 @@ private:
         connect(copy, &QPushButton::clicked, this, [report] {
             QApplication::clipboard()->setText(report->toPlainText());
         });
-        connect(reconnect, &QPushButton::clicked, this, [this, report] {
+        const QPointer<QPlainTextEdit> guardedReport(report);
+        connect(reconnect, &QPushButton::clicked, this, [this, guardedReport] {
             reconnectTouchscreen();
-            QTimer::singleShot(1400, this, [this, report] {
-                if (report)
-                    report->setPlainText(runDoctor());
-                refreshHealth();
-            });
+            scheduleTrayReportRefresh(
+                this, guardedReport.data(), 1400,
+                [this] { return runDoctor(); },
+                [this] { refreshHealth(); });
         });
         connect(guide, &QPushButton::clicked, this, [this] {
             QDesktopServices::openUrl(QUrl::fromLocalFile(m_guidePath));

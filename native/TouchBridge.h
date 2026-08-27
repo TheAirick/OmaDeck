@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QPointF>
+#include <QPointer>
 #include <QString>
 
 class QQuickWindow;
@@ -51,8 +52,8 @@ private:
     void dispatch(bool pressed, bool released);
     void setStatus(const QString &status);
 
-    QObject *m_target = nullptr;
-    QQuickWindow *m_window = nullptr;
+    QPointer<QObject> m_target;
+    QPointer<QQuickWindow> m_window;
     QSocketNotifier *m_notifier = nullptr;
     QTimer *m_retryTimer = nullptr;
     int m_fd = -1;
