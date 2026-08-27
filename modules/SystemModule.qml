@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 import qs.Ui
+import "ClipboardDeletePolicy.js" as ClipboardDeletePolicy
 
 Item {
   id: root
@@ -87,13 +88,44 @@ Item {
     clipboardNotice = "Copied"
     noticeTimer.restart()
   }
+  function clipboardOwner() {
+    var loader = root.shell && root.shell.panelLoaders
+      ? root.shell.panelLoaders["omarchy.clipboard"] : null
+    return loader && loader.item ? loader.item : null
+  }
   function deleteClipboard(entry) {
     if (!entry) return
-    Quickshell.execDetached([
-      Quickshell.env("HOME") + "/.config/omarchy/plugins/pretty.omadeck/scripts/clipboard-delete",
-      entry.type || "text",
-      entry.type === "image" ? (entry.path || "") : (entry.text || "")
-    ])
+    var owner = clipboardOwner()
+    if (!owner || !Array.isArray(owner.history)) {
+      clipboardNotice = "Clipboard unavailable"
+      noticeTimer.restart()
+      return
+    }
+    var result = ClipboardDeletePolicy.removeEntry(owner.history, entry)
+    if (!result.ok) {
+      clipboardNotice = "History changed · try again"
+      noticeTimer.restart()
+      refreshTimer.restart()
+      return
+    }
+    // The built-in clipboard component is the sole history writer. Keep image
+    // payload files rather than racing a new capture/reference with eager
+    // filesystem cleanup; content-addressed captures safely reuse them.
+    var saved = false
+    try {
+      var limit = Math.max(0, Number(owner.historyLimit || 300))
+      clipboardHistoryFile.setText(JSON.stringify(result.history.slice(0, limit), null, 2) + "\n")
+      saved = clipboardHistoryFile.waitForJob()
+    } catch (error) {
+      console.warn("OmaDeck clipboard delete:", error)
+    }
+    if (!saved) {
+      clipboardNotice = "Delete failed"
+      noticeTimer.restart()
+      return
+    }
+    owner.history = result.history
+    if (owner.opened && typeof owner.rebuildDisplay === "function") owner.rebuildDisplay()
     selectedClipboard = null
     clipboardNotice = "Deleted"
     noticeTimer.restart()
@@ -173,6 +205,13 @@ Item {
     }
   }
 
+  FileView {
+    id: clipboardHistoryFile
+    path: Quickshell.env("HOME") + "/.local/state/omarchy/clipboard-history.json"
+    atomicWrites: true
+    printErrors: false
+  }
+
   Timer {
     interval: 2000
     running: true
@@ -184,6 +223,44 @@ Item {
   Timer { id: refreshTimer; interval: 250; onTriggered: if (!statsProcess.running) statsProcess.running = true }
   Timer { id: noticeTimer; interval: 2400; onTriggered: root.clipboardNotice = "" }
   Timer { id: killTimer; interval: 2500; onTriggered: root.forceKillArmed = false }
+
+  BorderSurface {
+    z: 500
+    visible: root.clipboardNotice !== ""
+    anchors.top: parent.top
+    anchors.right: parent.right
+    width: Math.max(Style.space(150), noticeText.implicitWidth + Style.spacing.panelGap * 2 + Style.space(28))
+    height: Style.space(38)
+    color: Style.hoverFill
+    radius: Style.cornerRadius
+    borderSpec: Border.controlSpec("hover", Color.foreground, Color.accent, Color.urgent)
+
+    Row {
+      anchors.centerIn: parent
+      height: Style.space(24)
+      spacing: Style.spacing.controlGap
+      Text {
+        height: parent.height
+        text: root.clipboardNotice === "Copied" ? "󰆏"
+          : root.clipboardNotice === "Deleted" ? "󰆴" : "󰅖"
+        color: root.clipboardNotice === "Copied" || root.clipboardNotice === "Deleted"
+          ? Color.accent : Color.urgent
+        font.family: Style.font.family
+        font.pixelSize: Style.font.body
+        verticalAlignment: Text.AlignVCenter
+      }
+      Text {
+        id: noticeText
+        height: parent.height
+        text: root.clipboardNotice
+        color: Color.foreground
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+        font.bold: true
+        verticalAlignment: Text.AlignVCenter
+      }
+    }
+  }
 
   Item {
     id: overview
@@ -514,18 +591,6 @@ Item {
 
   Component { id: clipboardInspector
     Item {
-      BorderSurface {
-        z: 2
-        visible: root.clipboardNotice === "Copied"
-        anchors.top: parent.top; anchors.right: parent.right
-        width: Style.space(150); height: Style.space(38)
-        color: Style.hoverFill; radius: Style.cornerRadius
-        borderSpec: Border.controlSpec("hover", Color.foreground, Color.accent, Color.urgent)
-        Row { anchors.centerIn: parent; height: Style.space(24); spacing: Style.spacing.controlGap
-          Text { height: parent.height; text: "󰆏"; color: Color.accent; font.family: Style.font.family; font.pixelSize: Style.font.body; verticalAlignment: Text.AlignVCenter }
-          Text { height: parent.height; text: "Copied to clipboard"; color: Color.foreground; font.family: Style.font.family; font.pixelSize: Style.font.caption; font.bold: true; verticalAlignment: Text.AlignVCenter }
-        }
-      }
       BorderSurface {
         anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.bottom: actions.top
         anchors.bottomMargin: Style.spacing.panelGap
