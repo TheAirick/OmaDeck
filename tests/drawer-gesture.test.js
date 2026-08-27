@@ -49,3 +49,16 @@ test("drawer integration keeps center taps and drawer content outside dismissal 
   assert.match(drawerSource, /reverse:\s*true/)
   assert.match(drawerSource, /gestureThickness:\s*root\.dismissInset/)
 })
+
+test("every drawer state transition is routed through an observable boundary", () => {
+  const assignments = deckSource.match(/(?:root\.)?openDrawer\s*=(?!=)/g) || []
+  const diagnosticLogs = deckSource.match(/console\.(?:info|warn)\("\[OmaDeckDrawer\]/g) || []
+
+  assert.equal(assignments.length, 1)
+  assert.equal(diagnosticLogs.length, 1)
+  assert.match(deckSource, /function setOpenDrawer\(nextDrawer, reason\)/)
+  assert.match(deckSource, /function drawerState\(\): string/)
+  assert.match(deckSource, /\[OmaDeckDrawer\] loaded/)
+  assert.match(deckSource, /componentUrl/)
+  assert.match(deckSource, /sourceDir/)
+})

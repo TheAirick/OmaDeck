@@ -19,6 +19,13 @@ PanelWindow {
   property string targetScreen: "DP-3"
   property string primaryMonitor: "DP-1"
   property string openDrawer: ""
+  property string lastDrawerTransition: "initial"
+  property int drawerTransitionSequence: 0
+
+  readonly property string drawerBuild: "persistent-drawers-v2"
+  readonly property string componentUrl: String(Qt.resolvedUrl("DeckSurface.qml"))
+  readonly property string sourceDir: pluginRoot && pluginRoot.pluginDir
+    ? String(pluginRoot.pluginDir) : ""
 
   readonly property bool isTarget: screen && screen.name === targetScreen
   readonly property int outerGap: Math.max(1, Style.gapsOut)
@@ -60,18 +67,38 @@ PanelWindow {
   Component.onCompleted: {
     directTouch.window = centerCanvas
     directTouch.start()
+    console.info("[OmaDeckDrawer] loaded", JSON.stringify(drawerDiagnostics()))
+  }
+
+  function drawerDiagnostics() {
+    return {
+      openDrawer: openDrawer,
+      lastTransition: lastDrawerTransition,
+      sequence: drawerTransitionSequence,
+      componentUrl: componentUrl,
+      sourceDir: sourceDir,
+      build: drawerBuild
+    }
+  }
+
+  function setOpenDrawer(nextDrawer, reason) {
+    if (["", "left", "right", "top", "bottom"].indexOf(nextDrawer) === -1) return
+
+    lastDrawerTransition = String(reason || "unspecified")
+    drawerTransitionSequence++
+    openDrawer = nextDrawer
   }
 
   function toggleDrawer(edge) {
-    openDrawer = DrawerGesture.toggleDrawer(openDrawer, edge)
+    setOpenDrawer(DrawerGesture.toggleDrawer(openDrawer, edge), "toggle:" + edge)
   }
 
   function dismissDrawer(edge) {
-    openDrawer = DrawerGesture.dismissDrawer(openDrawer, edge)
+    setOpenDrawer(DrawerGesture.dismissDrawer(openDrawer, edge), "dismiss:" + edge)
   }
 
   function closeDrawer() {
-    openDrawer = ""
+    setOpenDrawer("", "ipc:close")
   }
 
   IpcHandler {
@@ -84,6 +111,10 @@ PanelWindow {
 
     function closeDrawer(): void {
       root.closeDrawer()
+    }
+
+    function drawerState(): string {
+      return JSON.stringify(root.drawerDiagnostics())
     }
 
     function reconnectTouch(): void {
@@ -103,7 +134,7 @@ PanelWindow {
 
     function system(section: string): void {
       if (["performance", "network", "applications", "clipboard", "storage"].indexOf(section) === -1) return
-      root.openDrawer = "right"
+      root.setOpenDrawer("right", "ipc:system:" + section)
       systemDrawer.selectedClipboard = null
       systemDrawer.selectedClientAddress = ""
       systemDrawer.selectedSection = section
@@ -111,14 +142,14 @@ PanelWindow {
 
     function clipboard(index: int): void {
       if (index < 0 || index >= systemDrawer.stats.clipboard.length) return
-      root.openDrawer = "right"
+      root.setOpenDrawer("right", "ipc:clipboard")
       systemDrawer.selectedSection = "clipboard"
       systemDrawer.selectedClipboard = systemDrawer.stats.clipboard[index]
     }
 
     function application(index: int): void {
       if (index < 0 || index >= systemDrawer.stats.clients.length) return
-      root.openDrawer = "right"
+      root.setOpenDrawer("right", "ipc:application")
       systemDrawer.selectedSection = "applications"
       systemDrawer.selectedClientAddress = systemDrawer.stats.clients[index].address
     }
@@ -136,12 +167,12 @@ PanelWindow {
     }
 
     function mediaCompact(compact: bool): void {
-      root.openDrawer = "left"
+      root.setOpenDrawer("left", "ipc:mediaCompact")
       mediaDrawer.setMixerCompact(compact)
     }
 
     function mediaCategory(category: string): void {
-      root.openDrawer = "left"
+      root.setOpenDrawer("left", "ipc:mediaCategory")
       mediaDrawer.setMixerCategory(category)
     }
   }
