@@ -26,7 +26,7 @@ Item {
   readonly property string secondPath: path ? path + "/second" : "second"
 
   function loadChild(loader) {
-    if (!root.controller) return
+    if (!root.controller || !loader) return
     var child = root.controller.nodeAt(loader.nodePath)
     var file = child && child.type === "split" ? "SplitNode.qml" : "ModuleTile.qml"
     loader.setSource(Qt.resolvedUrl(file), {
@@ -39,6 +39,13 @@ Item {
       weatherController: root.weatherController
     })
   }
+
+  function reloadChildren() {
+    loadChild(firstLoader)
+    loadChild(secondLoader)
+  }
+
+  onObservedRevisionChanged: root.reloadChildren()
 
   Loader {
     id: firstLoader
