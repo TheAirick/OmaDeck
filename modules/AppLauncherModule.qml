@@ -8,8 +8,9 @@ Item {
   id: root
 
   property var shell: null
+  property string pluginDir: ""
   property string primaryMonitor: "DP-1"
-  property string launcherScript: Quickshell.env("HOME") + "/Projects/Omadeck/scripts/focus-or-launch"
+  readonly property string launcherScript: root.pluginDir + "/scripts/focus-or-launch"
   property var favorites: [
     { id: "com.mitchellh.ghostty", name: "Terminal", iconText: "󰆍", classes: ["com.mitchellh.ghostty"] },
     { id: "chromium", name: "Browser", iconText: "󰖟", classes: ["chromium", "google-chrome", "zen"] },

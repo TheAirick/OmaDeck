@@ -54,7 +54,7 @@ Item {
 
       screen: modelData
       shell: root.shell
-      pluginRoot: root
+      pluginDir: root.pluginDir
       targetScreen: root.targetScreen
       primaryMonitor: root.primaryMonitor
       layoutController: layoutStore

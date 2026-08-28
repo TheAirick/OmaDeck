@@ -12,7 +12,7 @@ PanelWindow {
   id: root
 
   property var shell: null
-  property var pluginRoot: null
+  property string pluginDir: ""
   property var layoutController: null
   property var appearanceController: null
   property var weatherController: null
@@ -24,8 +24,7 @@ PanelWindow {
 
   readonly property string drawerBuild: "persistent-drawers-v2"
   readonly property string componentUrl: String(Qt.resolvedUrl("DeckSurface.qml"))
-  readonly property string sourceDir: pluginRoot && pluginRoot.pluginDir
-    ? String(pluginRoot.pluginDir) : ""
+  readonly property string sourceDir: pluginDir
 
   readonly property bool isTarget: screen && screen.name === targetScreen
   readonly property bool deckHovered: backgroundHover.hovered || centerHover.hovered
@@ -280,6 +279,7 @@ PanelWindow {
       id: systemDrawer
       anchors.fill: parent
       shell: root.shell
+      pluginDir: root.pluginDir
     }
   }
 
@@ -316,6 +316,7 @@ PanelWindow {
     AppLauncherModule {
       anchors.fill: parent
       shell: root.shell
+      pluginDir: root.pluginDir
       primaryMonitor: root.primaryMonitor
     }
   }

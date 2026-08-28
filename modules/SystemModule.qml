@@ -9,6 +9,7 @@ Item {
   id: root
 
   property var shell: null
+  property string pluginDir: ""
   property string selectedSection: ""
   property var selectedClipboard: null
   property string selectedClientAddress: ""
@@ -191,7 +192,7 @@ Item {
 
   Process {
     id: statsProcess
-    command: [Quickshell.env("HOME") + "/.config/omarchy/plugins/pretty.omadeck/scripts/system-stats"]
+    command: [root.pluginDir + "/scripts/system-stats"]
     stdout: StdioCollector {
       onStreamFinished: {
         try {
