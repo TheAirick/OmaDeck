@@ -1,5 +1,7 @@
 #pragma once
 
+#include "EvdevTouchState.h"
+
 #include <QObject>
 #include <QPointF>
 #include <QPointer>
@@ -45,12 +47,6 @@ signals:
     void statusChanged();
 
 private:
-    struct Contact {
-        int trackingId = -1;
-        int x = 0;
-        int y = 0;
-    };
-
     static int selectDeviceIndex(const QStringList &detectedNames, const QStringList &configuredNames);
     QString findTouchscreen(QStringList *detectedNames) const;
     bool openDevice(const QString &path);
@@ -74,15 +70,8 @@ private:
     int m_xMax = 1;
     int m_yMin = 0;
     int m_yMax = 1;
-    int m_currentSlot = 0;
-    int m_activeSlot = -1;
-    int m_trackingIds[16]{};
-    int m_x[16]{};
-    int m_y[16]{};
-    int m_singleX = 0;
-    int m_singleY = 0;
+    EvdevTouchState m_inputState;
     bool m_hasMultitouch = false;
-    bool m_singlePressed = false;
     bool m_pointerDown = false;
     bool m_touchInProgress = false;
     bool m_wantsActive = false;

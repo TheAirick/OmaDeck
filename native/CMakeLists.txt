@@ -9,6 +9,8 @@ find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Widgets)
 include(CTest)
 
 add_library(omadecktouchplugin SHARED
+  EvdevTouchState.cpp
+  EvdevTouchState.h
   TouchBridge.cpp
   TouchBridge.h
   TouchPlugin.cpp
@@ -45,6 +47,8 @@ if(BUILD_TESTING)
 
   add_executable(touchbridge-lifetime-test
     tests/TouchBridgeLifetimeTest.cpp
+    EvdevTouchState.cpp
+    EvdevTouchState.h
     TouchBridge.cpp
     TouchBridge.h
   )
@@ -61,6 +65,19 @@ if(BUILD_TESTING)
   set_tests_properties(touchbridge-lifetime PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
   )
+
+  add_executable(evdev-touch-state-test
+    tests/EvdevTouchStateTest.cpp
+    EvdevTouchState.cpp
+    EvdevTouchState.h
+  )
+
+  target_link_libraries(evdev-touch-state-test PRIVATE
+    Qt6::Core
+    Qt6::Test
+  )
+
+  add_test(NAME evdev-touch-state COMMAND evdev-touch-state-test)
 
   add_executable(tray-callback-test
     tests/TrayCallbackTest.cpp

@@ -353,14 +353,7 @@ void TouchBridge::scheduleReconnect()
 
 void TouchBridge::resetInputState()
 {
-    std::fill(std::begin(m_trackingIds), std::end(m_trackingIds), -1);
-    std::fill(std::begin(m_x), std::end(m_x), 0);
-    std::fill(std::begin(m_y), std::end(m_y), 0);
-    m_currentSlot = 0;
-    m_activeSlot = -1;
-    m_singleX = 0;
-    m_singleY = 0;
-    m_singlePressed = false;
+    m_inputState.reset();
     m_pointerDown = false;
     m_lastPosition = {};
 }
@@ -378,46 +371,14 @@ void TouchBridge::readEvents()
         return;
     }
 
-    bool pressed = false;
-    bool released = false;
     const int count = static_cast<int>(bytes / sizeof(input_event));
     for (int i = 0; i < count; ++i) {
-        const input_event &event = events[i];
-        if (event.type == EV_ABS && m_hasMultitouch) {
-            if (event.code == ABS_MT_SLOT)
-                m_currentSlot = std::clamp(event.value, 0, 15);
-            else if (event.code == ABS_MT_TRACKING_ID) {
-                const int previous = m_trackingIds[m_currentSlot];
-                m_trackingIds[m_currentSlot] = event.value;
-                if (event.value >= 0 && m_activeSlot < 0) {
-                    m_activeSlot = m_currentSlot;
-                    pressed = true;
-                } else if (event.value < 0 && m_activeSlot == m_currentSlot) {
-                    released = previous >= 0;
-                    m_activeSlot = -1;
-                    for (int slot = 0; slot < 16; ++slot) {
-                        if (m_trackingIds[slot] >= 0) {
-                            m_activeSlot = slot;
-                            break;
-                        }
-                    }
-                }
-            } else if (event.code == ABS_MT_POSITION_X)
-                m_x[m_currentSlot] = event.value;
-            else if (event.code == ABS_MT_POSITION_Y)
-                m_y[m_currentSlot] = event.value;
-        } else if (event.type == EV_ABS) {
-            if (event.code == ABS_X) m_singleX = event.value;
-            else if (event.code == ABS_Y) m_singleY = event.value;
-        } else if (event.type == EV_KEY && event.code == BTN_TOUCH) {
-            pressed = event.value && !m_singlePressed;
-            released = !event.value && m_singlePressed;
-            m_singlePressed = event.value;
-        } else if (event.type == EV_SYN && event.code == SYN_REPORT) {
-            dispatch(pressed, released);
-            pressed = false;
-            released = false;
-        }
+        if (events[i].type == EV_SYN && events[i].code == SYN_DROPPED)
+            qWarning() << "[OmaDeckTouch] event stream overrun; resetting contact state";
+        const std::optional<EvdevTouchState::Frame> frame =
+            m_inputState.process(events[i], m_hasMultitouch);
+        if (frame)
+            dispatch(frame->pressed, frame->released);
     }
 }
 
@@ -437,12 +398,12 @@ void TouchBridge::dispatch(bool pressed, bool released)
     // axes.  Moving the release to (0, 0) prevents Qt tap handlers from
     // recognizing clicks, although drag-driven controls can still appear to
     // work.
-    int rawX = m_singleX;
-    int rawY = m_singleY;
+    int rawX = m_inputState.singleX();
+    int rawY = m_inputState.singleY();
     if (!(released && m_hasMultitouch)) {
-        if (m_hasMultitouch && m_activeSlot >= 0) {
-            rawX = m_x[m_activeSlot];
-            rawY = m_y[m_activeSlot];
+        if (m_hasMultitouch && m_inputState.activeSlot() >= 0) {
+            rawX = m_inputState.x(m_inputState.activeSlot());
+            rawY = m_inputState.y(m_inputState.activeSlot());
         }
         const qreal nx = std::clamp(qreal(rawX - m_xMin) / qreal(m_xMax - m_xMin), 0.0, 1.0);
         const qreal ny = std::clamp(qreal(rawY - m_yMin) / qreal(m_yMax - m_yMin), 0.0, 1.0);
