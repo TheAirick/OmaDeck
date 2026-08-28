@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "LayoutPolicy.js" as LayoutPolicy
 
 Item {
   id: root
@@ -34,18 +35,10 @@ Item {
     return JSON.parse(JSON.stringify(value))
   }
 
-  function validNode(node) {
-    if (!node || typeof node !== "object") return false
-    if (node.type === "module") return typeof node.moduleId === "string" && node.moduleId.length > 0
-    if (node.type !== "split") return false
-    if (node.orientation !== "horizontal" && node.orientation !== "vertical") return false
-    return validNode(node.first) && validNode(node.second)
-  }
-
   function load(raw) {
     try {
-      var parsed = JSON.parse(String(raw || ""))
-      if (!parsed || parsed.version !== 2 || !validNode(parsed.root)) throw new Error("unsupported layout")
+      var parsed = LayoutPolicy.parseLayout(raw)
+      if (!parsed) throw new Error("unsupported layout")
       layout = parsed
       revision++
       loaded = true
@@ -88,10 +81,12 @@ Item {
   }
 
   function setRatio(path, value) {
+    var nextRatio = LayoutPolicy.ratioForUpdate(value)
+    if (nextRatio === null) return
     var next = clone(layout)
     var node = nodeAt(path, next)
     if (!node || node.type !== "split") return
-    node.ratio = Math.max(0.18, Math.min(0.82, Number(value)))
+    node.ratio = nextRatio
     commit(next)
   }
 
