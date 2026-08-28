@@ -1,6 +1,7 @@
 import QtQuick
 import qs.Commons
 import qs.Ui
+import "MediaArtwork.js" as MediaArtwork
 
 Item {
   id: root
@@ -13,6 +14,16 @@ Item {
   readonly property string trackKey: player ? [player.trackTitle || "", player.trackArtist || ""].join("|") : ""
   readonly property real effectiveLength: player && player.lengthSupported && player.length > 0 ? player.length : cachedLength
   readonly property bool canSeek: canSkip && effectiveLength > 0
+  property string cachedArtworkKey: ""
+  property string cachedArtworkUrl: ""
+  readonly property string publishedArtworkUrl: player && player.trackArtUrl ? String(player.trackArtUrl) : ""
+  readonly property string artworkTrackUrl: MediaArtwork.trackUrl(player)
+  readonly property string artworkKey: player
+    ? [player.trackTitle || "", player.trackArtist || "", artworkTrackUrl].join("|") : ""
+  readonly property string derivedArtworkUrl: MediaArtwork.youtubeThumbnail(artworkTrackUrl)
+  readonly property string artworkUrl: publishedArtworkUrl
+    || (cachedArtworkKey === artworkKey ? cachedArtworkUrl : "")
+    || derivedArtworkUrl
   property real displayedPosition: 0
   property real cachedLength: 0
   property bool seeking: false
@@ -33,6 +44,11 @@ Item {
   }
   function captureDuration() {
     if (player && player.lengthSupported && player.length > 0) cachedLength = player.length
+  }
+  function captureArtwork() {
+    if (!publishedArtworkUrl) return
+    cachedArtworkKey = artworkKey
+    cachedArtworkUrl = publishedArtworkUrl
   }
   function seekTo(value) {
     if (!canSeek) return
@@ -61,8 +77,11 @@ Item {
     mixer.expandedCategory = ["media", "games", "voice", "other"].indexOf(category) !== -1 ? category : ""
   }
 
-  onPlayerChanged: { refreshPosition(); captureDuration() }
+  onPlayerChanged: { refreshPosition(); captureDuration(); captureArtwork() }
   onTrackKeyChanged: { cachedLength = 0; optimisticPosition = false; captureDuration(); refreshPosition() }
+  onArtworkKeyChanged: captureArtwork()
+  onPublishedArtworkUrlChanged: captureArtwork()
+  Component.onCompleted: captureArtwork()
   Timer {
     interval: 500
     running: root.hasPlayer
@@ -129,7 +148,7 @@ Item {
             id: artworkImage
             anchors.fill: parent
             anchors.margins: artwork.borderLeft
-            source: root.player && root.player.trackArtUrl ? root.player.trackArtUrl : ""
+            source: root.artworkUrl
             fillMode: Image.PreserveAspectCrop
             horizontalAlignment: Image.AlignHCenter
             verticalAlignment: Image.AlignVCenter
@@ -184,42 +203,62 @@ Item {
             font.pixelSize: Style.font.caption
             elide: Text.ElideRight
           }
-          Item { width: 1; height: Math.max(0, parent.height - controls.height - y) }
+          Item {
+            id: controlSpacer
+            width: 1
+            height: Math.max(0, artwork.y + artwork.height - controls.height - y - parent.spacing)
+          }
 
-          Row {
+          Column {
             id: controls
+            width: parent.width
+            height: playPauseControl.height + spacing + transportControls.height
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: Style.spacing.controlGap
+            spacing: 0
 
             Button {
-              iconText: "󰒮"; iconSize: Style.font.iconLarge; foreground: Color.accent
-              width: Style.space(42); height: Style.space(42)
-              enabled: root.player && root.player.canGoPrevious; opacity: enabled ? 1 : 0.35
-              onClicked: root.media.runAction("previous", false)
-            }
-            Button {
-              text: "−10"; fontSize: Style.font.body; foreground: Color.accent
-              width: Style.space(42); height: Style.space(42)
-              enabled: root.canSkip; opacity: enabled ? 1 : 0.35; onClicked: root.skip(-10)
-            }
-            Button {
+              id: playPauseControl
+              anchors.horizontalCenter: parent.horizontalCenter
               iconText: root.player && root.player.isPlaying ? "󰏤" : "󰐊"
-              iconSize: Style.font.displayLarge; horizontalPadding: Style.spacing.panelGap
+              iconSize: Style.font.displayLarge * 3; horizontalPadding: Style.spacing.panelGap
               verticalPadding: Style.spacing.controlPaddingY; foreground: Color.accent
-              width: Style.space(50); height: Style.space(46)
+              width: Style.space(120); height: Style.space(64)
+              color: "transparent"; borderSpec: Border.none()
               enabled: root.hasPlayer; opacity: enabled ? 1 : 0.35
               onClicked: root.media.runAction("playPause", false)
             }
-            Button {
-              text: "+10"; fontSize: Style.font.body; foreground: Color.accent
-              width: Style.space(42); height: Style.space(42)
-              enabled: root.canSkip; opacity: enabled ? 1 : 0.35; onClicked: root.skip(10)
-            }
-            Button {
-              iconText: "󰒭"; iconSize: Style.font.iconLarge; foreground: Color.accent
-              width: Style.space(42); height: Style.space(42)
-              enabled: root.player && root.player.canGoNext; opacity: enabled ? 1 : 0.35
-              onClicked: root.media.runAction("next", false)
+
+            Row {
+              id: transportControls
+              anchors.horizontalCenter: parent.horizontalCenter
+              spacing: Style.spacing.controlGap
+
+              Button {
+                iconText: "󰒮"; iconSize: Style.font.iconLarge * 1.6; foreground: Color.accent
+                width: Style.space(58); height: Style.space(58)
+                color: "transparent"; borderSpec: Border.none()
+                enabled: root.player && root.player.canGoPrevious; opacity: enabled ? 1 : 0.35
+                onClicked: root.media.runAction("previous", false)
+              }
+              Button {
+                text: "−10"; fontSize: Style.font.body * 1.6; foreground: Color.accent
+                width: Style.space(58); height: Style.space(58)
+                color: "transparent"; borderSpec: Border.none()
+                enabled: root.canSkip; opacity: enabled ? 1 : 0.35; onClicked: root.skip(-10)
+              }
+              Button {
+                text: "+10"; fontSize: Style.font.body * 1.6; foreground: Color.accent
+                width: Style.space(58); height: Style.space(58)
+                color: "transparent"; borderSpec: Border.none()
+                enabled: root.canSkip; opacity: enabled ? 1 : 0.35; onClicked: root.skip(10)
+              }
+              Button {
+                iconText: "󰒭"; iconSize: Style.font.iconLarge * 1.6; foreground: Color.accent
+                width: Style.space(58); height: Style.space(58)
+                color: "transparent"; borderSpec: Border.none()
+                enabled: root.player && root.player.canGoNext; opacity: enabled ? 1 : 0.35
+                onClicked: root.media.runAction("next", false)
+              }
             }
           }
         }

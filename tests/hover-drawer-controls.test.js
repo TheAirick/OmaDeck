@@ -30,7 +30,14 @@ test("all four drawer actions exist in the permanent control grid", () => {
   ]) {
     assert.match(commandCenter, new RegExp(`DrawerButton \\{[^}]*edge: "${edge}"[^}]*label: "${label}"`))
   }
-  assert.match(commandCenter, /columns: 2/)
+  assert.match(commandCenter, /columns: root\.useWideLayout \? 4 : 2/)
+})
+
+test("short wide command centers reflow instead of shrinking", () => {
+  assert.match(commandCenter, /readonly property bool useWideLayout:/)
+  assert.match(commandCenter, /height < root\.standardLayoutHeight/)
+  assert.match(commandCenter, /width >= root\.wideLayoutWidth/)
+  assert.match(commandCenter, /move: Transition/)
 })
 
 test("primary drawer navigation stays visible without pointer hover", () => {
@@ -42,10 +49,9 @@ test("primary drawer navigation stays visible without pointer hover", () => {
   assert.match(moduleTile, /moduleId === "command-center" \? "Swipe from any edge"/)
 })
 
-test("drawer controls expose selected feedback for the open edge", () => {
-  assert.match(drawerButton, /property bool selected: false/)
-  assert.match(drawerButton, /root\.selected/)
-  assert.match(commandCenter, /selected: root\.deck && root\.deck\.openDrawer === edge/)
+test("drawer controls do not persist a highlight for the open edge", () => {
+  assert.doesNotMatch(drawerButton, /property bool selected|root\.selected/)
+  assert.doesNotMatch(commandCenter, /selected: root\.deck && root\.deck\.openDrawer === edge/)
 })
 
 test("touch edge gestures remain available for every drawer", () => {

@@ -7,6 +7,10 @@ Item {
 
   property var deck: null
   property var controller: null
+  readonly property real standardLayoutHeight: Style.space(92 * 3) + Style.spacing.panelGap * 4
+  readonly property real wideLayoutWidth: Style.space(190 * 4) + Style.spacing.panelGap * 5
+  readonly property bool useWideLayout: height < root.standardLayoutHeight
+    && width >= root.wideLayoutWidth
   readonly property real contentScale: Math.min(1,
     Math.max(0, width - Style.spacing.panelGap * 2) / Math.max(1, controlStack.implicitWidth),
     Math.max(0, height - Style.spacing.panelGap * 2) / Math.max(1, controlStack.implicitHeight))
@@ -22,28 +26,27 @@ Item {
 
     Grid {
       id: drawerControls
-      columns: 2
+      columns: root.useWideLayout ? 4 : 2
       rowSpacing: Style.spacing.panelGap
       columnSpacing: Style.spacing.panelGap
+      move: Transition {
+        NumberAnimation { properties: "x,y"; duration: 160; easing.type: Easing.OutCubic }
+      }
 
       DrawerButton {
         edge: "left"; label: "Media"; iconText: "󰝚"
-        selected: root.deck && root.deck.openDrawer === edge
         onTriggered: if (root.deck) root.deck.toggleDrawer(edge)
       }
       DrawerButton {
         edge: "right"; label: "System"; iconText: "󰍛"
-        selected: root.deck && root.deck.openDrawer === edge
         onTriggered: if (root.deck) root.deck.toggleDrawer(edge)
       }
       DrawerButton {
         edge: "top"; label: "Workspaces"; iconText: "󰍹"
-        selected: root.deck && root.deck.openDrawer === edge
         onTriggered: if (root.deck) root.deck.toggleDrawer(edge)
       }
       DrawerButton {
         edge: "bottom"; label: "Applications"; iconText: "󰀻"
-        selected: root.deck && root.deck.openDrawer === edge
         onTriggered: if (root.deck) root.deck.toggleDrawer(edge)
       }
     }

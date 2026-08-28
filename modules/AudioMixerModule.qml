@@ -15,6 +15,7 @@ Item {
   property string volumeSinkName: ""
   property bool compact: false
   readonly property int streamRowCapacity: 16
+  readonly property int visibleStreamRowLimit: 2
   readonly property real contentHeight: mixerColumn.implicitHeight
 
   readonly property var nodes: Pipewire.nodes ? Pipewire.nodes.values : []
@@ -199,8 +200,9 @@ Item {
     readonly property bool anotherExpanded: root.expandedCategory !== "" && !expanded
     readonly property real headerHeight: anotherExpanded ? Style.space(45) : Style.space(58)
     readonly property real childrenHeight: expanded
-      ? Math.min(Style.space(180), root.expandedChildrenLimit, childrenColumn.implicitHeight)
+      ? Math.min(Style.space(46 * root.visibleStreamRowLimit), root.expandedChildrenLimit, childrenColumn.implicitHeight)
       : 0
+    readonly property bool sourceOverflow: sourceViewport.contentHeight > sourceViewport.height + 0.5
 
     readonly property bool hasStreams: streams.length > 0
     visible: height > 0 || opacity > 0
@@ -210,6 +212,12 @@ Item {
     clip: true
     Behavior on height { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
     Behavior on opacity { NumberAnimation { duration: 150 } }
+
+    function scrollSources(direction) {
+      var maximum = Math.max(0, sourceViewport.contentHeight - sourceViewport.height)
+      sourceViewport.contentY = Math.max(0, Math.min(maximum,
+        sourceViewport.contentY + direction * Style.space(46)))
+    }
 
     Item {
       id: categoryHeader
@@ -285,18 +293,22 @@ Item {
     }
 
     Flickable {
+      id: sourceViewport
       anchors.top: categoryHeader.bottom
       width: parent.width
       height: category.childrenHeight
       contentHeight: childrenColumn.implicitHeight
       clip: true
       boundsBehavior: Flickable.StopAtBounds
+      flickableDirection: Flickable.VerticalFlick
+      interactive: contentHeight > height
       opacity: category.expanded ? 1 : 0
+      onContentHeightChanged: contentY = Math.min(contentY, Math.max(0, contentHeight - height))
       Behavior on opacity { NumberAnimation { duration: 160 } }
 
       Column {
         id: childrenColumn
-        width: parent.width
+        width: sourceViewport.width - (category.sourceOverflow ? Style.space(28) : 0)
         Repeater {
           // Keep the QQuickRepeater model stable while PipeWire destroys and
           // recreates PwNode objects. Rebinding a Repeater directly to the
@@ -319,6 +331,45 @@ Item {
           }
         }
       }
+    }
+
+    Item {
+      id: sourceScrollUp
+      visible: category.expanded && category.sourceOverflow && !sourceViewport.atYBeginning
+      anchors.top: categoryHeader.bottom
+      anchors.right: parent.right
+      width: Style.space(28)
+      height: Style.space(28)
+      z: 2
+
+      Text {
+        anchors.centerIn: parent
+        text: "󰅀"
+        rotation: 180
+        color: Color.muted
+        font.family: Style.font.family
+        font.pixelSize: Style.font.iconLarge
+      }
+      TapHandler { onTapped: category.scrollSources(-1) }
+    }
+
+    Item {
+      id: sourceScrollDown
+      visible: category.expanded && category.sourceOverflow && !sourceViewport.atYEnd
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
+      width: Style.space(28)
+      height: Style.space(28)
+      z: 2
+
+      Text {
+        anchors.centerIn: parent
+        text: "󰅀"
+        color: Color.muted
+        font.family: Style.font.family
+        font.pixelSize: Style.font.iconLarge
+      }
+      TapHandler { onTapped: category.scrollSources(+1) }
     }
   }
 

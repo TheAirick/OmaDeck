@@ -8,16 +8,14 @@ BorderSurface {
   property string edge: ""
   property string label: ""
   property string iconText: ""
-  property bool selected: false
   signal triggered()
 
   width: Style.space(190)
   height: Style.space(92)
   color: touch.pressed ? Style.pressedFill
-    : root.selected ? Style.selectedFillFor(Color.foreground, Color.accent)
     : hover.hovered ? Style.hoverFill : Style.normalFill
   radius: Style.cornerRadius
-  borderSpec: Border.controlSpec(root.selected ? "selected" : hover.hovered ? "hover" : "normal",
+  borderSpec: Border.controlSpec(hover.hovered ? "hover" : "normal",
     Color.foreground, Color.accent, Color.urgent)
 
   Column {
