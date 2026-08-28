@@ -15,3 +15,14 @@ function shouldTrigger(edge, reverse, dx, dy, threshold) {
   if (edge === "bottom") return dy * direction < -threshold
   return false
 }
+
+function dismissButtonPosition(edge, width, height, size, leftInset, topInset, rightInset, bottomInset) {
+  return {
+    x: edge === "left" ? leftInset
+      : edge === "right" ? Math.max(leftInset, width - size - rightInset)
+      : Math.max(leftInset, (width - size) / 2),
+    y: edge === "bottom"
+      ? Math.max(topInset, height - size - bottomInset)
+      : topInset
+  }
+}

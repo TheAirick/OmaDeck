@@ -244,6 +244,7 @@ void TouchBridge::closeDevice(const QString &status)
     if (m_fd < 0) {
         if (activeBridge == this)
             activeBridge.clear();
+        setTouchInProgress(false);
         setStatus(status);
         return;
     }
@@ -274,7 +275,10 @@ void TouchBridge::closeDevice(const QString &status)
                             window->mapToGlobal(releasePosition), Qt::LeftButton,
                             Qt::NoButton, Qt::NoModifier);
         QCoreApplication::sendEvent(window.data(), &release);
+        QEvent leaveEvent(QEvent::Leave);
+        QCoreApplication::sendEvent(window.data(), &leaveEvent);
     }
+    setTouchInProgress(false);
 }
 
 void TouchBridge::scheduleReconnect()
@@ -356,8 +360,13 @@ void TouchBridge::readEvents()
 void TouchBridge::dispatch(bool pressed, bool released)
 {
     const QPointer<QQuickWindow> window = m_window;
-    if (!window)
+    if (!window) {
+        if (released) {
+            m_pointerDown = false;
+            setTouchInProgress(false);
+        }
         return;
+    }
     // A multitouch tracking ID is cleared before the release SYN_REPORT.  At
     // that point there is no active slot to read, so keep the position from
     // the preceding report instead of falling back to the zeroed single-touch
@@ -391,6 +400,7 @@ void TouchBridge::dispatch(bool pressed, bool released)
         button = Qt::LeftButton;
         buttons = Qt::LeftButton;
         m_pointerDown = true;
+        setTouchInProgress(true);
     } else if (released) {
         type = QEvent::MouseButtonRelease;
         button = Qt::LeftButton;
@@ -414,7 +424,16 @@ void TouchBridge::dispatch(bool pressed, bool released)
     if (released && window) {
         QEvent leaveEvent(QEvent::Leave);
         QCoreApplication::sendEvent(window.data(), &leaveEvent);
+        setTouchInProgress(false);
     }
+}
+
+void TouchBridge::setTouchInProgress(bool inProgress)
+{
+    if (m_touchInProgress == inProgress)
+        return;
+    m_touchInProgress = inProgress;
+    emit touchInProgressChanged();
 }
 
 void TouchBridge::setStatus(const QString &status)

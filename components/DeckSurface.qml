@@ -28,6 +28,11 @@ PanelWindow {
     ? String(pluginRoot.pluginDir) : ""
 
   readonly property bool isTarget: screen && screen.name === targetScreen
+  readonly property bool deckHovered: backgroundHover.hovered || centerHover.hovered
+    || leftDrawer.pointerHovered || rightDrawer.pointerHovered
+    || topDrawer.pointerHovered || bottomDrawer.pointerHovered
+  readonly property bool pointerRevealed: deckHovered
+    && !directTouch.touchInProgress
   readonly property int outerGap: Math.max(1, Style.gapsOut)
   readonly property int innerGap: Style.spacing.panelGap
   readonly property int usableWidth: Math.max(0, width - outerGap * 2)
@@ -77,7 +82,12 @@ PanelWindow {
       sequence: drawerTransitionSequence,
       componentUrl: componentUrl,
       sourceDir: sourceDir,
-      build: drawerBuild
+      build: drawerBuild,
+      deckHovered: deckHovered,
+      backgroundHovered: backgroundHover.hovered,
+      centerHovered: centerHover.hovered,
+      touchInProgress: directTouch.touchInProgress,
+      pointerRevealed: pointerRevealed
     }
   }
 
@@ -141,6 +151,46 @@ PanelWindow {
       if (root.layoutController) root.layoutController.setRatio(path, value)
     }
 
+    function appearanceState(): string {
+      if (!root.appearanceController || !root.appearanceController.loaded)
+        return JSON.stringify({ ok: false, error: "Appearance settings are not ready" })
+      var state = root.appearanceController.snapshot()
+      state.ok = true
+      return JSON.stringify(state)
+    }
+
+    function setAppearance(key: string, value: string): string {
+      if (!root.appearanceController || !root.appearanceController.loaded)
+        return JSON.stringify({ ok: false, error: "Appearance settings are not ready" })
+
+      var booleanKeys = ["use24Hour", "showSeconds", "showWeather"]
+      var stringKeys = ["clockStyle", "weatherStyle", "weatherDetail", "temperatureUnit"]
+      if (booleanKeys.indexOf(key) === -1 && stringKeys.indexOf(key) === -1)
+        return JSON.stringify({ ok: false, error: "Unknown appearance setting" })
+      if (booleanKeys.indexOf(key) !== -1 && value !== "true" && value !== "false")
+        return JSON.stringify({ ok: false, error: "Invalid boolean value" })
+
+      var parsedValue = booleanKeys.indexOf(key) !== -1 ? value === "true" : value
+      var persisted = root.appearanceController.setOption(key, parsedValue)
+      var state = root.appearanceController.snapshot()
+      if (!persisted)
+        return JSON.stringify({ ok: false, error: "Appearance setting could not be saved", state: state })
+      if (state[key] !== parsedValue)
+        return JSON.stringify({ ok: false, error: "Appearance setting was rejected", state: state })
+      return JSON.stringify({ ok: true, key: key, value: state[key], state: state })
+    }
+
+    function refreshWeather(): string {
+      if (!root.appearanceController || !root.appearanceController.loaded)
+        return JSON.stringify({ ok: false, error: "Appearance settings are not ready" })
+      if (!root.appearanceController.showWeather)
+        return JSON.stringify({ ok: false, error: "Weather is disabled" })
+      if (!root.weatherController)
+        return JSON.stringify({ ok: false, error: "Weather service is unavailable" })
+      root.weatherController.refresh()
+      return JSON.stringify({ ok: true })
+    }
+
     function system(section: string): void {
       if (["performance", "network", "applications", "clipboard", "storage"].indexOf(section) === -1) return
       root.setOpenDrawer("right", "ipc:system:" + section)
@@ -187,14 +237,21 @@ PanelWindow {
   }
 
   Rectangle {
+    id: deckBackground
     anchors.fill: parent
     color: Color.background
+
+    HoverHandler {
+      id: backgroundHover
+    }
   }
 
   // Edge modules and the center split tree share one bounded tiling region.
   EdgeDrawer {
+    id: leftDrawer
     edge: "left"
     open: root.openDrawer === edge
+    pointerRevealed: root.pointerRevealed
     onDismissRequested: root.dismissDrawer(edge)
     x: root.outerGap - root.leftDrawerWidth - root.innerGap + root.reservedLeft
     y: root.outerGap
@@ -209,8 +266,10 @@ PanelWindow {
   }
 
   EdgeDrawer {
+    id: rightDrawer
     edge: "right"
     open: root.openDrawer === edge
+    pointerRevealed: root.pointerRevealed
     onDismissRequested: root.dismissDrawer(edge)
     x: parent.width - root.outerGap + root.innerGap - root.reservedRight
     y: root.outerGap
@@ -225,8 +284,10 @@ PanelWindow {
   }
 
   EdgeDrawer {
+    id: topDrawer
     edge: "top"
     open: root.openDrawer === edge
+    pointerRevealed: root.pointerRevealed
     onDismissRequested: root.dismissDrawer(edge)
     x: root.outerGap
     y: root.outerGap - root.topDrawerHeight - root.innerGap + root.reservedTop
@@ -242,8 +303,10 @@ PanelWindow {
   }
 
   EdgeDrawer {
+    id: bottomDrawer
     edge: "bottom"
     open: root.openDrawer === edge
+    pointerRevealed: root.pointerRevealed
     onDismissRequested: root.dismissDrawer(edge)
     x: root.outerGap
     y: parent.height - root.outerGap + root.innerGap - root.reservedBottom
@@ -278,6 +341,10 @@ PanelWindow {
       primaryMonitor: root.primaryMonitor
       appearanceController: root.appearanceController
       weatherController: root.weatherController
+    }
+
+    HoverHandler {
+      id: centerHover
     }
 
   }

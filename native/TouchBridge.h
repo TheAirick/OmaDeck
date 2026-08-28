@@ -14,6 +14,7 @@ class TouchBridge : public QObject
     Q_OBJECT
     Q_PROPERTY(QObject *window READ window WRITE setWindow NOTIFY windowChanged)
     Q_PROPERTY(bool active READ active NOTIFY activeChanged)
+    Q_PROPERTY(bool touchInProgress READ touchInProgress NOTIFY touchInProgressChanged)
     Q_PROPERTY(QString devicePath READ devicePath NOTIFY devicePathChanged)
     Q_PROPERTY(QString status READ status NOTIFY statusChanged)
 
@@ -24,6 +25,7 @@ public:
     QObject *window() const;
     void setWindow(QObject *window);
     bool active() const { return m_fd >= 0; }
+    bool touchInProgress() const { return m_touchInProgress; }
     QString devicePath() const { return m_devicePath; }
     QString status() const { return m_status; }
 
@@ -33,6 +35,7 @@ public:
 signals:
     void windowChanged();
     void activeChanged();
+    void touchInProgressChanged();
     void devicePathChanged();
     void statusChanged();
 
@@ -50,6 +53,7 @@ private:
     void resetInputState();
     void readEvents();
     void dispatch(bool pressed, bool released);
+    void setTouchInProgress(bool inProgress);
     void setStatus(const QString &status);
 
     QPointer<QObject> m_target;
@@ -73,6 +77,7 @@ private:
     bool m_hasMultitouch = false;
     bool m_singlePressed = false;
     bool m_pointerDown = false;
+    bool m_touchInProgress = false;
     bool m_wantsActive = false;
     QPointF m_lastPosition;
 };

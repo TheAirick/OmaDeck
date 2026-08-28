@@ -1,16 +1,23 @@
 import QtQuick
 import qs.Commons
 import qs.Ui
+import "DrawerGesture.js" as DrawerGesture
 
 BorderSurface {
   id: root
 
   property string edge: "left"
   property bool open: false
+  property bool pointerRevealed: false
+  readonly property bool pointerHovered: drawerHover.hovered
   readonly property real dismissInset: edge === "left" ? contentRightInset
     : edge === "right" ? contentLeftInset
     : edge === "top" ? contentBottomInset
     : contentTopInset
+  readonly property real navigationSize: Style.space(32)
+  readonly property var dismissButtonPosition: DrawerGesture.dismissButtonPosition(
+    edge, width, height, navigationSize,
+    contentLeftInset, contentTopInset, contentRightInset, contentBottomInset)
   default property alias content: contentHost.data
   signal dismissRequested()
 
@@ -43,5 +50,31 @@ BorderSurface {
     x: root.edge === "left" ? root.width - width : 0
     y: root.edge === "top" ? root.height - height : 0
     onTriggered: root.dismissRequested()
+  }
+
+  Button {
+    id: dismissButton
+    visible: root.open && (root.pointerRevealed || opacity > 0)
+    opacity: root.pointerRevealed ? 1 : 0
+    enabled: root.pointerRevealed
+    width: root.navigationSize
+    height: root.navigationSize
+    x: root.dismissButtonPosition.x
+    y: root.dismissButtonPosition.y
+    z: 30
+    iconText: root.edge === "left" ? "←"
+      : root.edge === "right" ? "→"
+      : root.edge === "top" ? "↑" : "↓"
+    iconSize: Style.font.body
+    tooltipText: "Close drawer"
+    bordered: true
+    foreground: Color.foreground
+    onClicked: root.dismissRequested()
+
+    Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+  }
+
+  HoverHandler {
+    id: drawerHover
   }
 }

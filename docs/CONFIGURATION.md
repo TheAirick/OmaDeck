@@ -1,11 +1,13 @@
 # Configuration
 
-OmaDeck now has a touch-friendly settings sheet for its Clock/Weather card.
-Monitor selection and launcher entries remain source-level options.
+OmaDeck keeps configuration off the deck surface so its touch display stays
+focused on primary navigation. Monitor selection and launcher entries remain
+source-level options.
 
 ## Clock and weather
 
-Tap the gear in the upper-right of the Clock/Weather card. The sheet controls:
+Open the OmaDeck taskbar icon's menu on the primary desktop and choose
+**Clock & weather settings…**. The single settings panel controls:
 
 - Hero, Split, or Compact clock layout
 - 12- or 24-hour time and optional seconds
@@ -23,7 +25,7 @@ location, or secondary stats when a drawer or edited split leaves too little
 room, then restores them automatically as the card expands.
 
 OmaDeck deliberately shares Omarchy's weather location instead of keeping a
-second copy. Choose **Set in Omarchy** from the settings sheet, or run:
+second copy. Choose **Weather location…** from the tray settings panel, or run:
 
 ```bash
 omarchy-weather-location --set "Seattle" "47.6062,-122.3321"
@@ -90,7 +92,9 @@ touchscreen models can use different normalized names.
 OmaDeck launches a small system-tray controller with the service. Click its
 icon from the primary desktop to open the OmaDeck Control Center, inspect touch
 and monitor health, copy a sanitized report, request a touch reconnect, or
-restart the Omarchy shell. This path does not require the deck touchscreen.
+restart the Omarchy shell. Its context menu also owns the single
+**Clock & weather settings…** panel; the deck surface does not duplicate those
+controls. This path does not require the deck touchscreen.
 
 The tray is built by `scripts/build-native`. If the tray is missing, rebuild and
 restart the shell.

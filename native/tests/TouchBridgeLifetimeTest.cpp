@@ -36,6 +36,7 @@ private slots:
     void destroyingWindowClearsAttachedWindow();
     void stopIsSafeAfterActiveTargetDestruction();
     void syntheticReleaseCannotReenterActiveCleanup();
+    void directTouchContactIsExposedUntilSyntheticHoverLeaves();
 };
 
 void TouchBridgeLifetimeTest::destroyingTargetClearsTargetAndWindow()
@@ -120,6 +121,23 @@ void TouchBridgeLifetimeTest::syntheticReleaseCannotReenterActiveCleanup()
     QCOMPARE(deviceChanges.count(), 1);
 
     ::close(descriptors[1]);
+}
+
+void TouchBridgeLifetimeTest::directTouchContactIsExposedUntilSyntheticHoverLeaves()
+{
+    TouchBridge bridge;
+    QQuickWindow window;
+    window.resize(100, 100);
+    bridge.setWindow(&window);
+    bridge.m_lastPosition = QPointF(20, 30);
+    QSignalSpy contactChanges(&bridge, &TouchBridge::touchInProgressChanged);
+
+    bridge.dispatch(true, false);
+    QVERIFY(bridge.touchInProgress());
+
+    bridge.dispatch(false, true);
+    QVERIFY(!bridge.touchInProgress());
+    QCOMPARE(contactChanges.count(), 2);
 }
 
 QTEST_MAIN(TouchBridgeLifetimeTest)

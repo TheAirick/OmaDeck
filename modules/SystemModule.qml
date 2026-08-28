@@ -14,6 +14,7 @@ Item {
   property string selectedClientAddress: ""
   property bool forceKillArmed: false
   property string clipboardNotice: ""
+  property bool clipboardSaveSucceeded: false
   property var cpuHistory: []
   property var gpuHistory: []
   property var memoryHistory: []
@@ -114,8 +115,9 @@ Item {
     var saved = false
     try {
       var limit = Math.max(0, Number(owner.historyLimit || 300))
+      clipboardSaveSucceeded = false
       clipboardHistoryFile.setText(JSON.stringify(result.history.slice(0, limit), null, 2) + "\n")
-      saved = clipboardHistoryFile.waitForJob()
+      saved = clipboardSaveSucceeded
     } catch (error) {
       console.warn("OmaDeck clipboard delete:", error)
     }
@@ -209,7 +211,13 @@ Item {
     id: clipboardHistoryFile
     path: Quickshell.env("HOME") + "/.local/state/omarchy/clipboard-history.json"
     atomicWrites: true
+    blockWrites: true
     printErrors: false
+    onSaved: root.clipboardSaveSucceeded = true
+    onSaveFailed: function(error) {
+      root.clipboardSaveSucceeded = false
+      console.warn("OmaDeck clipboard delete: persistence failed:", error)
+    }
   }
 
   Timer {

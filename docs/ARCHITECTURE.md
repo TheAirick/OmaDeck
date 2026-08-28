@@ -26,6 +26,11 @@ synchronized retiling motion rather than an overlay. Cards clip their content
 to their live bounds; dense modules scale or progressively hide secondary
 details when a split becomes constrained.
 
+Each open drawer owns a contextual directional button back to the center. It
+floats above drawer content without changing its geometry and appears only
+while a mouse is over OmaDeck; touch interaction keeps the control hidden and
+uses reverse-swipe dismissal instead.
+
 ## Native integrations
 
 - Omarchy `Color`, `Style`, and `Border` tokens drive appearance.
@@ -52,7 +57,9 @@ OmaDeck also contains two native Qt components:
   re-enumeration or suspend.
 - `omadeck-tray` is a separate `QSystemTrayIcon` process. It remains usable by
   mouse when deck touch is unavailable and runs the same health checks exposed
-  by `scripts/omadeck-doctor`.
+  by `scripts/omadeck-doctor`. It also owns the single Clock/Weather settings
+  panel and updates the validated QML appearance controller through bounded IPC;
+  it never writes the appearance file directly.
 
 `scripts/build-native` configures and builds both components. Generated build
 artifacts are deliberately not stored in Git because they are tied to the
@@ -72,6 +79,8 @@ omarchy-shell pretty.omadeck drawer left
 omarchy-shell pretty.omadeck system performance
 omarchy-shell pretty.omadeck closeDrawer
 omarchy-shell pretty.omadeck reconnectTouch
+omarchy-shell pretty.omadeck appearanceState
+omarchy-shell pretty.omadeck setAppearance showSeconds true
 ```
 
 ## Security model

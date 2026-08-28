@@ -17,6 +17,8 @@ Item {
   property string temperatureUnit: "fahrenheit"
   property bool loaded: false
   property bool directoryReady: false
+  property bool lastSaveSucceeded: false
+  property string lastSaveError: ""
 
   function oneOf(value, choices, fallback) {
     return choices.indexOf(String(value || "")) !== -1 ? String(value) : fallback
@@ -54,7 +56,20 @@ Item {
     }
   }
 
+  function restoreSnapshot(state) {
+    clockStyle = state.clockStyle
+    use24Hour = state.use24Hour
+    showSeconds = state.showSeconds
+    showWeather = state.showWeather
+    weatherStyle = state.weatherStyle
+    weatherDetail = state.weatherDetail
+    temperatureUnit = state.temperatureUnit
+  }
+
   function setOption(key, value) {
+    if (!directoryReady) return false
+    var before = snapshot()
+    saveDelay.stop()
     if (key === "clockStyle") clockStyle = oneOf(value, ["hero", "split", "compact"], clockStyle)
     else if (key === "use24Hour") use24Hour = value === true
     else if (key === "showSeconds") showSeconds = value === true
@@ -62,8 +77,11 @@ Item {
     else if (key === "weatherStyle") weatherStyle = oneOf(value, ["scene", "glyph", "minimal"], weatherStyle)
     else if (key === "weatherDetail") weatherDetail = oneOf(value, ["compact", "standard", "full"], weatherDetail)
     else if (key === "temperatureUnit") temperatureUnit = oneOf(value, ["fahrenheit", "celsius"], temperatureUnit)
-    else return
-    scheduleSave()
+    else return false
+
+    var saved = persist()
+    if (!saved) restoreSnapshot(before)
+    return saved
   }
 
   function scheduleSave() {
@@ -71,7 +89,16 @@ Item {
   }
 
   function persist() {
-    if (directoryReady) settingsFile.setText(JSON.stringify(snapshot(), null, 2) + "\n")
+    if (!directoryReady) return false
+    lastSaveSucceeded = false
+    lastSaveError = ""
+    try {
+      settingsFile.setText(JSON.stringify(snapshot(), null, 2) + "\n")
+    } catch (error) {
+      console.warn("OmaDeck: failed to persist appearance settings:", error)
+      lastSaveError = String(error)
+    }
+    return lastSaveSucceeded
   }
 
   Process {
@@ -88,7 +115,13 @@ Item {
     path: root.settingsPath
     watchChanges: true
     atomicWrites: true
+    blockWrites: true
     printErrors: false
+    onSaved: root.lastSaveSucceeded = true
+    onSaveFailed: function(error) {
+      root.lastSaveSucceeded = false
+      root.lastSaveError = String(error)
+    }
     onLoaded: root.load(text())
     onLoadFailed: {
       if (!root.directoryReady) return

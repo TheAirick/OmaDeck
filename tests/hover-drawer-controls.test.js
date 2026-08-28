@@ -21,7 +21,7 @@ const moduleTile = fs.readFileSync(
   "utf8",
 )
 
-test("all four drawer actions exist in the hover-revealed control grid", () => {
+test("all four drawer actions exist in the permanent control grid", () => {
   for (const [edge, label] of [
     ["left", "Media"],
     ["right", "System"],
@@ -33,18 +33,13 @@ test("all four drawer actions exist in the hover-revealed control grid", () => {
   assert.match(commandCenter, /columns: 2/)
 })
 
-test("drawer controls and hint are hidden until pointer hover or explicit edit mode", () => {
-  assert.match(commandCenter, /readonly property bool pointerRevealed: drawerHover\.hovered/)
-  assert.match(commandCenter, /readonly property bool controlsRevealed: pointerRevealed/)
-  assert.match(commandCenter, /HoverHandler \{ id: drawerHover/)
-  assert.match(commandCenter, /id: drawerControls[\s\S]*opacity: root\.controlsRevealed \? 1 : 0/)
-  assert.match(commandCenter, /id: drawerControls[\s\S]*enabled: root\.controlsRevealed/)
-  assert.match(commandCenter, /id: interactionHint[\s\S]*opacity: root\.controlsRevealed \? 1 : 0/)
-  assert.match(commandCenter, /Behavior on opacity/)
-  assert.match(moduleTile, /commandControlsRevealed/)
-  assert.match(moduleTile, /moduleLoader\.item\.pointerRevealed/)
-  assert.match(moduleTile, /!\(controller && controller\.editMode\)/)
-  assert.match(moduleTile, /commandControlsRevealed \? "Swipe from any edge" : ""/)
+test("primary drawer navigation stays visible without pointer hover", () => {
+  assert.doesNotMatch(commandCenter, /pointerRevealed|controlsRevealed|drawerHover/)
+  assert.doesNotMatch(commandCenter, /id: drawerControls[\s\S]*opacity:/)
+  assert.doesNotMatch(commandCenter, /id: drawerControls[\s\S]*enabled:/)
+  assert.doesNotMatch(commandCenter, /id: interactionHint[\s\S]*opacity:/)
+  assert.doesNotMatch(moduleTile, /commandControlsRevealed|pointerRevealed/)
+  assert.match(moduleTile, /moduleId === "command-center" \? "Swipe from any edge"/)
 })
 
 test("drawer controls expose selected feedback for the open edge", () => {
