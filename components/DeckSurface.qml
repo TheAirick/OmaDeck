@@ -18,6 +18,7 @@ PanelWindow {
   property var weatherController: null
   property string targetScreen: "DP-3"
   property string primaryMonitor: "DP-1"
+  property var touchDeviceNames: []
   property string openDrawer: ""
   property string lastDrawerTransition: "initial"
   property int drawerTransitionSequence: 0
@@ -66,6 +67,7 @@ PanelWindow {
 
   NativeTouch.TouchBridge {
     id: directTouch
+    deviceNames: root.touchDeviceNames
   }
 
   Component.onCompleted: {
@@ -131,6 +133,7 @@ PanelWindow {
         active: directTouch.active,
         exclusiveGrab: directTouch.active,
         devicePath: directTouch.devicePath,
+        configuredDeviceNames: directTouch.deviceNames,
         status: directTouch.status
       })
     }

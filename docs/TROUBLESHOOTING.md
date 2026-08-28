@@ -10,7 +10,11 @@ For a linked checkout, run `omarchy-shell shell rescanPlugins`.
 
 Current OmaDeck releases isolate the direct touchscreen in a native bridge and
 inject it only into the deck window. Run `scripts/omadeck-doctor` and confirm
-that the expected WCH.CN/Xeneon device is both readable and owned by the bridge.
+that the configured device is both readable and owned by the bridge. If doctor
+reports that the configured touchscreen is absent or mismatched, OmaDeck has
+deliberately refused to grab the other direct touchscreen(s) it found. Reconnect
+the deck device or configure its distinctive evdev name in `Service.qml`; do not
+broaden the match to a generic `Touchscreen` value.
 
 ## Touch stops after suspend or a USB reset
 

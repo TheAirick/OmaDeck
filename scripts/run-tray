@@ -4,6 +4,8 @@ set -euo pipefail
 project_dir=${1:?OmaDeck project directory is required}
 target_screen=${2:-DP-3}
 primary_monitor=${3:-DP-1}
+shift $(( $# < 3 ? $# : 3 ))
+touch_device_names=("$@")
 tray_binary="$project_dir/native/bin/omadeck-tray"
 
 if [[ ! -x $tray_binary ]]; then
@@ -11,10 +13,16 @@ if [[ ! -x $tray_binary ]]; then
   exit 0
 fi
 
-exec "$tray_binary" \
+arguments=(
   --doctor "$project_dir/scripts/omadeck-doctor" \
   --guide "$project_dir/docs/CONFIGURATION.md" \
   --icon "$project_dir/assets/omadeck-tray.svg" \
   --plugin-dir "$project_dir" \
   --target-screen "$target_screen" \
   --primary-monitor "$primary_monitor"
+)
+for touch_device_name in "${touch_device_names[@]}"; do
+  arguments+=(--touch-device-name "$touch_device_name")
+done
+
+exec "$tray_binary" "${arguments[@]}"

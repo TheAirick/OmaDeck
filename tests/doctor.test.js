@@ -16,6 +16,8 @@ function executable(filePath, contents) {
 function createFixture({
   bridgeActive,
   shellHasOpenFd,
+  touchModel = "XENEON",
+  touchName = touchModel,
   touchStateFailures = 0,
   inactiveTouchStates = 0,
 }) {
@@ -24,6 +26,7 @@ function createFixture({
   const homeDir = path.join(root, "home")
   const inputRoot = path.join(root, "input")
   const procRoot = path.join(root, "proc")
+  const sysInputRoot = path.join(root, "sys/class/input")
   const pluginDir = path.join(root, "plugin")
   const touchDevice = path.join(inputRoot, "event13")
   const touchStateCount = path.join(root, "touch-state-count")
@@ -35,7 +38,9 @@ function createFixture({
   fs.mkdirSync(path.join(pluginDir, "native/OmaDeck/Touch"), { recursive: true })
   fs.mkdirSync(path.join(pluginDir, "native/bin"), { recursive: true })
   fs.mkdirSync(inputRoot, { recursive: true })
+  fs.mkdirSync(path.join(sysInputRoot, "event13/device"), { recursive: true })
   fs.writeFileSync(touchDevice, "")
+  fs.writeFileSync(path.join(sysInputRoot, "event13/device/name"), `${touchName}\n`)
   fs.writeFileSync(path.join(pluginDir, "native/OmaDeck/Touch/libomadecktouchplugin.so"), "")
   executable(path.join(pluginDir, "native/bin/omadeck-tray"), "#!/usr/bin/env bash\nexit 0\n")
   executable(path.join(homeDir, ".local/bin/alienware-to-omarchy"), "#!/usr/bin/env bash\nexit 0\n")
@@ -43,7 +48,7 @@ function createFixture({
 
   executable(path.join(binDir, "pgrep"), "#!/usr/bin/env bash\n[[ $* == '-x quickshell' ]] || exit 1\nprintf '4242\\n'\n")
   executable(path.join(binDir, "hyprctl"), "#!/usr/bin/env bash\nprintf '%s\\n' '[{\"name\":\"DP-3\"},{\"name\":\"DP-1\"}]'\n")
-  executable(path.join(binDir, "udevadm"), "#!/usr/bin/env bash\nprintf 'ID_INPUT_TOUCHSCREEN=1\\nID_MODEL=XENEON\\n'\n")
+  executable(path.join(binDir, "udevadm"), `#!/usr/bin/env bash\nprintf 'ID_INPUT_TOUCHSCREEN=1\\nID_MODEL=${touchModel}\\n'\n`)
   executable(path.join(binDir, "sleep"), `#!/usr/bin/env bash\nprintf '%s\\n' "$1" >>'${sleepLog}'\n`)
   executable(path.join(binDir, "omarchy-shell"), `#!/usr/bin/env bash\nif [[ $2 == touchState ]]; then\n  count=0\n  [[ ! -f '${touchStateCount}' ]] || count=$(<'${touchStateCount}')\n  count=$((count + 1))\n  printf '%s' "$count" >'${touchStateCount}'\n  ((count > ${touchStateFailures})) || exit 1\n  if ((count <= ${touchStateFailures + inactiveTouchStates})); then\n    printf '%s\\n' '${JSON.stringify({ active: false, exclusiveGrab: false, devicePath: "", status: "Direct touch not started" })}'\n  else\n    printf '%s\\n' '${JSON.stringify({ active: bridgeActive, exclusiveGrab: bridgeActive, devicePath: touchDevice, status: bridgeActive ? "Isolated direct touch" : "Direct touch not started" })}'\n  fi\nfi\n`)
   for (const name of ["omarchy", "wpctl"])
@@ -59,6 +64,7 @@ function createFixture({
       HOME: homeDir,
       OMADECK_INPUT_ROOT: inputRoot,
       OMADECK_PROC_ROOT: procRoot,
+      OMADECK_SYS_CLASS_INPUT_ROOT: sysInputRoot,
       OMADECK_TOUCH_STATE_ATTEMPTS: "4",
       OMADECK_TOUCH_STATE_RETRY_DELAY: "0",
       PATH: `${binDir}:/usr/bin:/bin`,
@@ -154,12 +160,100 @@ test("doctor clamps retry overrides to a short bounded probe", t => {
   assert.deepEqual(new Set(delays), new Set(["0.1"]))
 })
 
+test("doctor reports a mismatched touchscreen without treating it as the deck", t => {
+  const fixture = createFixture({
+    bridgeActive: false,
+    shellHasOpenFd: false,
+    touchModel: "ELAN_LAPTOP_TOUCHSCREEN",
+  })
+  t.after(fixture.cleanup)
+
+  const result = runDoctor(fixture)
+
+  assert.equal(result.status, 1, result.stdout + result.stderr)
+  assert.match(result.stdout, /Configured touchscreen is absent or mismatched/)
+  assert.match(result.stdout, /found 1 other direct touchscreen/)
+  assert.match(result.stdout, /will not grab/)
+  assert.doesNotMatch(result.stdout, /available and readable/)
+})
+
+test("doctor accepts a configured touchscreen identity for broader hardware", t => {
+  const fixture = createFixture({
+    bridgeActive: true,
+    shellHasOpenFd: true,
+    touchModel: "ACME_DECK_9000",
+  })
+  t.after(fixture.cleanup)
+
+  const result = runDoctor(fixture, "--touch-device-name", "ACME_DECK")
+
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.match(result.stdout, /active exclusive grab/)
+  assert.match(result.stdout, /Overall: healthy/)
+})
+
+test("doctor matches the evdev name rather than unrelated udev properties", t => {
+  const fixture = createFixture({
+    bridgeActive: false,
+    shellHasOpenFd: false,
+    touchModel: "XENEON",
+    touchName: "ELAN Laptop Touchscreen",
+  })
+  t.after(fixture.cleanup)
+
+  const result = runDoctor(fixture)
+
+  assert.equal(result.status, 1, result.stdout + result.stderr)
+  assert.match(result.stdout, /Configured touchscreen is absent or mismatched/)
+  assert.doesNotMatch(result.stdout, /available and readable/)
+})
+
+test("doctor reports that an explicit empty identity configuration disables grabbing", t => {
+  const fixture = createFixture({ bridgeActive: false, shellHasOpenFd: false })
+  t.after(fixture.cleanup)
+
+  const result = runDoctor(fixture, "--no-touch-device")
+
+  assert.equal(result.status, 1, result.stdout + result.stderr)
+  assert.match(result.stdout, /No touchscreen identity is configured/)
+  assert.doesNotMatch(result.stdout, /available and readable/)
+})
+
 test("DeckSurface exposes the native bridge state over read-only IPC", () => {
   const source = fs.readFileSync(path.join(repositoryRoot, "components/DeckSurface.qml"), "utf8")
+  const service = fs.readFileSync(path.join(repositoryRoot, "Service.qml"), "utf8")
 
+  assert.match(service, /property var touchDeviceNames: \["WCH\.CN", "XENEON"\]/)
+  assert.match(service, /touchDeviceNames: root\.touchDeviceNames/)
+  assert.match(source, /deviceNames: root\.touchDeviceNames/)
   assert.match(source, /function touchState\(\): string/)
   assert.match(source, /active: directTouch\.active/)
   assert.match(source, /exclusiveGrab: directTouch\.active/)
   assert.match(source, /devicePath: directTouch\.devicePath/)
   assert.match(source, /status: directTouch\.status/)
+  assert.match(source, /configuredDeviceNames: directTouch\.deviceNames/)
+})
+
+test("native bridge revalidates identity at grab time and releases stale ownership first", () => {
+  const source = fs.readFileSync(path.join(repositoryRoot, "native/TouchBridge.cpp"), "utf8")
+  const startSource = source.slice(source.indexOf("bool TouchBridge::start()"), source.indexOf("bool TouchBridge::openDevice"))
+  const openSource = source.slice(source.indexOf("bool TouchBridge::openDevice"), source.indexOf("void TouchBridge::stop()"))
+  const staleRelease = startSource.indexOf("activeBridge->stop()")
+  const emptyConfiguration = startSource.indexOf("m_deviceNames.isEmpty()")
+  const directValidation = openSource.indexOf("isDirectTouchscreen(m_fd, &name, &m_hasMultitouch)")
+  const grabValidation = openSource.indexOf("selectDeviceIndex({name}, m_deviceNames)")
+  const exclusiveGrab = openSource.indexOf("EVIOCGRAB, 1")
+
+  assert.ok(staleRelease >= 0 && staleRelease < emptyConfiguration)
+  assert.ok(directValidation >= 0 && directValidation < grabValidation)
+  assert.ok(grabValidation < exclusiveGrab)
+})
+
+test("tray diagnostics preserve an explicitly empty device identity list", () => {
+  const runTray = fs.readFileSync(path.join(repositoryRoot, "scripts/run-tray"), "utf8")
+  const tray = fs.readFileSync(path.join(repositoryRoot, "native/TrayApp.cpp"), "utf8")
+
+  assert.doesNotMatch(runTray, /touch_device_names=\(WCH\.CN XENEON\)/)
+  assert.doesNotMatch(tray, /touchDeviceNames = \{QStringLiteral\("WCH\.CN"\)/)
+  assert.match(tray, /arguments << QStringLiteral\("--no-touch-device"\)/)
 })

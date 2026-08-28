@@ -108,11 +108,12 @@ void TouchBridge::setWindow(QObject *window)
     emit windowChanged();
 }
 
-QString TouchBridge::findTouchscreen() const
+QString TouchBridge::findTouchscreen(QStringList *detectedNames) const
 {
     QDir input(QStringLiteral("/dev/input"));
     auto entries = input.entryInfoList({QStringLiteral("event*")}, QDir::System | QDir::Files, QDir::Name);
-    QString fallback;
+    QStringList paths;
+    QStringList names;
 
     for (const QFileInfo &entry : entries) {
         const int fd = ::open(entry.absoluteFilePath().toUtf8().constData(),
@@ -125,13 +126,48 @@ QString TouchBridge::findTouchscreen() const
         ::close(fd);
         if (!touch)
             continue;
-        if (fallback.isEmpty())
-            fallback = entry.absoluteFilePath();
-        if (name.contains(QStringLiteral("WCH.CN"), Qt::CaseInsensitive)
-            || name.contains(QStringLiteral("XENEON"), Qt::CaseInsensitive))
-            return entry.absoluteFilePath();
+        paths.append(entry.absoluteFilePath());
+        names.append(name);
     }
-    return fallback;
+    if (detectedNames)
+        *detectedNames = names;
+    const int selected = selectDeviceIndex(names, m_deviceNames);
+    return selected >= 0 ? paths.at(selected) : QString();
+}
+
+int TouchBridge::selectDeviceIndex(const QStringList &detectedNames,
+                                   const QStringList &configuredNames)
+{
+    if (configuredNames.isEmpty())
+        return -1;
+    for (int index = 0; index < detectedNames.size(); ++index) {
+        for (const QString &configuredName : configuredNames) {
+            if (!configuredName.isEmpty()
+                && detectedNames.at(index).contains(configuredName, Qt::CaseInsensitive))
+                return index;
+        }
+    }
+    return -1;
+}
+
+void TouchBridge::setDeviceNames(const QStringList &deviceNames)
+{
+    QStringList normalized;
+    for (const QString &deviceName : deviceNames) {
+        const QString trimmed = deviceName.trimmed();
+        if (!trimmed.isEmpty() && !normalized.contains(trimmed, Qt::CaseInsensitive))
+            normalized.append(trimmed);
+    }
+    if (normalized == m_deviceNames)
+        return;
+
+    const bool reconnect = m_wantsActive;
+    if (active())
+        closeDevice(QStringLiteral("Touchscreen identity changed; reconnecting…"));
+    m_deviceNames = normalized;
+    emit deviceNamesChanged();
+    if (reconnect)
+        start();
 }
 
 bool TouchBridge::start()
@@ -140,20 +176,37 @@ bool TouchBridge::start()
     if (active())
         return true;
 
-    // Quickshell can recover from a QML crash inside the same process. The old
-    // plugin object may survive that engine reset long enough to retain its
-    // EVIOCGRAB, so explicitly hand ownership to the replacement instance.
+    // A recovered QML engine replaces the previous bridge in-process. Release
+    // that bridge before any early return so an invalid or absent replacement
+    // configuration cannot leave the old identity's EVIOCGRAB behind.
     if (activeBridge && activeBridge != this) {
         qInfo() << "[OmaDeckTouch] releasing stale bridge before reconnect";
         activeBridge->stop();
     }
 
-    const QString path = findTouchscreen();
-    if (path.isEmpty()) {
-        setStatus(QStringLiteral("No accessible direct touchscreen found"));
+    if (m_deviceNames.isEmpty()) {
+        setStatus(QStringLiteral("No touchscreen identity configured; refusing exclusive grab"));
         scheduleReconnect();
         return false;
     }
+
+    QStringList detectedNames;
+    const QString path = findTouchscreen(&detectedNames);
+    if (path.isEmpty()) {
+        const QString expected = m_deviceNames.join(QStringLiteral(", "));
+        if (detectedNames.isEmpty()) {
+            setStatus(QStringLiteral("Configured touchscreen not found (expected name containing: %1)")
+                          .arg(expected));
+        } else {
+            setStatus(QStringLiteral("Configured touchscreen absent or mismatched (expected: %1); refusing to grab %2 other direct touchscreen(s): %3")
+                          .arg(expected)
+                          .arg(detectedNames.size())
+                          .arg(detectedNames.join(QStringLiteral(", "))));
+        }
+        scheduleReconnect();
+        return false;
+    }
+
     const bool opened = openDevice(path);
     if (opened)
         m_retryTimer->stop();
@@ -189,6 +242,17 @@ bool TouchBridge::openDevice(const QString &path)
     QString name;
     if (!isDirectTouchscreen(m_fd, &name, &m_hasMultitouch)) {
         setStatus(QStringLiteral("%1 is not a direct touchscreen").arg(path));
+        ::close(m_fd);
+        m_fd = -1;
+        return false;
+    }
+
+    // Discovery and open are separate syscalls. A USB re-enumeration can reuse
+    // the event path between them, so authorize the name from the descriptor
+    // that will actually be grabbed rather than trusting the earlier scan.
+    if (selectDeviceIndex({name}, m_deviceNames) < 0) {
+        setStatus(QStringLiteral("Refusing to isolate %1: device identity changed to %2")
+                      .arg(path, name));
         ::close(m_fd);
         m_fd = -1;
         return false;

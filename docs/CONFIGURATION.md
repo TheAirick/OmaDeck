@@ -53,16 +53,39 @@ application actions.
 
 ## Touch mapping
 
-OmaDeck's native bridge discovers a direct touchscreen, prefers devices named
-WCH.CN or XENEON, exclusively grabs its evdev node, and injects events only into
-the deck window. This prevents touch from moving the desktop mouse pointer or
-activating windows on another monitor.
+OmaDeck's native bridge discovers a direct touchscreen whose evdev name contains
+one of the explicitly configured identities, exclusively grabs that node, and
+injects events only into the deck window. The defaults are `WCH.CN` and
+`XENEON`. If neither identity is present, the bridge fails closed and leaves all
+other touchscreens untouched instead of falling back to one of them. This
+prevents touch from moving the desktop mouse pointer or activating windows on
+another monitor without risking an unrelated laptop or pen display touchscreen.
+
+The configured case-insensitive name substrings live beside the monitor options
+in `Service.qml`:
+
+```qml
+property var touchDeviceNames: ["WCH.CN", "XENEON"]
+```
+
+Replace that list with one or more distinctive substrings reported for another
+dedicated deck touchscreen. Do not use a generic value such as `Touchscreen`:
+the matching identity is the safety boundary that authorizes the exclusive
+grab. The same list is passed to the tray and doctor so their diagnosis reflects
+the bridge configuration.
 
 The logged-in user must be able to read the touchscreen event node. Confirm the
 device and the bridge state with:
 
 ```bash
 ./scripts/omadeck-doctor
+```
+
+To diagnose a source-level custom identity directly, repeat
+`--touch-device-name` as needed:
+
+```bash
+./scripts/omadeck-doctor --touch-device-name "ACME Deck 9000"
 ```
 
 The bridge automatically retries once per second when suspend or a USB reset

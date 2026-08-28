@@ -24,6 +24,7 @@
 #include <QPushButton>
 #include <QSignalBlocker>
 #include <QStandardPaths>
+#include <QStringList>
 #include <QSystemTrayIcon>
 #include <QTimer>
 #include <QUrl>
@@ -48,6 +49,7 @@ class TrayController final : public QObject
 public:
     TrayController(QString doctorPath, QString guidePath, QString iconPath,
                    QString pluginDir, QString targetScreen, QString primaryMonitor,
+                   QStringList touchDeviceNames,
                    QObject *parent = nullptr)
         : QObject(parent)
         , m_doctorPath(std::move(doctorPath))
@@ -55,6 +57,7 @@ public:
         , m_pluginDir(std::move(pluginDir))
         , m_targetScreen(std::move(targetScreen))
         , m_primaryMonitor(std::move(primaryMonitor))
+        , m_touchDeviceNames(std::move(touchDeviceNames))
         , m_baseIcon(iconPath)
     {
         if (m_baseIcon.isNull())
@@ -110,6 +113,12 @@ private:
         arguments << QStringLiteral("--plugin-dir") << m_pluginDir
                   << QStringLiteral("--target-screen") << m_targetScreen
                   << QStringLiteral("--primary-monitor") << m_primaryMonitor;
+        if (m_touchDeviceNames.isEmpty()) {
+            arguments << QStringLiteral("--no-touch-device");
+        } else {
+            for (const QString &deviceName : m_touchDeviceNames)
+                arguments << QStringLiteral("--touch-device-name") << deviceName;
+        }
         return arguments;
     }
 
@@ -485,6 +494,7 @@ private:
     QString m_pluginDir;
     QString m_targetScreen;
     QString m_primaryMonitor;
+    QStringList m_touchDeviceNames;
     QIcon m_baseIcon;
     QSystemTrayIcon m_tray;
     QMenu m_menu;
@@ -511,7 +521,8 @@ int main(int argc, char **argv)
     QCommandLineOption pluginOption(QStringLiteral("plugin-dir"), QStringLiteral("OmaDeck plugin directory"), QStringLiteral("path"));
     QCommandLineOption targetOption(QStringLiteral("target-screen"), QStringLiteral("Deck monitor name"), QStringLiteral("name"), QStringLiteral("DP-3"));
     QCommandLineOption primaryOption(QStringLiteral("primary-monitor"), QStringLiteral("Primary monitor name"), QStringLiteral("name"), QStringLiteral("DP-1"));
-    parser.addOptions({doctorOption, guideOption, iconOption, pluginOption, targetOption, primaryOption});
+    QCommandLineOption touchDeviceOption(QStringLiteral("touch-device-name"), QStringLiteral("Required touchscreen name substring; may be repeated"), QStringLiteral("name"));
+    parser.addOptions({doctorOption, guideOption, iconOption, pluginOption, targetOption, primaryOption, touchDeviceOption});
     parser.process(application);
 
     const QString runtimeDirectory = QStandardPaths::writableLocation(QStandardPaths::RuntimeLocation);
@@ -525,7 +536,9 @@ int main(int argc, char **argv)
     if (!QFileInfo(doctorPath).isExecutable() || pluginDir.isEmpty())
         return 2;
 
+    QStringList touchDeviceNames = parser.values(touchDeviceOption);
     TrayController controller(doctorPath, parser.value(guideOption), parser.value(iconOption),
-                              pluginDir, parser.value(targetOption), parser.value(primaryOption));
+                              pluginDir, parser.value(targetOption), parser.value(primaryOption),
+                              touchDeviceNames);
     return application.exec();
 }

@@ -51,10 +51,12 @@ cloud, fog, drizzle, rain, snow, hail, and thunderstorm glyph language.
 OmaDeck also contains two native Qt components:
 
 - `TouchBridge` exclusively reads the direct touchscreen evdev node and injects
-  pointer events only into the OmaDeck window. It automatically releases dead
-  descriptors, hands ownership between QML-engine instances after crash
-  recovery, marks the device close-on-exec, and retries after USB
-  re-enumeration or suspend.
+  pointer events only into the OmaDeck window. An explicit list of distinctive,
+  case-insensitive device-name substrings authorizes the exclusive grab; an
+  absent match fails closed without selecting another direct touchscreen. It
+  automatically releases dead descriptors, hands ownership between QML-engine
+  instances after crash recovery, marks the device close-on-exec, and retries
+  after USB re-enumeration or suspend.
 - `omadeck-tray` is a separate `QSystemTrayIcon` process. It remains usable by
   mouse when deck touch is unavailable and runs the same health checks exposed
   by `scripts/omadeck-doctor`. It also owns the single Clock/Weather settings

@@ -8,8 +8,11 @@ primary_monitor=DP-1
 summary_only=false
 input_root=${OMADECK_INPUT_ROOT:-/dev/input}
 proc_root=${OMADECK_PROC_ROOT:-/proc}
+sys_input_root=${OMADECK_SYS_CLASS_INPUT_ROOT:-/sys/class/input}
 touch_state_attempts=${OMADECK_TOUCH_STATE_ATTEMPTS:-4}
 touch_state_retry_delay=${OMADECK_TOUCH_STATE_RETRY_DELAY:-0.1}
+touch_device_names=(WCH.CN XENEON)
+custom_touch_device_names=false
 
 [[ $touch_state_attempts =~ ^[1-9][0-9]*$ ]] || touch_state_attempts=4
 ((touch_state_attempts <= 10)) || touch_state_attempts=10
@@ -36,8 +39,21 @@ while (($#)); do
       primary_monitor=${2:?--primary-monitor requires a name}
       shift 2
       ;;
+    --touch-device-name)
+      if ! $custom_touch_device_names; then
+        touch_device_names=()
+        custom_touch_device_names=true
+      fi
+      touch_device_names+=("${2:?--touch-device-name requires a name}")
+      shift 2
+      ;;
+    --no-touch-device)
+      touch_device_names=()
+      custom_touch_device_names=true
+      shift
+      ;;
     --help|-h)
-      printf 'Usage: omadeck-doctor [--summary] [--plugin-dir PATH] [--target-screen NAME] [--primary-monitor NAME]\n'
+      printf 'Usage: omadeck-doctor [--summary] [--plugin-dir PATH] [--target-screen NAME] [--primary-monitor NAME] [--touch-device-name NAME]... [--no-touch-device]\n'
       exit 0
       ;;
     *)
@@ -51,6 +67,7 @@ declare -a report_lines=()
 core_issues=0
 advisories=0
 touch_device=""
+declare -a other_touch_devices=()
 touch_open=false
 touch_state=""
 touch_state_device=""
@@ -97,21 +114,38 @@ for event_path in "$input_root"/event*; do
   [[ -e $event_path ]] || continue
   properties=$(udevadm info -q property -n "$event_path" 2>/dev/null || true)
   [[ $properties == *"ID_INPUT_TOUCHSCREEN=1"* ]] || continue
-  if [[ $properties == *"wch.cn"* || $properties == *"WCH.CN"* || $properties == *"XENEON"* ]]; then
+  event_name=${event_path##*/}
+  device_name=""
+  IFS= read -r device_name <"$sys_input_root/$event_name/device/name" 2>/dev/null || true
+  matched_identity=false
+  device_name_folded=${device_name,,}
+  for touch_device_name in "${touch_device_names[@]}"; do
+    if [[ $device_name_folded == *"${touch_device_name,,}"* ]]; then
+      matched_identity=true
+      break
+    fi
+  done
+  if $matched_identity; then
     touch_device=$event_path
     break
   fi
-  [[ -n $touch_device ]] || touch_device=$event_path
+  other_touch_devices+=("$event_path")
 done
 
-if [[ -n $touch_device ]]; then
+if ((${#touch_device_names[@]} == 0)); then
+  fail "No touchscreen identity is configured; OmaDeck will not grab any direct touchscreen"
+elif [[ -n $touch_device ]]; then
   if [[ -r $touch_device ]]; then
     ok "Touchscreen is available and readable at $touch_device"
   else
     fail "Touchscreen exists at $touch_device but is not readable"
   fi
+elif ((${#other_touch_devices[@]} > 0)); then
+  expected_names=$(IFS='/'; printf '%s' "${touch_device_names[*]}")
+  fail "Configured touchscreen is absent or mismatched (expected name containing $expected_names); found ${#other_touch_devices[@]} other direct touchscreen(s), which OmaDeck will not grab"
 else
-  fail "No direct touchscreen input device was found"
+  expected_names=$(IFS='/'; printf '%s' "${touch_device_names[*]}")
+  fail "Configured touchscreen is absent (expected name containing $expected_names)"
 fi
 
 if [[ -n $touch_device ]]; then
@@ -142,15 +176,18 @@ if command -v omarchy-shell >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; th
   fi
 fi
 
-if [[ -n $touch_device ]] && $touch_state_active && $touch_state_exclusive \
-    && [[ $touch_state_device == "$touch_device" ]]; then
-  ok "OmaDeck touch bridge reports an active exclusive grab of $touch_device"
-elif $touch_open; then
-  fail "Touchscreen $touch_device is open by Quickshell, but OmaDeck does not report an active exclusive grab"
-elif [[ -n $touch_state_device && $touch_state_device != "$touch_device" ]]; then
-  fail "OmaDeck touch bridge reports a different device: $touch_state_device"
-else
-  fail "OmaDeck touch bridge does not report an active exclusive grab of the touchscreen"
+if [[ -n $touch_device ]]; then
+  if $touch_state_active && $touch_state_exclusive && [[ $touch_state_device == "$touch_device" ]]; then
+    ok "OmaDeck touch bridge reports an active exclusive grab of $touch_device"
+  elif $touch_open; then
+    fail "Touchscreen $touch_device is open by Quickshell, but OmaDeck does not report an active exclusive grab"
+  elif [[ -n $touch_state_device && $touch_state_device != "$touch_device" ]]; then
+    fail "OmaDeck touch bridge reports a different device: $touch_state_device"
+  else
+    fail "OmaDeck touch bridge does not report an active exclusive grab of the touchscreen"
+  fi
+elif $touch_state_active || [[ -n $touch_state_device ]]; then
+  fail "OmaDeck touch bridge reports an active device that does not match the configured touchscreen: $touch_state_device"
 fi
 
 if [[ -f $plugin_dir/native/OmaDeck/Touch/libomadecktouchplugin.so ]]; then

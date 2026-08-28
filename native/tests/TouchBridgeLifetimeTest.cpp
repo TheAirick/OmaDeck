@@ -32,12 +32,36 @@ class TouchBridgeLifetimeTest : public QObject
     Q_OBJECT
 
 private slots:
+    void deviceSelectionRequiresConfiguredIdentity();
+    void deviceSelectionSupportsConfiguredHardware();
     void destroyingTargetClearsTargetAndWindow();
     void destroyingWindowClearsAttachedWindow();
     void stopIsSafeAfterActiveTargetDestruction();
     void syntheticReleaseCannotReenterActiveCleanup();
     void directTouchContactIsExposedUntilSyntheticHoverLeaves();
 };
+
+void TouchBridgeLifetimeTest::deviceSelectionRequiresConfiguredIdentity()
+{
+    const QStringList detectedNames{
+        QStringLiteral("ELAN Laptop Touchscreen"),
+        QStringLiteral("WCH.CN Touchscreen"),
+    };
+
+    QCOMPARE(TouchBridge::selectDeviceIndex(detectedNames, {}), -1);
+    QCOMPARE(TouchBridge::selectDeviceIndex(detectedNames, {QStringLiteral("XENEON")}), -1);
+    QCOMPARE(TouchBridge::selectDeviceIndex(detectedNames, {QStringLiteral("WCH.CN")}), 1);
+}
+
+void TouchBridgeLifetimeTest::deviceSelectionSupportsConfiguredHardware()
+{
+    const QStringList detectedNames{
+        QStringLiteral("ELAN Laptop Touchscreen"),
+        QStringLiteral("ACME Deck 9000"),
+    };
+
+    QCOMPARE(TouchBridge::selectDeviceIndex(detectedNames, {QStringLiteral("ACME Deck")}), 1);
+}
 
 void TouchBridgeLifetimeTest::destroyingTargetClearsTargetAndWindow()
 {
