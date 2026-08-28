@@ -11,6 +11,7 @@ import "../native/OmaDeck/Touch" as NativeTouch
 PanelWindow {
   id: root
 
+  property var serviceHost: null
   property var shell: null
   property string pluginDir: ""
   property var layoutController: null
@@ -73,7 +74,12 @@ PanelWindow {
   Component.onCompleted: {
     directTouch.window = centerCanvas
     directTouch.start()
+    if (serviceHost) serviceHost.registerSurface(root)
     console.info("[OmaDeckDrawer] loaded", JSON.stringify(drawerDiagnostics()))
+  }
+
+  Component.onDestruction: {
+    if (serviceHost) serviceHost.unregisterSurface(root)
   }
 
   function drawerDiagnostics() {
@@ -112,130 +118,67 @@ PanelWindow {
     setOpenDrawer("", "ipc:close")
   }
 
-  IpcHandler {
-    enabled: root.isTarget
-    target: "pretty.omadeck"
+  function drawerState(): string {
+    return JSON.stringify(drawerDiagnostics())
+  }
 
-    function drawer(edge: string): void {
-      if (["left", "right", "top", "bottom"].indexOf(edge) !== -1) root.toggleDrawer(edge)
-    }
+  function touchState(): string {
+    return JSON.stringify({
+      active: directTouch.active,
+      exclusiveGrab: directTouch.active,
+      devicePath: directTouch.devicePath,
+      configuredDeviceNames: directTouch.deviceNames,
+      status: directTouch.status
+    })
+  }
 
-    function closeDrawer(): void {
-      root.closeDrawer()
-    }
+  function reconnectTouch() {
+    directTouch.stop()
+    directTouch.start()
+  }
 
-    function drawerState(): string {
-      return JSON.stringify(root.drawerDiagnostics())
-    }
+  function showSystemSection(section) {
+    if (["performance", "network", "applications", "clipboard", "storage"].indexOf(section) === -1) return
+    setOpenDrawer("right", "ipc:system:" + section)
+    systemDrawer.selectedClipboard = null
+    systemDrawer.selectedClientAddress = ""
+    systemDrawer.selectedSection = section
+  }
 
-    function touchState(): string {
-      return JSON.stringify({
-        active: directTouch.active,
-        exclusiveGrab: directTouch.active,
-        devicePath: directTouch.devicePath,
-        configuredDeviceNames: directTouch.deviceNames,
-        status: directTouch.status
-      })
-    }
+  function showClipboardEntry(index) {
+    if (index < 0 || index >= systemDrawer.stats.clipboard.length) return
+    setOpenDrawer("right", "ipc:clipboard")
+    systemDrawer.selectedSection = "clipboard"
+    systemDrawer.selectedClipboard = systemDrawer.stats.clipboard[index]
+  }
 
-    function reconnectTouch(): void {
-      directTouch.stop()
-      directTouch.start()
-    }
+  function showApplication(index) {
+    if (index < 0 || index >= systemDrawer.stats.clients.length) return
+    setOpenDrawer("right", "ipc:application")
+    systemDrawer.selectedSection = "applications"
+    systemDrawer.selectedClientAddress = systemDrawer.stats.clients[index].address
+  }
 
-    function edit(enabled: bool): void {
-      if (!root.layoutController) return
-      if (enabled) root.layoutController.beginEdit("")
-      else root.layoutController.finishEdit()
-    }
+  function systemBack() {
+    systemDrawer.goBack()
+  }
 
-    function ratio(path: string, value: real): void {
-      if (root.layoutController) root.layoutController.setRatio(path, value)
-    }
+  function clipboardCopy() {
+    systemDrawer.copyClipboard(systemDrawer.selectedClipboard)
+  }
 
-    function appearanceState(): string {
-      if (!root.appearanceController || !root.appearanceController.loaded)
-        return JSON.stringify({ ok: false, error: "Appearance settings are not ready" })
-      var state = root.appearanceController.snapshot()
-      state.ok = true
-      return JSON.stringify(state)
-    }
+  function clipboardDelete() {
+    systemDrawer.deleteClipboard(systemDrawer.selectedClipboard)
+  }
 
-    function setAppearance(key: string, value: string): string {
-      if (!root.appearanceController || !root.appearanceController.loaded)
-        return JSON.stringify({ ok: false, error: "Appearance settings are not ready" })
+  function setMediaCompact(compact) {
+    setOpenDrawer("left", "ipc:mediaCompact")
+    mediaDrawer.setMixerCompact(compact)
+  }
 
-      var booleanKeys = ["use24Hour", "showSeconds", "showWeather"]
-      var stringKeys = ["clockStyle", "weatherStyle", "weatherDetail", "temperatureUnit"]
-      if (booleanKeys.indexOf(key) === -1 && stringKeys.indexOf(key) === -1)
-        return JSON.stringify({ ok: false, error: "Unknown appearance setting" })
-      if (booleanKeys.indexOf(key) !== -1 && value !== "true" && value !== "false")
-        return JSON.stringify({ ok: false, error: "Invalid boolean value" })
-
-      var parsedValue = booleanKeys.indexOf(key) !== -1 ? value === "true" : value
-      var persisted = root.appearanceController.setOption(key, parsedValue)
-      var state = root.appearanceController.snapshot()
-      if (!persisted)
-        return JSON.stringify({ ok: false, error: "Appearance setting could not be saved", state: state })
-      if (state[key] !== parsedValue)
-        return JSON.stringify({ ok: false, error: "Appearance setting was rejected", state: state })
-      return JSON.stringify({ ok: true, key: key, value: state[key], state: state })
-    }
-
-    function refreshWeather(): string {
-      if (!root.appearanceController || !root.appearanceController.loaded)
-        return JSON.stringify({ ok: false, error: "Appearance settings are not ready" })
-      if (!root.appearanceController.showWeather)
-        return JSON.stringify({ ok: false, error: "Weather is disabled" })
-      if (!root.weatherController)
-        return JSON.stringify({ ok: false, error: "Weather service is unavailable" })
-      root.weatherController.refresh()
-      return JSON.stringify({ ok: true })
-    }
-
-    function system(section: string): void {
-      if (["performance", "network", "applications", "clipboard", "storage"].indexOf(section) === -1) return
-      root.setOpenDrawer("right", "ipc:system:" + section)
-      systemDrawer.selectedClipboard = null
-      systemDrawer.selectedClientAddress = ""
-      systemDrawer.selectedSection = section
-    }
-
-    function clipboard(index: int): void {
-      if (index < 0 || index >= systemDrawer.stats.clipboard.length) return
-      root.setOpenDrawer("right", "ipc:clipboard")
-      systemDrawer.selectedSection = "clipboard"
-      systemDrawer.selectedClipboard = systemDrawer.stats.clipboard[index]
-    }
-
-    function application(index: int): void {
-      if (index < 0 || index >= systemDrawer.stats.clients.length) return
-      root.setOpenDrawer("right", "ipc:application")
-      systemDrawer.selectedSection = "applications"
-      systemDrawer.selectedClientAddress = systemDrawer.stats.clients[index].address
-    }
-
-    function systemBack(): void {
-      systemDrawer.goBack()
-    }
-
-    function clipboardCopy(): void {
-      systemDrawer.copyClipboard(systemDrawer.selectedClipboard)
-    }
-
-    function clipboardDelete(): void {
-      systemDrawer.deleteClipboard(systemDrawer.selectedClipboard)
-    }
-
-    function mediaCompact(compact: bool): void {
-      root.setOpenDrawer("left", "ipc:mediaCompact")
-      mediaDrawer.setMixerCompact(compact)
-    }
-
-    function mediaCategory(category: string): void {
-      root.setOpenDrawer("left", "ipc:mediaCategory")
-      mediaDrawer.setMixerCategory(category)
-    }
+  function setMediaCategory(category) {
+    setOpenDrawer("left", "ipc:mediaCategory")
+    mediaDrawer.setMixerCategory(category)
   }
 
   Rectangle {

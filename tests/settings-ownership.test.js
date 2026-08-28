@@ -3,8 +3,8 @@ const fs = require("node:fs")
 const path = require("node:path")
 const test = require("node:test")
 
-const deckSurface = fs.readFileSync(
-  path.join(__dirname, "../components/DeckSurface.qml"),
+const service = fs.readFileSync(
+  path.join(__dirname, "../Service.qml"),
   "utf8",
 )
 const trayApp = fs.readFileSync(
@@ -21,15 +21,15 @@ const appearanceController = fs.readFileSync(
 )
 
 test("the tray can read and update the authoritative appearance controller over IPC", () => {
-  assert.match(deckSurface, /function appearanceState\(\): string/)
-  assert.match(deckSurface, /appearanceController\.snapshot\(\)/)
-  assert.match(deckSurface, /function setAppearance\(key: string, value: string\): string/)
-  assert.match(deckSurface, /appearanceController\.loaded/)
-  assert.match(deckSurface, /appearanceController\.setOption\(key, parsedValue\)/)
-  assert.match(deckSurface, /JSON\.stringify\(\{ ok: true/)
-  assert.match(deckSurface, /function refreshWeather\(\): string/)
-  assert.match(deckSurface, /appearanceController\.showWeather/)
-  assert.match(deckSurface, /weatherController\.refresh\(\)/)
+  assert.match(service, /function appearanceState\(\): string/)
+  assert.match(service, /appearanceStore\.snapshot\(\)/)
+  assert.match(service, /function setAppearance\(key: string, value: string\): string/)
+  assert.match(service, /appearanceStore\.loaded/)
+  assert.match(service, /appearanceStore\.setOption\(key, parsedValue\)/)
+  assert.match(service, /JSON\.stringify\(\{ ok: true/)
+  assert.match(service, /function refreshWeather\(\): string/)
+  assert.match(service, /appearanceStore\.showWeather/)
+  assert.match(service, /weatherStore\.refresh\(\)/)
   assert.match(appearanceController, /function restoreSnapshot\(state\)/)
   assert.match(appearanceController, /var before = snapshot\(\)/)
   assert.match(appearanceController, /blockWrites:\s*true/)

@@ -6,9 +6,11 @@ a web server, Electron process, or separate system daemon.
 ## Entry points
 
 - `manifest.json` declares the `pretty.omadeck` service plugin.
-- `Service.qml` selects the target screen and owns persistent services.
-- `components/DeckSurface.qml` creates the layer surface, drawers, IPC entry
-  points, and bounded tiling region.
+- `Service.qml` selects the target screen and owns persistent services and IPC.
+  Its IPC handler remains registered while the target monitor is absent and
+  forwards surface-specific commands to the current `DeckSurface` when present.
+- `components/DeckSurface.qml` creates the layer surface, drawers, and bounded
+  tiling region, registering itself with the service across monitor hotplug.
 - `services/AppearanceController.qml` validates and atomically persists the
   Clock/Weather presentation model.
 - `services/WeatherController.qml` owns refresh state and normalizes provider

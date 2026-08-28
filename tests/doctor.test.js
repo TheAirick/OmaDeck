@@ -219,12 +219,14 @@ test("doctor reports that an explicit empty identity configuration disables grab
   assert.doesNotMatch(result.stdout, /available and readable/)
 })
 
-test("DeckSurface exposes the native bridge state over read-only IPC", () => {
+test("Service exposes the available DeckSurface bridge state over persistent IPC", () => {
   const source = fs.readFileSync(path.join(repositoryRoot, "components/DeckSurface.qml"), "utf8")
   const service = fs.readFileSync(path.join(repositoryRoot, "Service.qml"), "utf8")
 
   assert.match(service, /property var touchDeviceNames: \["WCH\.CN", "XENEON"\]/)
   assert.match(service, /touchDeviceNames: root\.touchDeviceNames/)
+  assert.match(service, /function touchState\(\): string/)
+  assert.match(service, /root\.activeSurface\.touchState\(\)/)
   assert.match(source, /deviceNames: root\.touchDeviceNames/)
   assert.match(source, /function touchState\(\): string/)
   assert.match(source, /active: directTouch\.active/)
