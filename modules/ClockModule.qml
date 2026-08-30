@@ -454,13 +454,11 @@ Item {
         }
       }
 
-      WeatherVisual {
-        visible: root.showWeather
+      WeatherModule {
+        enabled: root.showWeather
         width: parent.width
         height: Math.max(0, parent.height - y)
-        weather: root.weather ? root.weather.current : null
-        loading: root.weather ? root.weather.loading : false
-        error: root.weather ? root.weather.error : ""
+        weatherController: root.weather
         visualStyle: root.weatherStyle
         detailMode: root.weatherDetail
         temperatureUnit: root.temperatureUnit
@@ -495,13 +493,11 @@ Item {
         }
       }
 
-      WeatherVisual {
-        visible: root.showWeather
+      WeatherModule {
+        enabled: root.showWeather
         width: Math.max(0, parent.width - x)
         height: parent.height
-        weather: root.weather ? root.weather.current : null
-        loading: root.weather ? root.weather.loading : false
-        error: root.weather ? root.weather.error : ""
+        weatherController: root.weather
         visualStyle: root.weatherStyle
         detailMode: root.weatherDetail
         temperatureUnit: root.temperatureUnit
@@ -537,14 +533,12 @@ Item {
         }
       }
 
-      WeatherVisual {
-        visible: root.showWeather
+      WeatherModule {
+        enabled: root.showWeather
         anchors.horizontalCenter: parent.horizontalCenter
         width: Math.min(parent.width, Style.space(430))
         height: Math.max(64, Style.space(70))
-        weather: root.weather ? root.weather.current : null
-        loading: root.weather ? root.weather.loading : false
-        error: root.weather ? root.weather.error : ""
+        weatherController: root.weather
         visualStyle: root.weatherStyle === "scene" ? "minimal" : root.weatherStyle
         detailMode: root.weatherDetail
         temperatureUnit: root.temperatureUnit

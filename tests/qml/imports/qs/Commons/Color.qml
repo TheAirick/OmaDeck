@@ -1,0 +1,9 @@
+pragma Singleton
+import QtQuick
+
+QtObject {
+  readonly property color foreground: "#f4f4f5"
+  readonly property color muted: "#a1a1aa"
+  readonly property color accent: "#f59e0b"
+  readonly property color background: "#18181b"
+}

@@ -21,6 +21,15 @@ a web server, Electron process, or separate system daemon.
 - `services/WeatherController.qml` owns refresh state and normalizes provider
   condition codes for the UI.
 
+Weather presentation has a separate, lifecycle-free boundary:
+`modules/WeatherModule.qml` adapts the service-owned `WeatherController` state
+to exactly one `components/WeatherVisual.qml`. Clock Hero, Split, and Compact
+embed that module with their existing geometry. The module owns no provider
+process, polling or retry timer, location state, persistence, IPC, or settings
+surface; disabling Weather still stops provider work through the single
+controller in `Service.qml`. The tray remains the only Clock and Weather
+settings owner.
+
 ## Layout model
 
 The center uses a recursive binary split tree. Split nodes contain an

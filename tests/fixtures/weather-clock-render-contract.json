@@ -1,0 +1,47 @@
+{
+  "commit": "d1f8bfecac3ba0c27a2b184c86cc3f1ffa52a5e6",
+  "clockStyles": {
+    "hero": {
+      "componentId": "heroClock",
+      "width": "parent.width",
+      "height": "Math.max(0, parent.height - y)",
+      "visualStyle": "root.weatherStyle",
+      "sceneFallsBackToMinimal": false
+    },
+    "split": {
+      "componentId": "splitClock",
+      "width": "Math.max(0, parent.width - x)",
+      "height": "parent.height",
+      "visualStyle": "root.weatherStyle",
+      "sceneFallsBackToMinimal": false
+    },
+    "compact": {
+      "componentId": "compactClock",
+      "width": "Math.min(parent.width, Style.space(430))",
+      "height": "Math.max(64, Style.space(70))",
+      "horizontalAnchor": "parent.horizontalCenter",
+      "visualStyle": "root.weatherStyle === \"scene\" ? \"minimal\" : root.weatherStyle",
+      "sceneFallsBackToMinimal": true
+    }
+  },
+  "weatherStates": [
+    "loading",
+    "unavailable",
+    "current",
+    "disabled"
+  ],
+  "visualStyles": [
+    "scene",
+    "glyph",
+    "minimal"
+  ],
+  "detailModes": [
+    "compact",
+    "standard",
+    "full"
+  ],
+  "temperatureUnits": [
+    "fahrenheit",
+    "celsius"
+  ]
+}
