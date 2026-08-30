@@ -11,6 +11,7 @@ Item {
   property var shell: null
   property var appearanceController: null
   property var weatherController: null
+  property var timerController: null
   property string primaryMonitor: "DP-1"
 
   readonly property int observedRevision: controller ? controller.revision : 0
@@ -119,6 +120,8 @@ Item {
     ClockModule {
       controller: root.appearanceController
       weather: root.weatherController
+      timer: root.timerController
+      interactionEnabled: !root.controller.editMode
     }
   }
   Component { id: workspaceComponent; WorkspaceModule { compact: true; primaryMonitor: root.primaryMonitor } }

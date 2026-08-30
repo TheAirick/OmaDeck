@@ -93,11 +93,13 @@ different hardware.
 | Top | Workspaces |
 | Bottom | Application launcher |
 
-The center starts with Clock/Weather and Command Center modules. Tap the gear in
-the clock card to change its layout, time format, weather treatment, detail,
-visibility, and units. Revealing a drawer moves it and resizes this split tree
-through one shared animated boundary. Cards, controls, and weather details adapt
-to their live dimensions throughout the transition.
+The center starts with Clock/Weather and Command Center modules. Tap the Clock
+to set or control one countdown; its normal date line temporarily becomes the
+remaining-time status while the wall clock stays primary. Clock and weather
+appearance remains available from the OmaDeck taskbar icon. Revealing a drawer
+moves it and resizes this split tree through one shared animated boundary.
+Cards, controls, and weather details adapt to their live dimensions throughout
+the transition.
 
 ## Documentation
 

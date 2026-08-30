@@ -151,6 +151,11 @@ Clock and weather preferences are stored separately in
 `~/.config/omadeck/appearance.json`, so rearranging the layout never resets
 appearance choices.
 
+The Clock's single countdown is stored atomically in
+`~/.config/omadeck/timer.json`. Active, paused, and completed countdowns recover
+after a plugin rescan or shell recreation. Removing the file while no timer is
+needed resets the countdown to idle; invalid state also fails closed to idle.
+
 ## Theme behavior
 
 OmaDeck consumes Omarchy's live `Color`, `Style`, and `Border` tokens. Changing

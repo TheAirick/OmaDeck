@@ -17,6 +17,7 @@ PanelWindow {
   property var layoutController: null
   property var appearanceController: null
   property var weatherController: null
+  property var timerController: null
   property string targetScreen: "DP-3"
   property string primaryMonitor: "DP-1"
   property var touchDeviceNames: []
@@ -288,6 +289,7 @@ PanelWindow {
       primaryMonitor: root.primaryMonitor
       appearanceController: root.appearanceController
       weatherController: root.weatherController
+      timerController: root.timerController
     }
 
     HoverHandler {

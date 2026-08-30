@@ -39,16 +39,16 @@ visual uses Omarchy's recognizable condition glyphs, current-condition stats,
 and a multi-day forecast. When the provider is unreachable, the clock remains
 usable and the weather area reports that it is unavailable.
 
-Tap the gear in the card's upper-right corner to open its settings sheet. You
-can change clock layout and time format, show seconds, hide weather, select a
-weather visual and detail level, switch temperature units, refresh immediately,
-or open Omarchy's location editor. Every appearance choice persists across
-shell restarts and computer locks.
+Use **Clock & weather settings…** from the OmaDeck taskbar icon on the primary
+desktop to change the card layout, time format, weather treatment, detail,
+visibility, or units. Every appearance choice persists across shell restarts
+and computer locks.
 
-If automatic location is unavailable, choose **Set in Omarchy** and enter a
-city in the weather panel that opens on the primary display. The deck will
-refresh after Omarchy saves its weather location; **Refresh** is also available
-in the sheet.
+Tap the Clock card to set a countdown. Choose hours and minutes, or use the 5,
+15, 30, and 60 minute presets, then tap **Start**. The wall clock remains primary
+while the date line shows the remaining time. Tap the Clock again to pause or
+resume, add five minutes, restart the original duration, or cancel. A finished
+timer keeps showing **Time's up** until you tap the Clock and dismiss it.
 
 ## Touch interactions
 
@@ -114,9 +114,8 @@ Long-press a center module to enter edit mode. Select or drag modules to swap
 them, and drag the highlighted divider to resize the split. Changes are saved
 to `~/.config/omadeck/layout.json`.
 
-The Clock/Weather gear is separate from layout editing. A normal tap opens card
-settings; continue to use a long press anywhere else in the center module to
-edit the split layout.
+A normal Clock tap opens its temporary timer controls. The existing long press
+still enters layout editing without starting or changing a timer.
 
 ## Monitor input switching
 

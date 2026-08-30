@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import "components"
 import "services"
+import "services/TimerPolicy.js" as TimerPolicy
 
 Item {
   id: root
@@ -41,6 +42,10 @@ Item {
 
   AppearanceController {
     id: appearanceStore
+  }
+
+  TimerController {
+    id: timerStore
   }
 
   WeatherController {
@@ -143,6 +148,46 @@ Item {
       return JSON.stringify({ ok: true })
     }
 
+    function timerState(): string {
+      if (!timerStore.loaded)
+        return JSON.stringify({ ok: false, error: "Timer state is not ready" })
+      var state = timerStore.snapshot()
+      state.ok = true
+      return JSON.stringify(state)
+    }
+
+    function timerStart(hours: int, minutes: int): string {
+      if (TimerPolicy.durationMs(hours, minutes) === null)
+        return JSON.stringify({ ok: false, error: "Duration must be between 00:01 and 99:59" })
+      return JSON.stringify(timerStore.start(hours, minutes))
+    }
+
+    function timerPause(): string {
+      return JSON.stringify(timerStore.pause())
+    }
+
+    function timerResume(): string {
+      return JSON.stringify(timerStore.resume())
+    }
+
+    function timerRestart(): string {
+      return JSON.stringify(timerStore.restart())
+    }
+
+    function timerAdd(minutes: int): string {
+      if (minutes !== 5)
+        return JSON.stringify({ ok: false, error: "Only a 5 minute extension is supported" })
+      return JSON.stringify(timerStore.add(minutes))
+    }
+
+    function timerCancel(): string {
+      return JSON.stringify(timerStore.cancel())
+    }
+
+    function timerDismiss(): string {
+      return JSON.stringify(timerStore.dismiss())
+    }
+
     function system(section: string): void {
       if (root.activeSurface) root.activeSurface.showSystemSection(section)
     }
@@ -192,6 +237,7 @@ Item {
       layoutController: layoutStore
       appearanceController: appearanceStore
       weatherController: weatherStore
+      timerController: timerStore
     }
   }
 }

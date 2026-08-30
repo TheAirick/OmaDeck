@@ -13,6 +13,8 @@ a web server, Electron process, or separate system daemon.
   tiling region, registering itself with the service across monitor hotplug.
 - `services/AppearanceController.qml` validates and atomically persists the
   Clock/Weather presentation model.
+- `services/TimerController.qml` owns the Clock's single deadline-based
+  countdown, atomic recovery state, and one-shot completion notification.
 - `services/WeatherController.qml` owns refresh state and normalizes provider
   condition codes for the UI.
 
@@ -85,6 +87,14 @@ omarchy-shell pretty.omadeck closeDrawer
 omarchy-shell pretty.omadeck reconnectTouch
 omarchy-shell pretty.omadeck appearanceState
 omarchy-shell pretty.omadeck setAppearance showSeconds true
+omarchy-shell pretty.omadeck timerState
+omarchy-shell pretty.omadeck timerStart 0 5
+omarchy-shell pretty.omadeck timerPause
+omarchy-shell pretty.omadeck timerResume
+omarchy-shell pretty.omadeck timerAdd 5
+omarchy-shell pretty.omadeck timerRestart
+omarchy-shell pretty.omadeck timerCancel
+omarchy-shell pretty.omadeck timerDismiss
 ```
 
 ## Security model

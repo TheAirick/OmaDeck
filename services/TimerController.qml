@@ -1,0 +1,189 @@
+import QtQuick
+import Quickshell
+import Quickshell.Io
+import "TimerPolicy.js" as TimerPolicy
+
+Item {
+  id: root
+
+  readonly property string configDir: Quickshell.env("HOME") + "/.config/omadeck"
+  readonly property string timerPath: configDir + "/timer.json"
+
+  property var timerState: TimerPolicy.idleState()
+  property double nowMs: Date.now()
+  property bool loaded: false
+  property bool directoryReady: false
+  property bool lastSaveSucceeded: false
+  property string lastSaveError: ""
+
+  readonly property string status: timerState ? timerState.status : "idle"
+  readonly property bool active: status === "active"
+  readonly property bool paused: status === "paused"
+  readonly property bool completed: status === "completed"
+  readonly property double remainingMs: TimerPolicy.remainingMs(timerState, nowMs)
+  readonly property string remainingText: TimerPolicy.formatRemaining(remainingMs)
+  readonly property real progress: TimerPolicy.progress(timerState, nowMs)
+
+  function actionNow() {
+    nowMs = Date.now()
+    return nowMs
+  }
+
+  function snapshot() {
+    return {
+      status: status,
+      remainingMs: remainingMs,
+      remainingText: remainingText,
+      progress: progress,
+      originalDurationMs: timerState ? timerState.originalDurationMs : 0,
+      currentDurationMs: timerState ? timerState.currentDurationMs : 0,
+      notificationSent: timerState ? timerState.notificationSent : false
+    }
+  }
+
+  function result(ok, error) {
+    var value = { ok: ok, state: snapshot() }
+    if (error) value.error = String(error)
+    return value
+  }
+
+  function persistCandidate(candidate) {
+    if (!directoryReady) return false
+    var previous = timerState
+    timerState = candidate
+    lastSaveSucceeded = false
+    lastSaveError = ""
+    try {
+      timerFile.setText(JSON.stringify(timerState, null, 2) + "\n")
+    } catch (error) {
+      lastSaveError = String(error)
+    }
+    if (!lastSaveSucceeded) timerState = previous
+    return lastSaveSucceeded
+  }
+
+  function apply(candidate, rejectedMessage) {
+    if (!loaded) return result(false, "Timer state is not ready")
+    if (!candidate) return result(false, rejectedMessage)
+    if (!persistCandidate(candidate)) return result(false, "Timer state could not be saved")
+    return result(true, "")
+  }
+
+  function reconcileDue(actionTime) {
+    var next = TimerPolicy.completeIfDue(timerState, actionTime)
+    if (next === timerState) return false
+    var claim = TimerPolicy.claimCompletion(next)
+    if (persistCandidate(claim.state) && claim.shouldNotify)
+      completionNotification.running = true
+    return true
+  }
+
+  function start(hours, minutes) {
+    if (status !== "idle") return result(false, "A timer already exists")
+    var actionTime = actionNow()
+    return apply(TimerPolicy.start(hours, minutes, actionTime), "Invalid timer duration")
+  }
+
+  function pause() {
+    var actionTime = actionNow()
+    if (reconcileDue(actionTime)) return result(false, "Timer has completed")
+    return apply(TimerPolicy.pause(timerState, actionTime), "Timer is not running")
+  }
+
+  function resume() {
+    var actionTime = actionNow()
+    if (reconcileDue(actionTime)) return result(false, "Timer has completed")
+    return apply(TimerPolicy.resume(timerState, actionTime), "Timer is not paused")
+  }
+
+  function add(minutes) {
+    var actionTime = actionNow()
+    if (reconcileDue(actionTime)) return result(false, "Timer has completed")
+    return apply(TimerPolicy.addMinutes(timerState, minutes, actionTime), "Timer cannot be extended")
+  }
+
+  function restart() {
+    var actionTime = actionNow()
+    if (reconcileDue(actionTime)) return result(false, "Timer has completed")
+    return apply(TimerPolicy.restart(timerState, actionTime), "Timer cannot be restarted")
+  }
+
+  function cancel() {
+    if (status !== "active" && status !== "paused") return result(false, "No active timer to cancel")
+    var actionTime = actionNow()
+    if (reconcileDue(actionTime)) return result(false, "Timer has completed")
+    return apply(TimerPolicy.cancel(timerState), "Timer cannot be cancelled")
+  }
+
+  function dismiss() {
+    if (status !== "completed") return result(false, "No completed timer to dismiss")
+    return apply(TimerPolicy.cancel(timerState), "Timer cannot be dismissed")
+  }
+
+  function deliverCompletion() {
+    var claim = TimerPolicy.claimCompletion(timerState)
+    if (!claim.shouldNotify) return
+    if (!persistCandidate(claim.state)) return
+    completionNotification.running = true
+  }
+
+  function updateClock() {
+    actionNow()
+    reconcileDue(nowMs)
+  }
+
+  function load(raw) {
+    var loadTime = actionNow()
+    timerState = TimerPolicy.restore(raw, loadTime)
+    loaded = true
+    if (timerState.status === "completed" && !timerState.notificationSent)
+      deliverCompletion()
+  }
+
+  Process {
+    id: mkdirProcess
+    command: ["mkdir", "-p", root.configDir]
+    onExited: {
+      root.directoryReady = true
+      timerFile.reload()
+    }
+  }
+
+  FileView {
+    id: timerFile
+    path: root.timerPath
+    watchChanges: true
+    atomicWrites: true
+    blockWrites: true
+    printErrors: false
+    onSaved: root.lastSaveSucceeded = true
+    onSaveFailed: function(error) {
+      root.lastSaveSucceeded = false
+      root.lastSaveError = String(error)
+    }
+    onLoaded: root.load(text())
+    onLoadFailed: {
+      if (!root.directoryReady) return
+      root.timerState = TimerPolicy.idleState()
+      root.loaded = true
+      root.persistCandidate(root.timerState)
+    }
+    onFileChanged: reload()
+  }
+
+  Timer {
+    interval: 1000
+    running: root.active
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: root.updateClock()
+  }
+
+  Process {
+    id: completionNotification
+    command: ["notify-send", "-e", "-t", "6000", "-a", "OmaDeck", "-i", "alarm-symbolic",
+              "Time's up", "OmaDeck timer finished"]
+  }
+
+  Component.onCompleted: mkdirProcess.running = true
+}
