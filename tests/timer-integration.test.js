@@ -224,9 +224,11 @@ test("primary timer controls are semantic 48 pixel touch targets", () => {
 
 test("timer controls remain reachable when a Clock tile is constrained", () => {
   const clock = source("modules/ClockModule.qml")
+  const responsivePanel = source("components/ResponsivePanel.qml")
 
-  assert.match(clock, /Flickable\s*\{[\s\S]*id:\s*timerOverlayScroll/)
-  assert.match(clock, /contentHeight:\s*Math\.max\(height, Math\.max\(pickerContent\.implicitHeight, controlsContent\.implicitHeight\)/)
-  assert.match(clock, /flickableDirection:\s*Flickable\.AutoFlickDirection/)
-  assert.match(clock, /interactive:\s*contentHeight > height \|\| contentWidth > width/)
+  assert.match(clock, /ResponsivePanel\s*\{[\s\S]*id:\s*timerViewport/)
+  assert.match(clock, /maximumContentWidth:\s*Style\.space\(620\)/)
+  assert.match(responsivePanel, /ResponsiveLayout\.fitScale\(/)
+  assert.match(responsivePanel, /anchors\.centerIn:\s*parent/)
+  assert.doesNotMatch(clock, /Flickable/)
 })

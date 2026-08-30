@@ -1,6 +1,7 @@
 import QtQuick
 import qs.Commons
 import "../components"
+import "../components/ResponsiveLayout.js" as ResponsiveLayout
 
 Item {
   id: root
@@ -9,8 +10,8 @@ Item {
   property var controller: null
   readonly property real standardLayoutHeight: Style.space(92 * 3) + Style.spacing.panelGap * 4
   readonly property real wideLayoutWidth: Style.space(190 * 4) + Style.spacing.panelGap * 5
-  readonly property bool useWideLayout: height < root.standardLayoutHeight
-    && width >= root.wideLayoutWidth
+  readonly property bool useWideLayout: ResponsiveLayout.useShortWide(
+    width, height, root.standardLayoutHeight, root.wideLayoutWidth)
   readonly property real contentScale: Math.min(1,
     Math.max(0, width - Style.spacing.panelGap * 2) / Math.max(1, controlStack.implicitWidth),
     Math.max(0, height - Style.spacing.panelGap * 2) / Math.max(1, controlStack.implicitHeight))

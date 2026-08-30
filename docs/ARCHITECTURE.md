@@ -30,8 +30,14 @@ orientation, ratio, and two children; leaves contain module IDs.
 Edge drawers participate in the same geometry. Four animated reserved-space
 values alter both the drawer positions and center boundaries, creating one
 synchronized retiling motion rather than an overlay. Cards clip their content
-to their live bounds; dense modules scale or progressively hide secondary
-details when a split becomes constrained.
+to their live bounds. Finite action panels follow a shared responsive contract:
+use geometry-driven `Grid`/`Flow` reflow first, then wrap the complete control
+stack in `components/ResponsivePanel.qml` for centered, two-axis bounded
+scaling. Primary controls must not depend on undiscoverable scrolling;
+`Flickable` is reserved for genuinely unbounded data such as application,
+clipboard, or audio-stream lists. `components/ResponsiveLayout.js` owns the
+fit and short-wide breakpoint math so future panels use the same policy rather
+than copying size formulas.
 
 Each open drawer owns a contextual directional button back to the center. It
 floats above drawer content without changing its geometry and appears only

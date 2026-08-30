@@ -116,23 +116,16 @@ Item {
     radius: Style.cornerRadius
     z: 50
 
-    Flickable {
-      id: timerOverlayScroll
+    ResponsivePanel {
+      id: timerViewport
       anchors.fill: parent
-      property real overlayPadding: Style.space(12)
-      contentWidth: Math.max(width, Math.max(pickerContent.width, controlsContent.width) + overlayPadding * 2)
-      contentHeight: Math.max(height, Math.max(pickerContent.implicitHeight, controlsContent.implicitHeight) + overlayPadding * 2)
-      flickableDirection: Flickable.AutoFlickDirection
-      interactive: contentHeight > height || contentWidth > width
-      boundsBehavior: Flickable.StopAtBounds
-      clip: true
+      padding: Style.space(12)
+      maximumContentWidth: Style.space(620)
 
     Column {
       id: pickerContent
       visible: root.pickerOpen
-      x: Math.max(timerOverlayScroll.overlayPadding, (timerOverlayScroll.contentWidth - width) / 2)
-      y: Math.max(timerOverlayScroll.overlayPadding, (timerOverlayScroll.contentHeight - implicitHeight) / 2)
-      width: Math.max(Style.space(360), Math.min(timerOverlayScroll.width - Style.space(24), Style.space(620)))
+      width: parent.width
       spacing: Style.spacing.controlGap
 
       Text {
@@ -266,13 +259,13 @@ Item {
         }
       }
 
-      Row {
+      Flow {
         id: soundSelector
-        anchors.horizontalCenter: parent.horizontalCenter
+        width: parent.width
         spacing: Style.spacing.controlGap
 
         Text {
-          width: Style.space(64)
+          width: Style.space(52)
           height: root.touchTarget
           verticalAlignment: Text.AlignVCenter
           text: "Sound"
@@ -291,7 +284,7 @@ Item {
           onClicked: root.timer.selectPreviousSound()
         }
         Text {
-          width: Style.space(130)
+          width: Style.space(100)
           height: root.touchTarget
           verticalAlignment: Text.AlignVCenter
           horizontalAlignment: Text.AlignHCenter
@@ -312,7 +305,7 @@ Item {
           onClicked: root.timer.selectNextSound()
         }
         Button {
-          width: Style.space(100)
+          width: Style.space(88)
           height: root.touchTarget
           text: "Preview"
           bordered: true
@@ -353,9 +346,7 @@ Item {
     Column {
       id: controlsContent
       visible: root.controlsOpen
-      x: Math.max(timerOverlayScroll.overlayPadding, (timerOverlayScroll.contentWidth - width) / 2)
-      y: Math.max(timerOverlayScroll.overlayPadding, (timerOverlayScroll.contentHeight - implicitHeight) / 2)
-      width: Math.max(Style.space(360), Math.min(timerOverlayScroll.width - Style.space(24), Style.space(620)))
+      width: parent.width
       spacing: Style.spacing.panelGap
 
       Text {

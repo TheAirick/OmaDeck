@@ -35,8 +35,8 @@ test("all four drawer actions exist in the permanent control grid", () => {
 
 test("short wide command centers reflow instead of shrinking", () => {
   assert.match(commandCenter, /readonly property bool useWideLayout:/)
-  assert.match(commandCenter, /height < root\.standardLayoutHeight/)
-  assert.match(commandCenter, /width >= root\.wideLayoutWidth/)
+  assert.match(commandCenter, /import "\.\.\/components\/ResponsiveLayout\.js" as ResponsiveLayout/)
+  assert.match(commandCenter, /ResponsiveLayout\.useShortWide\([\s\S]*root\.standardLayoutHeight, root\.wideLayoutWidth\)/)
   assert.match(commandCenter, /move: Transition/)
 })
 
