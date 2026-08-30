@@ -99,6 +99,10 @@ Item {
       width: parent.width * root.timerProgress
       color: Color.accent
       opacity: root.timerStatus === "paused" ? 0.62 : 0.9
+
+      Behavior on width {
+        NumberAnimation { duration: 100; easing.type: Easing.Linear }
+      }
     }
   }
 
@@ -259,6 +263,64 @@ Item {
           width: presetGrid.cellWidth; height: root.touchTarget; text: "60 min"; bordered: true
           Accessible.role: Accessible.Button; Accessible.name: "Set 60 minutes"
           onClicked: root.setPreset(60)
+        }
+      }
+
+      Row {
+        id: soundSelector
+        anchors.horizontalCenter: parent.horizontalCenter
+        spacing: Style.spacing.controlGap
+
+        Text {
+          width: Style.space(64)
+          height: root.touchTarget
+          verticalAlignment: Text.AlignVCenter
+          text: "Sound"
+          color: Color.muted
+          font.family: Style.font.family
+          font.pixelSize: Style.font.body
+          font.bold: true
+        }
+        Button {
+          width: root.touchTarget
+          height: root.touchTarget
+          text: "‹"
+          bordered: true
+          Accessible.role: Accessible.Button
+          Accessible.name: "Select previous timer sound"
+          onClicked: root.timer.selectPreviousSound()
+        }
+        Text {
+          width: Style.space(130)
+          height: root.touchTarget
+          verticalAlignment: Text.AlignVCenter
+          horizontalAlignment: Text.AlignHCenter
+          text: root.timer ? root.timer.selectedSoundName : "Complete"
+          color: Color.foreground
+          font.family: Style.font.family
+          font.pixelSize: Style.font.body
+          font.bold: true
+          elide: Text.ElideRight
+        }
+        Button {
+          width: root.touchTarget
+          height: root.touchTarget
+          text: "›"
+          bordered: true
+          Accessible.role: Accessible.Button
+          Accessible.name: "Select next timer sound"
+          onClicked: root.timer.selectNextSound()
+        }
+        Button {
+          width: Style.space(100)
+          height: root.touchTarget
+          text: "Preview"
+          bordered: true
+          enabled: root.timer && root.timer.soundSettingsLoaded && root.timer.selectedSoundId !== ""
+          opacity: enabled ? 1 : 0.4
+          Accessible.role: Accessible.Button
+          Accessible.name: "Preview timer sound"
+          onClicked: root.timer.previewSelectedSound()
         }
       }
 

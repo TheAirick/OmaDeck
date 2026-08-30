@@ -3,6 +3,77 @@
 var MAX_HOURS = 99
 var MAX_MINUTES = 59
 var MAX_DURATION_MS = (MAX_HOURS * 60 + MAX_MINUTES) * 60 * 1000
+var CHIME_ATTEMPT_LIMIT = 3
+var CHIME_INTERVAL_MS = 4000
+var DEFAULT_SOUND_ID = "complete"
+var TIMER_SOUNDS = [
+  { label: "Silent", eventId: "" },
+  { label: "Alarm", eventId: "alarm-clock-elapsed" },
+  { label: "Complete", eventId: "complete" },
+  { label: "Bell", eventId: "bell" },
+  { label: "Ring", eventId: "phone-incoming-call" },
+  { label: "Warning", eventId: "dialog-warning" }
+]
+
+function soundOptions() {
+  return TIMER_SOUNDS.map(function(option) {
+    return { label: option.label, eventId: option.eventId }
+  })
+}
+
+function soundIndex(eventId) {
+  for (var index = 0; index < TIMER_SOUNDS.length; index++) {
+    if (TIMER_SOUNDS[index].eventId === eventId) return index
+  }
+  return -1
+}
+
+function normalizeSoundId(eventId) {
+  var candidate = typeof eventId === "string" ? eventId : DEFAULT_SOUND_ID
+  return soundIndex(candidate) === -1 ? DEFAULT_SOUND_ID : candidate
+}
+
+function soundLabel(eventId) {
+  return TIMER_SOUNDS[soundIndex(normalizeSoundId(eventId))].label
+}
+
+function cycleSoundId(eventId, direction) {
+  var index = soundIndex(normalizeSoundId(eventId))
+  var step = direction < 0 ? -1 : 1
+  return TIMER_SOUNDS[(index + step + TIMER_SOUNDS.length) % TIMER_SOUNDS.length].eventId
+}
+
+function soundSettings(eventId) {
+  return { version: 1, eventId: normalizeSoundId(eventId) }
+}
+
+function restoreSoundSettings(raw) {
+  try {
+    var parsed = JSON.parse(String(raw || ""))
+    if (!parsed || parsed.version !== 1 || typeof parsed.eventId !== "string"
+        || soundIndex(parsed.eventId) === -1)
+      throw new Error("invalid timer sound settings")
+    return { eventId: parsed.eventId, needsRepair: false }
+  } catch (error) {
+    return { eventId: DEFAULT_SOUND_ID, needsRepair: true }
+  }
+}
+
+function playbackCommand(eventId) {
+  switch (normalizeSoundId(eventId)) {
+  case "": return null
+  case "alarm-clock-elapsed":
+    return ["canberra-gtk-play", "-i", "alarm-clock-elapsed", "-d", "OmaDeck timer sound"]
+  case "bell":
+    return ["canberra-gtk-play", "-i", "bell", "-d", "OmaDeck timer sound"]
+  case "phone-incoming-call":
+    return ["canberra-gtk-play", "-i", "phone-incoming-call", "-d", "OmaDeck timer sound"]
+  case "dialog-warning":
+    return ["canberra-gtk-play", "-i", "dialog-warning", "-d", "OmaDeck timer sound"]
+  default:
+    return ["canberra-gtk-play", "-i", "complete", "-d", "OmaDeck timer sound"]
+  }
+}
 
 function isInteger(value) {
   return typeof value === "number" && isFinite(value) && Math.floor(value) === value
@@ -173,4 +244,17 @@ function claimCompletion(state) {
   var next = copyState(state)
   next.notificationSent = true
   return { state: next, shouldNotify: true }
+}
+
+function nextChimeAttempt(playCount, playerRunning, intervalElapsed) {
+  if (!isInteger(playCount) || playCount < 0 || playCount >= CHIME_ATTEMPT_LIMIT)
+    return { playCount: CHIME_ATTEMPT_LIMIT, shouldPlay: false, shouldContinue: false }
+  if (playerRunning || !intervalElapsed)
+    return { playCount: playCount, shouldPlay: false, shouldContinue: true }
+  var nextCount = playCount + 1
+  return {
+    playCount: nextCount,
+    shouldPlay: true,
+    shouldContinue: nextCount < CHIME_ATTEMPT_LIMIT
+  }
 }

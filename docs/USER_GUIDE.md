@@ -45,10 +45,14 @@ visibility, or units. Every appearance choice persists across shell restarts
 and computer locks.
 
 Tap the Clock card to set a countdown. Choose hours and minutes, or use the 5,
-15, 30, and 60 minute presets, then tap **Start**. The wall clock remains primary
-while the date line shows the remaining time. Tap the Clock again to pause or
-resume, add five minutes, restart the original duration, or cancel. A finished
-timer keeps showing **Time's up** until you tap the Clock and dismiss it.
+15, 30, and 60 minute presets. The setup sheet's **Sound** row cycles through
+Silent, Alarm, Complete, Bell, Ring, and Warning; **Preview** plays the current
+choice once. Tap **Start** to close the sheet and begin. The wall clock remains
+primary while the date line shows the remaining time. Tap the Clock again to
+pause or resume, add five minutes, restart the original duration, or cancel. A
+finished timer keeps showing **Time's up** until you tap the Clock and dismiss
+it. Audible choices play three non-overlapping completion chimes; Silent keeps
+the visual state and desktop notification without launching a player.
 
 ## Touch interactions
 

@@ -156,6 +156,12 @@ The Clock's single countdown is stored atomically in
 after a plugin rescan or shell recreation. Removing the file while no timer is
 needed resets the countdown to idle; invalid state also fails closed to idle.
 
+The timer's selected Freedesktop sound event is stored independently and
+atomically in `~/.config/omadeck/timer-settings.json`. Missing, corrupt, or
+unsupported settings are repaired to **Complete** without changing countdown
+state. The setup sheet only accepts OmaDeck's curated events; **Silent** stores
+an empty event ID and suppresses completion playback.
+
 ## Theme behavior
 
 OmaDeck consumes Omarchy's live `Color`, `Style`, and `Border` tokens. Changing

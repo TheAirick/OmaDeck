@@ -14,7 +14,10 @@ a web server, Electron process, or separate system daemon.
 - `services/AppearanceController.qml` validates and atomically persists the
   Clock/Weather presentation model.
 - `services/TimerController.qml` owns the Clock's single deadline-based
-  countdown, atomic recovery state, and one-shot completion notification.
+  countdown, separate atomic sound preference, and claimed notification/
+  three-chime completion effects. Static allowlisted Canberra commands share
+  the default PipeWire route, and the controller serializes preview and
+  completion players under one lifecycle.
 - `services/WeatherController.qml` owns refresh state and normalizes provider
   condition codes for the UI.
 
