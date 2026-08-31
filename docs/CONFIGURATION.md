@@ -9,7 +9,9 @@ source-level options.
 Open the OmaDeck taskbar icon's menu on the primary desktop and choose
 **Clock & weather settings…**. The single settings panel controls:
 
-- Hero, Split, or Compact clock layout
+- The saved Hero, Split, or Compact clock preference (retained for rollback and
+  compatibility); the Clock + Weather/Timer companion surface currently uses
+  the accepted compact Clock presentation
 - 12- or 24-hour time and optional seconds
 - Weather visibility and manual refresh. Choosing **Hidden** is a privacy
   opt-out: OmaDeck stops weather refreshes, retry work, and location polling,
@@ -23,6 +25,14 @@ These choices are saved atomically to
 The selected weather detail is a maximum: OmaDeck temporarily removes forecast,
 location, or secondary stats when a drawer or edited split leaves too little
 room, then restores them automatically as the card expands.
+
+The Clock leaf always keeps a compact Clock above one lower companion. Weather
+occupies that lower region while the countdown is idle; tapping the Clock opens
+Timer setup there, and active, paused, and completed timers remain there until
+cancelled or dismissed. A direct Clock/Command Center split may render the Clock
+at a `0.36` minimum share for touch-safe companion geometry. This is a
+presentation guard only: a narrower saved ratio and the exact `layout.json`
+topology remain unchanged.
 
 OmaDeck deliberately shares Omarchy's weather location instead of keeping a
 second copy. Choose **Weather location…** from the tray settings panel, or run:

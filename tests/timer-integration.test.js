@@ -147,12 +147,12 @@ test("timer ownership is forwarded through every layout loader to the Clock", ()
 
 test("Clock timer UI is hidden while idle and preserves long-press editing", () => {
   const tile = source("components/ModuleTile.qml")
-  const clock = source("modules/ClockModule.qml")
+  const clock = source("modules/ClockModule.qml") + source("modules/ClockCompanionModule.qml")
   const timerModule = source("modules/TimerModule.qml")
 
   assert.match(tile, /longPressThreshold:\s*500/)
   assert.match(tile, /onLongPressed:\s*root\.controller\.beginEdit\(root\.path\)/)
-  assert.match(clock, /TapHandler\s*\{[\s\S]*onTapped:\s*timerPresenter\.openForCurrentStatus\(\)/)
+  assert.match(clock, /TapHandler\s*\{[\s\S]*onTapped:\s*timerPresenter\.openSetup\(\)/)
   assert.match(clock, /TimerModule\s*\{[\s\S]*id:\s*timerPresenter/)
   assert.match(timerModule, /visible:\s*root\.setupOpen/)
   assert.match(timerModule, /setupOpen && timerStatus !== "idle"/)
@@ -192,20 +192,20 @@ test("sound selector controls are semantic 48 pixel targets and Silent disables 
   assert.match(timerModule, /text:\s*"Preview"[\s\S]{0,220}enabled:\s*root\.timer && root\.timer\.soundSettingsLoaded && root\.timer\.selectedSoundId !== ""/)
 })
 
-test("all Clock styles expose ambient timer state without replacing wall time", () => {
-  const clock = source("modules/ClockModule.qml")
+test("the compact Clock exposes ambient timer state without duplicating countdown text", () => {
+  const clock = source("modules/ClockCompanionModule.qml")
 
-  assert.ok((clock.match(/text:\s*root\.timeText\(\)/g) || []).length >= 3)
-  assert.ok((clock.match(/root\.secondaryText\(/g) || []).length >= 3)
-  assert.match(clock, /timerStatus === "paused"[\s\S]*"Paused/)
-  assert.match(clock, /return "● Time's up"/)
-  assert.match(clock, /id:\s*timerProgressRail/)
+  assert.equal((clock.match(/text:\s*root\.timeText\(\)/g) || []).length, 1)
+  assert.match(clock, /timerStatus === "paused"[\s\S]*"Timer paused"/)
+  assert.match(clock, /timerStatus === "active"[\s\S]*"Timer running"/)
+  assert.match(clock, /return "Time's up"/)
+  assert.doesNotMatch(clock, /timerRemainingText|remainingText/)
   assert.match(clock, /width:\s*parent\.width \* root\.timerProgress/)
 })
 
 test("active timer progress starts promptly and moves smoothly", () => {
   const controller = source("services/TimerController.qml")
-  const clock = source("modules/ClockModule.qml")
+  const clock = source("modules/ClockCompanionModule.qml")
 
   assert.match(controller, /Timer\s*\{[\s\S]*interval:\s*100[\s\S]*running:\s*root\.active/)
   assert.match(clock, /width:\s*parent\.width \* root\.timerProgress[\s\S]*Behavior on width\s*\{[\s\S]*duration:\s*100[\s\S]*Easing\.Linear/)

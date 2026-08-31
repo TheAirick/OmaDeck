@@ -47,20 +47,13 @@ function binding(qml, propertyName) {
   return match[1].trim()
 }
 
-function resolvedVisualStyle(expression, requestedStyle) {
-  if (expression === "root.weatherStyle") return requestedStyle
-  if (expression === "root.weatherStyle === \"scene\" ? \"minimal\" : root.weatherStyle") {
-    return requestedStyle === "scene" ? "minimal" : requestedStyle
-  }
-  assert.fail(`unsupported visualStyle binding: ${expression}`)
-}
 
-test("WeatherModule presents one WeatherVisual for the Hero Clock boundary", () => {
+test("WeatherModule presents one WeatherVisual for the Clock companion boundary", () => {
   const modulePath = path.join(repositoryRoot, "modules/WeatherModule.qml")
   assert.equal(fs.existsSync(modulePath), true, "WeatherModule.qml must exist")
 
   const weatherModule = source("modules/WeatherModule.qml")
-  const heroClock = componentBlock(source("modules/ClockModule.qml"), "heroClock")
+  const companion = source("modules/ClockCompanionModule.qml")
 
   assert.equal((weatherModule.match(/WeatherVisual\s*\{/g) || []).length, 1)
   assert.match(weatherModule, /property var weatherController:\s*null/)
@@ -70,31 +63,20 @@ test("WeatherModule presents one WeatherVisual for the Hero Clock boundary", () 
   assert.match(weatherModule, /property string temperatureUnit:\s*"fahrenheit"/)
   assert.match(weatherModule, /visible:\s*root\.enabled/)
 
-  assert.match(heroClock, /WeatherModule\s*\{/)
-  assert.doesNotMatch(heroClock, /WeatherVisual\s*\{/)
+  assert.match(companion, /WeatherModule\s*\{/)
+  assert.doesNotMatch(companion, /WeatherVisual\s*\{/)
 })
 
-test("every Clock style delegates Weather presentation through WeatherModule", () => {
-  const clockModule = source("modules/ClockModule.qml")
+test("the compact Clock delegates one static Weather presenter", () => {
+  const companion = source("modules/ClockCompanionModule.qml")
 
-  assert.equal((clockModule.match(/WeatherModule\s*\{/g) || []).length, 3)
-  assert.doesNotMatch(clockModule, /WeatherVisual\s*\{/)
-
-  for (const componentId of ["heroClock", "splitClock", "compactClock"]) {
-    const style = componentBlock(clockModule, componentId)
-    assert.match(style, /WeatherModule\s*\{/)
-    assert.match(style, /enabled:\s*root\.showWeather/)
-    assert.match(style, /weatherController:\s*root\.weather/)
-    assert.match(style, /detailMode:\s*root\.weatherDetail/)
-    assert.match(style, /temperatureUnit:\s*root\.temperatureUnit/)
-  }
-
-  assert.match(componentBlock(clockModule, "heroClock"), /visualStyle:\s*root\.weatherStyle/)
-  assert.match(componentBlock(clockModule, "splitClock"), /visualStyle:\s*root\.weatherStyle/)
-  assert.match(
-    componentBlock(clockModule, "compactClock"),
-    /visualStyle:\s*root\.weatherStyle === "scene" \? "minimal" : root\.weatherStyle/,
-  )
+  assert.equal((companion.match(/WeatherModule\s*\{/g) || []).length, 1)
+  assert.doesNotMatch(companion, /WeatherVisual\s*\{/)
+  assert.match(companion, /enabled:\s*root\.showWeather/)
+  assert.match(companion, /weatherController:\s*root\.weather/)
+  assert.match(companion, /detailMode:\s*root\.weatherDetail/)
+  assert.match(companion, /temperatureUnit:\s*root\.temperatureUnit/)
+  assert.match(companion, /visualStyle:\s*root\.weatherStyle/)
 })
 
 test("WeatherModule exposes controller state without owning lifecycle or settings", () => {
@@ -123,70 +105,24 @@ test("WeatherModule exposes controller state without owning lifecycle or setting
   assert.match(service, /enabled:\s*appearanceStore\.loaded && appearanceStore\.showWeather/)
 })
 
-test("the extracted module preserves the accepted render contract for every Clock and Weather state", () => {
-  const fixturePath = path.join(__dirname, "fixtures/weather-clock-render-contract.json")
-  assert.equal(fs.existsSync(fixturePath), true, "accepted render-contract fixture must exist")
-
-  const baseline = JSON.parse(fs.readFileSync(fixturePath, "utf8"))
-  const clockModule = source("modules/ClockModule.qml")
+test("the extracted module preserves its controller-to-visual render contract in the companion", () => {
+  const companion = source("modules/ClockCompanionModule.qml")
   const weatherModule = source("modules/WeatherModule.qml")
   const moduleVisual = objectBlock(weatherModule, "WeatherVisual")
+  const delegate = objectBlock(companion, "WeatherModule")
 
-  assert.equal(baseline.commit, "d1f8bfecac3ba0c27a2b184c86cc3f1ffa52a5e6")
   assert.equal(binding(weatherModule, "visible"), "root.enabled")
   assert.equal(binding(weatherModule, "clip"), "true")
   assert.equal(binding(moduleVisual, "anchors.fill"), "parent")
   assert.equal(binding(moduleVisual, "weather"), "root.current")
   assert.equal(binding(moduleVisual, "loading"), "root.loading")
   assert.equal(binding(moduleVisual, "error"), "root.error")
-
-  let comparedContracts = 0
-  for (const [clockStyle, expected] of Object.entries(baseline.clockStyles)) {
-    const delegate = objectBlock(componentBlock(clockModule, expected.componentId), "WeatherModule")
-    assert.equal(binding(delegate, "enabled"), "root.showWeather")
-    assert.equal(binding(delegate, "width"), expected.width)
-    assert.equal(binding(delegate, "height"), expected.height)
-    assert.equal(binding(delegate, "visualStyle"), expected.visualStyle)
-    if (expected.horizontalAnchor) {
-      assert.equal(binding(delegate, "anchors.horizontalCenter"), expected.horizontalAnchor)
-    }
-
-    for (const state of baseline.weatherStates) {
-      for (const requestedStyle of baseline.visualStyles) {
-        for (const detailMode of baseline.detailModes) {
-          for (const temperatureUnit of baseline.temperatureUnits) {
-            const before = {
-              clockStyle,
-              visible: state !== "disabled",
-              weatherState: state,
-              visualStyle: expected.sceneFallsBackToMinimal && requestedStyle === "scene"
-                ? "minimal"
-                : requestedStyle,
-              detailMode,
-              temperatureUnit,
-            }
-            const after = {
-              clockStyle,
-              visible: binding(delegate, "enabled") === "root.showWeather"
-                && binding(weatherModule, "visible") === "root.enabled"
-                && state !== "disabled",
-              weatherState: state,
-              visualStyle: resolvedVisualStyle(binding(delegate, "visualStyle"), requestedStyle),
-              detailMode: binding(delegate, "detailMode") === "root.weatherDetail"
-                ? detailMode
-                : "invalid",
-              temperatureUnit: binding(delegate, "temperatureUnit") === "root.temperatureUnit"
-                ? temperatureUnit
-                : "invalid",
-            }
-            assert.deepEqual(after, before)
-            comparedContracts += 1
-          }
-        }
-      }
-    }
-  }
-  assert.equal(comparedContracts, 216)
+  assert.equal(binding(delegate, "enabled"), "root.showWeather")
+  assert.equal(binding(delegate, "anchors.fill"), "parent")
+  assert.equal(binding(delegate, "visible"), "root.showWeather")
+  assert.equal(binding(delegate, "visualStyle"), "root.weatherStyle")
+  assert.equal(binding(delegate, "detailMode"), "root.weatherDetail")
+  assert.equal(binding(delegate, "temperatureUnit"), "root.temperatureUnit")
 })
 
 test("the render contract fixture matches the accepted baseline commit", () => {

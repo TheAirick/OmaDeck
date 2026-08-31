@@ -23,20 +23,23 @@ a web server, Electron process, or separate system daemon.
 
 Weather presentation has a separate, lifecycle-free boundary:
 `modules/WeatherModule.qml` adapts the service-owned `WeatherController` state
-to exactly one `components/WeatherVisual.qml`. Clock Hero, Split, and Compact
-embed that module with their existing geometry. The module owns no provider
-process, polling or retry timer, location state, persistence, IPC, or settings
-surface; disabling Weather still stops provider work through the single
-controller in `Service.qml`. The tray remains the only Clock and Weather
-settings owner.
+to exactly one `components/WeatherVisual.qml`. `ClockCompanionModule.qml`
+statically embeds one Weather presenter in the lower companion slot. The module
+owns no provider process, polling or retry timer, location state, persistence,
+IPC, or settings surface; disabling Weather still stops provider work through
+the single controller in `Service.qml`. The tray remains the only Clock and
+Weather settings owner.
 
 Timer setup and controls use the same presentation-only boundary:
-`modules/TimerModule.qml` owns the Clock-hosted full-card overlay, duration
-draft, sound selector, and forwarding of timer actions. `ClockModule.qml`
-retains wall-time rendering, ambient timer status and progress, and the tap
-host that opens the presenter. The module does not own authoritative countdown
-state, deadlines, persistence, notification or audio scheduling, processes,
-files, IPC, layout mutation, or settings; those remain with the single
+`modules/TimerModule.qml` owns the duration draft, compact reflow, sound selector,
+and forwarding of timer actions. `ClockCompanionModule.qml` keeps a compact
+Clock in the upper `0.37` region and one stable `0.63` lower region. The lower
+region derives exactly one occupant from the view-local setup flag and the
+service-owned Timer status: Weather while idle, Timer during setup and every
+non-idle state. Ambient Timer status and progress remain in the Clock without
+duplicating the countdown readout. The module does not own authoritative
+countdown state, deadlines, persistence, notification or audio scheduling,
+processes, files, IPC, layout mutation, or settings; those remain with the single
 service-owned `TimerController` and existing service IPC.
 
 ## Layout model
@@ -44,6 +47,10 @@ service-owned `TimerController` and existing service IPC.
 The center uses a recursive binary split tree. Split nodes contain an
 orientation, ratio, and two children; leaves contain module IDs.
 `services/LayoutController.qml` validates and atomically persists layout state.
+For the current direct horizontal Clock/Command Center split only,
+`SplitPresentationPolicy.js` renders the Clock side at a minimum `0.36` share.
+The saved ratio, topology, revision, selected edit path, and drawer state remain
+unchanged; other nested or vertical topologies retain their saved geometry.
 
 Edge drawers participate in the same geometry. Four animated reserved-space
 values alter both the drawer positions and center boundaries, creating one

@@ -7,6 +7,7 @@ Item {
   id: root
 
   property var timer: null
+  property bool companionMode: false
   property bool setupOpen: false
   property bool controlsOpen: false
   property int selectedHours: 0
@@ -18,6 +19,7 @@ Item {
     && selectedMinutes >= 0 && selectedMinutes <= 59
     && (selectedHours > 0 || selectedMinutes > 0)
   readonly property bool open: setupOpen || controlsOpen
+  readonly property bool presenterActive: root.setupOpen || root.timerStatus !== "idle"
   readonly property int touchTarget: 48
 
   function openForCurrentStatus() {
@@ -41,6 +43,11 @@ Item {
     controlsOpen = false
   }
 
+  function cancelSetup() {
+    if (timer) timer.stopPreview()
+    close()
+  }
+
   function setPreset(minutes) {
     selectedHours = Math.floor(minutes / 60)
     selectedMinutes = minutes % 60
@@ -53,13 +60,18 @@ Item {
   }
 
   onTimerStatusChanged: {
-    if (setupOpen && timerStatus !== "idle") setupOpen = false
+    if (setupOpen && timerStatus !== "idle") {
+      if (timer) timer.stopPreview()
+      setupOpen = false
+    }
     if (controlsOpen && (timerStatus === "idle" || timerStatus === "completed")) controlsOpen = false
   }
 
+  Component.onDestruction: if (timer) timer.stopPreview()
+
   Rectangle {
     id: timerOverlay
-    visible: root.open
+    visible: root.companionMode ? root.presenterActive : root.open
     anchors.fill: parent
     color: Color.background
     border.color: Color.accent
@@ -70,12 +82,12 @@ Item {
     ResponsivePanel {
       id: timerViewport
       anchors.fill: parent
-      padding: Style.space(12)
+      padding: root.companionMode ? 0 : Style.space(12)
       maximumContentWidth: Style.space(620)
 
       Column {
         id: pickerContent
-        visible: root.setupOpen
+        visible: root.setupOpen && !root.companionMode
         width: parent.width
         spacing: Style.spacing.controlGap
 
@@ -278,7 +290,7 @@ Item {
             bordered: true
             Accessible.role: Accessible.Button
             Accessible.name: "Cancel timer setup"
-            onClicked: root.close()
+            onClicked: root.cancelSetup()
           }
           Button {
             width: Style.space(120)
@@ -294,9 +306,16 @@ Item {
         }
       }
 
+      TimerSetupPanel {
+        id: compactSetupContent
+        visible: root.setupOpen && root.companionMode
+        width: parent.width
+        presenter: root
+      }
+
       Column {
         id: controlsContent
-        visible: root.controlsOpen
+        visible: root.companionMode ? root.timerStatus !== "idle" : root.controlsOpen
         width: parent.width
         spacing: Style.spacing.panelGap
 
@@ -360,17 +379,6 @@ Item {
           onClicked: root.timer.dismiss()
         }
 
-        Button {
-          visible: root.timerStatus !== "completed"
-          anchors.horizontalCenter: parent.horizontalCenter
-          width: Style.space(140)
-          height: root.touchTarget
-          text: "Close"
-          bordered: true
-          Accessible.role: Accessible.Button
-          Accessible.name: "Close timer controls"
-          onClicked: root.close()
-        }
       }
     }
   }

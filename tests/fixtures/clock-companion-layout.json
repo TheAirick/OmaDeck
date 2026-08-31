@@ -1,0 +1,1 @@
+{"version":2,"root":{"type":"split","orientation":"horizontal","ratio":0.28,"first":{"type":"module","moduleId":"clock"},"second":{"type":"module","moduleId":"command-center"}}}
