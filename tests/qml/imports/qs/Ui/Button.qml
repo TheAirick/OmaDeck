@@ -5,6 +5,10 @@ Rectangle {
   id: root
 
   property string text: ""
+  property string iconText: ""
+  property real iconSize: Style.font.body
+  property real fontSize: Style.font.body
+  property var borderSpec: Border.none()
   property bool bordered: false
   property bool selected: false
   property color foreground: Color.foreground
@@ -23,10 +27,10 @@ Rectangle {
   Text {
     id: label
     anchors.centerIn: parent
-    text: root.text
+    text: root.iconText || root.text
     color: root.selected ? Color.background : Color.foreground
     font.family: Style.font.family
-    font.pixelSize: Style.font.body
+    font.pixelSize: root.iconText ? root.iconSize : root.fontSize
   }
 
   TapHandler {

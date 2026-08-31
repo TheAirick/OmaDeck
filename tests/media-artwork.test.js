@@ -9,8 +9,8 @@ const helperSource = fs.readFileSync(
   path.join(repositoryRoot, "modules/MediaArtwork.js"),
   "utf8",
 )
-const mediaModule = fs.readFileSync(
-  path.join(repositoryRoot, "modules/MediaModule.qml"),
+const nowPlayingModule = fs.readFileSync(
+  path.join(repositoryRoot, "modules/NowPlayingModule.qml"),
   "utf8",
 )
 const context = {}
@@ -39,12 +39,12 @@ test("YouTube track URLs recover a standard thumbnail", () => {
   assert.equal(youtubeThumbnail("https://example.com/watch?v=lVpSU49cdQ0"), "")
 })
 
-test("MediaModule retains published art for the same track and falls back to YouTube", () => {
-  assert.match(mediaModule, /property string cachedArtworkKey: ""/)
-  assert.match(mediaModule, /property string cachedArtworkUrl: ""/)
-  assert.match(mediaModule, /readonly property string artworkUrl:/)
-  assert.match(mediaModule, /cachedArtworkKey === artworkKey \? cachedArtworkUrl : ""/)
-  assert.match(mediaModule, /artworkTrackUrl: MediaArtwork\.trackUrl\(player\)/)
-  assert.match(mediaModule, /derivedArtworkUrl: MediaArtwork\.youtubeThumbnail\(artworkTrackUrl\)/)
-  assert.match(mediaModule, /source: root\.artworkUrl/)
+test("NowPlayingModule retains published art for the same track and falls back to YouTube", () => {
+  assert.match(nowPlayingModule, /property string cachedArtworkKey: ""/)
+  assert.match(nowPlayingModule, /property string cachedArtworkUrl: ""/)
+  assert.match(nowPlayingModule, /readonly property string artworkUrl:/)
+  assert.match(nowPlayingModule, /cachedArtworkKey === artworkKey \? cachedArtworkUrl : ""/)
+  assert.match(nowPlayingModule, /artworkTrackUrl: MediaArtwork\.trackUrl\(player\)/)
+  assert.match(nowPlayingModule, /derivedArtworkUrl: MediaArtwork\.youtubeThumbnail\(artworkTrackUrl\)/)
+  assert.match(nowPlayingModule, /source: root\.artworkUrl/)
 })

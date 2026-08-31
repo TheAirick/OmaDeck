@@ -46,6 +46,17 @@ countdown state, deadlines, persistence, notification or audio scheduling,
 processes, files, IPC, layout mutation, or settings; those remain with the single
 service-owned `TimerController` and existing service IPC.
 
+Media presentation is split at a lifecycle-free Now Playing boundary without
+changing the combined drawer composition. `modules/MediaModule.qml` resolves
+the existing `omarchy.media` service, retains the `Media` heading and mixer
+automation methods, and composes exactly one `NowPlayingModule` above one
+`AudioMixerModule` using the mixer's existing `contentHeight` reservation.
+`modules/NowPlayingModule.qml` owns only the active-player projection, local
+duration/position and same-track artwork caches, transport controls, metadata,
+and timeline. It creates no PipeWire model, process, persistence, IPC, settings,
+or dynamic QML path; those concerns remain with the existing service and audio
+mixer owners.
+
 ## Layout model
 
 The center uses a recursive binary split tree. Split nodes contain an
