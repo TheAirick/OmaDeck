@@ -7,6 +7,9 @@ Rectangle {
   property string text: ""
   property bool bordered: false
   property bool selected: false
+  property color foreground: Color.foreground
+  property real horizontalPadding: 12
+  property real verticalPadding: 8
   signal clicked()
 
   implicitWidth: Math.max(48, label.implicitWidth + 24)

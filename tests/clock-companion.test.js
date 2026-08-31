@@ -75,17 +75,36 @@ test("every accepted companion transition resolves to Weather or Timer without a
     assert.equal(policy.occupant(status, setupOpen), expected, event)
 })
 
-test("Clock uses one explicit static companion host with complementary presenters", () => {
-  const clock = source("modules/ClockModule.qml")
+test("Clock tile uses one explicit static companion host with complementary presenters", () => {
+  const tile = source("components/ClockCompanionTile.qml")
   const companion = source("modules/ClockCompanionModule.qml")
 
-  assert.match(clock, /ClockCompanionModule\s*\{/)
+  assert.equal((tile.match(/ClockModule\s*\{/g) || []).length, 1)
+  assert.equal((tile.match(/ClockCompanionModule\s*\{/g) || []).length, 1)
   assert.equal((companion.match(/WeatherModule\s*\{/g) || []).length, 1)
   assert.equal((companion.match(/TimerModule\s*\{/g) || []).length, 1)
   assert.match(companion, /readonly property string occupant:\s*ClockCompanionPolicy\.occupant\(root\.timerStatus, timerPresenter\.setupOpen\)/)
   assert.match(companion, /visible:\s*root\.occupant === "weather"/)
   assert.match(companion, /visible:\s*root\.occupant === "timer"/)
   assert.doesNotMatch(companion, /Loader|setSource|layoutController|commit\(|scheduleSave/)
+})
+
+test("ModuleTile gives Clock two sibling card boundaries instead of one composite card", () => {
+  const moduleTile = source("components/ModuleTile.qml")
+  const companionTilePath = path.join(repositoryRoot, "components/ClockCompanionTile.qml")
+
+  assert.equal(fs.existsSync(companionTilePath), true, "ClockCompanionTile.qml must own the pair")
+  assert.match(moduleTile, /id:\s*clockLoader[\s\S]*active:\s*root\.moduleId === "clock"[\s\S]*sourceComponent:\s*clockTileComponent/)
+  assert.match(moduleTile, /id:\s*genericCardLoader[\s\S]*active:\s*root\.moduleId !== "clock"[\s\S]*sourceComponent:\s*genericCardComponent/)
+  assert.equal((moduleTile.match(/DeckCard\s*\{/g) || []).length, 1,
+    "ordinary modules retain exactly one generic DeckCard declaration")
+  assert.equal((moduleTile.match(/ClockCompanionTile\s*\{/g) || []).length, 1)
+
+  const companionTile = fs.readFileSync(companionTilePath, "utf8")
+  assert.equal((companionTile.match(/DeckCard\s*\{/g) || []).length, 2)
+  assert.match(companionTile, /objectName:\s*"clockPanelCard"/)
+  assert.match(companionTile, /objectName:\s*"companionPanelCard"/)
+  assert.doesNotMatch(companionTile, /\bRectangle\s*\{/, "the split must not be a decorative divider")
 })
 
 test("companion Timer setup cancel stops preview and non-idle state is always presented", () => {
@@ -160,9 +179,9 @@ test("companion transitions preserve layout bytes, topology, edit selection, and
 })
 
 test("fixed companion geometry remains 0.37/0.63 through all drawer reservations", () => {
-  const companion = source("modules/ClockCompanionModule.qml")
-  assert.match(companion, /clockHeight:\s*Math\.round\(splitHeight \* 0\.37\)/)
-  assert.match(companion, /companionHeight:\s*Math\.max\(0, splitHeight - clockHeight\)/)
+  const tile = source("components/ClockCompanionTile.qml")
+  assert.match(tile, /clockHeight:\s*Math\.round\(splitHeight \* 0\.37\)/)
+  assert.match(tile, /companionHeight:\s*Math\.max\(0, splitHeight - clockHeight\)/)
 
   const screen = { width: 1600, height: 450, outer: 5, gap: 14 }
   const drawers = {
@@ -218,4 +237,31 @@ test("offscreen QML verifies states, drawers, touch geometry, and lifecycle chur
     stateHashes.add(crypto.createHash("sha256").update(fs.readFileSync(imagePath)).digest("hex"))
   }
   assert.equal(stateHashes.size, 8, "every Weather and Timer state must render distinctly")
+})
+
+test("actual ModuleTile renders and interacts as two independent Clock panels", {
+  skip: !fs.existsSync("/usr/lib/qt6/bin/qmltestrunner"),
+}, () => {
+  const imagePath = "/tmp/omadeck-module-tile-clock.png"
+  fs.rmSync(imagePath, { force: true })
+  const result = childProcess.spawnSync("/usr/lib/qt6/bin/qmltestrunner", [
+    "-silent",
+    "-input",
+    "tests/qml/tst_module-tile-clock.qml",
+    "-import",
+    "tests/qml/imports",
+  ], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      QT_QPA_PLATFORM: "offscreen",
+      QSG_RHI_BACKEND: "software",
+    },
+  })
+
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
+  assert.match(result.stdout, /0 failed/)
+  assert.equal(fs.existsSync(imagePath), true)
+  assert.ok(fs.statSync(imagePath).size > 1000)
 })

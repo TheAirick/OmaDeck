@@ -71,6 +71,7 @@ Item {
 
   Rectangle {
     id: timerOverlay
+    objectName: "timerOverlay"
     visible: root.companionMode ? root.presenterActive : root.open
     anchors.fill: parent
     color: Color.background

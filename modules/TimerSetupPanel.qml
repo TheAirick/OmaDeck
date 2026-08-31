@@ -7,7 +7,7 @@ Item {
 
   required property var presenter
   readonly property int touchTarget: 48
-  readonly property bool wideLayout: width >= Style.space(520)
+  readonly property bool wideLayout: width >= Style.space(500)
   readonly property real rowGap: Style.spacing.controlGap
 
   implicitHeight: soundActions.y + soundActions.implicitHeight
@@ -62,7 +62,7 @@ Item {
 
   Row {
     id: presetRow
-    x: root.wideLayout ? durationRow.implicitWidth + root.rowGap : 0
+    x: root.wideLayout ? durationRow.implicitWidth + Style.spacing.labelGap : 0
     y: root.wideLayout ? 0 : root.touchTarget + root.rowGap
     width: Math.max(0, parent.width - x)
     spacing: root.rowGap
@@ -105,6 +105,7 @@ Item {
       onClicked: root.presenter.timer.selectPreviousSound()
     }
     Text {
+      visible: root.width >= Style.space(365)
       width: Style.space(52); height: root.touchTarget
       verticalAlignment: Text.AlignVCenter; horizontalAlignment: Text.AlignHCenter
       text: root.presenter.timer ? root.presenter.timer.selectedSoundName : "Complete"

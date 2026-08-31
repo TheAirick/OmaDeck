@@ -8,6 +8,11 @@ QtObject {
     readonly property real controlGap: 8
     readonly property real panelGap: 12
     readonly property real labelGap: 4
+    readonly property real rowGap: 8
+    readonly property real panelPadding: 12
+    readonly property real controlPaddingX: 12
+    readonly property real controlPaddingY: 8
+    readonly property real rowPaddingX: 8
   }
   readonly property QtObject font: QtObject {
     readonly property string family: "DejaVu Sans"

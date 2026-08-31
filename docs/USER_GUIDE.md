@@ -33,7 +33,7 @@ described in [Configuration](CONFIGURATION.md).
 
 ## Clock and weather
 
-The left center card combines the clock with current weather. OmaDeck uses
+The left center leaf has separate Clock and Weather panels. OmaDeck uses
 Omarchy's existing weather location and refreshes every 15 minutes. Its Rich
 visual uses Omarchy's recognizable condition glyphs, current-condition stats,
 and a multi-day forecast. When the provider is unreachable, the clock remains
@@ -47,10 +47,9 @@ and computer locks.
 Tap the Clock card to set a countdown. Choose hours and minutes, or use the 5,
 15, 30, and 60 minute presets. The setup sheet's **Sound** row cycles through
 Silent, Alarm, Complete, Bell, Ring, and Warning; **Preview** plays the current
-choice once. Tap **Start** to close the sheet and begin. The wall clock remains
-primary while the date line shows the remaining time. Tap the Clock again to
-pause or resume, add five minutes, restart the original duration, or cancel. A
-finished timer keeps showing **Time's up** until you tap the Clock and dismiss
+choice once. Tap **Start** to begin. The upper Clock panel remains unchanged while
+the lower panel shows pause, resume, add-five, restart, and cancel controls. A
+finished timer keeps showing **Time's up** in the lower panel until you dismiss
 it. Audible choices play three non-overlapping completion chimes; Silent keeps
 the visual state and desktop notification without launching a player.
 

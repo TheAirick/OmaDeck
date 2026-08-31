@@ -47,18 +47,18 @@ Item {
   Drag.hotSpot.x: width / 2
   Drag.hotSpot.y: height / 2
 
-  DeckCard {
+  Loader {
+    id: clockLoader
     anchors.fill: parent
-    title: root.moduleTitle
-    subtitle: root.moduleSubtitle
-    active: root.selected || (root.moduleId === "clock" && !root.controller.editMode)
+    active: root.moduleId === "clock"
+    sourceComponent: clockTileComponent
+  }
 
-    Loader {
-      anchors.fill: parent
-      sourceComponent: root.moduleId === "clock" ? clockComponent
-        : root.moduleId === "workspaces" ? workspaceComponent
-        : commandComponent
-    }
+  Loader {
+    id: genericCardLoader
+    anchors.fill: parent
+    active: root.moduleId !== "clock"
+    sourceComponent: genericCardComponent
   }
 
   Rectangle {
@@ -86,7 +86,7 @@ Item {
 
   TapHandler {
     enabled: !root.controller.editMode
-    longPressThreshold: 500
+    longPressThreshold: 0.5
     onLongPressed: root.controller.beginEdit(root.path)
   }
 
@@ -116,12 +116,27 @@ Item {
   }
 
   Component {
-    id: clockComponent
-    ClockModule {
+    id: clockTileComponent
+    ClockCompanionTile {
       controller: root.appearanceController
       weather: root.weatherController
       timer: root.timerController
       interactionEnabled: !root.controller.editMode
+      active: root.selected || !root.controller.editMode
+    }
+  }
+  Component {
+    id: genericCardComponent
+    DeckCard {
+      objectName: "moduleCard"
+      title: root.moduleTitle
+      subtitle: root.moduleSubtitle
+      active: root.selected
+
+      Loader {
+        anchors.fill: parent
+        sourceComponent: root.moduleId === "workspaces" ? workspaceComponent : commandComponent
+      }
     }
   }
   Component { id: workspaceComponent; WorkspaceModule { compact: true; primaryMonitor: root.primaryMonitor } }

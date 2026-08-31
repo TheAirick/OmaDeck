@@ -69,10 +69,14 @@ test("TimerModule owns active paused and completed companion presentation", () =
 
 test("compact Clock retains ambient projection and delegates setup opening to TimerModule", () => {
   const timerModule = source("modules/TimerModule.qml")
-  const clock = source("modules/ClockCompanionModule.qml")
+  const clock = source("modules/ClockModule.qml")
+  const tile = source("components/ClockCompanionTile.qml")
+  const companion = source("modules/ClockCompanionModule.qml")
 
   assert.match(timerModule, /function openForCurrentStatus\(\)/)
-  assert.match(clock, /onTapped:\s*timerPresenter\.openSetup\(\)/)
+  assert.match(clock, /onTapped:\s*root\.setupRequested\(\)/)
+  assert.match(tile, /onSetupRequested:\s*companionModule\.openSetup\(\)/)
+  assert.match(companion, /function openSetup\(\) \{ timerPresenter\.openSetup\(\) \}/)
   assert.doesNotMatch(clock, /function (?:openTimerControls|openSetup|openControls)\(/)
   assert.equal((clock.match(/text:\s*root\.timeText\(\)/g) || []).length, 1)
   assert.match(clock, /root\.timerSummary\(\)/)

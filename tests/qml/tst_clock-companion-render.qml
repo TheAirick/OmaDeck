@@ -1,6 +1,6 @@
 import QtQuick
 import QtTest
-import "../../modules" as Modules
+import "../../components" as Components
 
 TestCase {
   id: testCase
@@ -154,6 +154,14 @@ TestCase {
 
     var targets = []
     collectTargets(slot, fixture.host, targets)
+    var slotStart = slot.mapToItem(fixture.host, 0, 0)
+    var slotEnd = slot.mapToItem(fixture.host, slot.width, slot.height)
+    var slotBounds = {
+      x: Math.min(slotStart.x, slotEnd.x),
+      y: Math.min(slotStart.y, slotEnd.y),
+      width: Math.abs(slotEnd.x - slotStart.x),
+      height: Math.abs(slotEnd.y - slotStart.y)
+    }
     var minimumTargetCount = data.state === "setup" ? 10
       : data.state === "completed" ? 1 : 4
     verify(targets.length >= minimumTargetCount, data.tag + " target count " + targets.length)
@@ -161,10 +169,10 @@ TestCase {
       var target = targets[index]
       verify(target.width >= 48, data.tag + " " + target.name + " width " + target.width)
       verify(target.height >= 48, data.tag + " " + target.name + " height " + target.height)
-      verify(target.x >= slot.x - 0.5, data.tag + " " + target.name + " left")
-      verify(target.y >= slot.y - 0.5, data.tag + " " + target.name + " top")
-      verify(target.x + target.width <= slot.x + slot.width + 0.5, data.tag + " " + target.name + " right")
-      verify(target.y + target.height <= slot.y + slot.height + 0.5, data.tag + " " + target.name + " bottom")
+      verify(target.x >= slotBounds.x - 0.5, data.tag + " " + target.name + " left")
+      verify(target.y >= slotBounds.y - 0.5, data.tag + " " + target.name + " top")
+      verify(target.x + target.width <= slotBounds.x + slotBounds.width + 0.5, data.tag + " " + target.name + " right")
+      verify(target.y + target.height <= slotBounds.y + slotBounds.height + 0.5, data.tag + " " + target.name + " bottom")
     }
   }
 
@@ -211,7 +219,7 @@ TestCase {
 
   Component {
     id: companionComponent
-    Modules.ClockCompanionModule {}
+    Components.ClockCompanionTile {}
   }
 
   Component {

@@ -32,12 +32,15 @@ Weather settings owner.
 
 Timer setup and controls use the same presentation-only boundary:
 `modules/TimerModule.qml` owns the duration draft, compact reflow, sound selector,
-and forwarding of timer actions. `ClockCompanionModule.qml` keeps a compact
-Clock in the upper `0.37` region and one stable `0.63` lower region. The lower
-region derives exactly one occupant from the view-local setup flag and the
-service-owned Timer status: Weather while idle, Timer during setup and every
-non-idle state. Ambient Timer status and progress remain in the Clock without
-duplicating the countdown readout. The module does not own authoritative
+and forwarding of timer actions. `components/ClockCompanionTile.qml` is the
+Clock-specific `ModuleTile` host: it replaces the ordinary single-card wrapper
+with two sibling `DeckCard` boundaries separated by the panel-gap token. The
+upper `0.37` card owns only `ClockModule`; the lower `0.63` card owns one static
+`ClockCompanionModule`, whose title and sole visible occupant switch between
+Weather while idle and Timer during setup and every non-idle state. The pair is
+still one saved `clock` leaf for selection, dragging, swapping, and persistence.
+Ambient Timer status and progress remain in the Clock without duplicating the
+countdown readout. The presentation does not own authoritative
 countdown state, deadlines, persistence, notification or audio scheduling,
 processes, files, IPC, layout mutation, or settings; those remain with the single
 service-owned `TimerController` and existing service IPC.

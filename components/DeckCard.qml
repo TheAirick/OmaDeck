@@ -5,6 +5,7 @@ import qs.Ui
 BorderSurface {
   id: root
 
+  readonly property bool cardBoundary: true
   property string title: ""
   property string subtitle: ""
   property bool active: false
@@ -29,6 +30,7 @@ BorderSurface {
 
     Row {
       id: headerRow
+      objectName: "deckCardHeader"
       width: parent.width
       spacing: Style.spacing.controlGap
 
@@ -58,6 +60,7 @@ BorderSurface {
 
     Item {
       id: contentHost
+      objectName: "deckCardContent"
       width: parent.width
       height: parent.height - y
       clip: true
