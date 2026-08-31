@@ -134,11 +134,13 @@ test("timer IPC exposes bounded state transitions with structured results", () =
 
 test("timer ownership is forwarded through every layout loader to the Clock", () => {
   const deck = source("components/DeckSurface.qml")
+  const center = source("components/DeckCenter.qml")
   const split = source("components/SplitNode.qml")
   const tile = source("components/ModuleTile.qml")
 
   assert.match(deck, /property var timerController: null/)
-  assert.match(deck, /SplitNode \{[\s\S]*timerController: root\.timerController/)
+  assert.match(deck, /DeckCenter \{[\s\S]*timerController: root\.timerController/)
+  assert.match(center, /SplitNode \{[\s\S]*timerController: root\.timerController/)
   assert.match(split, /property var timerController: null/)
   assert.match(split, /timerController: root\.timerController/)
   assert.match(tile, /property var timerController: null/)

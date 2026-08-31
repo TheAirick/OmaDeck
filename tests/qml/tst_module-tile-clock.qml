@@ -67,7 +67,13 @@ TestCase {
 
   function rectIn(item, ancestor) {
     var origin = item.mapToItem(ancestor, 0, 0)
-    return { x: origin.x, y: origin.y, width: item.width, height: item.height }
+    var farCorner = item.mapToItem(ancestor, item.width, item.height)
+    return {
+      x: Math.min(origin.x, farCorner.x),
+      y: Math.min(origin.y, farCorner.y),
+      width: Math.abs(farCorner.x - origin.x),
+      height: Math.abs(farCorner.y - origin.y)
+    }
   }
 
   function compareRect(actual, expected, label) {
@@ -114,6 +120,26 @@ TestCase {
     if (item.objectName === objectName) result.push(item)
     for (var index = 0; index < item.children.length; index++)
       collectNamed(item.children[index], objectName, result)
+  }
+
+  function findAccessible(item, name) {
+    if (!item || !item.visible) return null
+    if (item.Accessible && item.Accessible.name === name) return item
+    for (var index = 0; index < item.children.length; index++) {
+      var match = findAccessible(item.children[index], name)
+      if (match) return match
+    }
+    return null
+  }
+
+  function clickAccessible(item, name) {
+    wait(200)
+    var target = findAccessible(item, name)
+    verify(target !== null, name + " must be rendered")
+    verify(target.visible, name + " must be visible")
+    verify(target.enabled, name + " must be enabled")
+    mouseClick(target, target.width / 2, target.height / 2)
+    wait(0)
   }
 
   function countCardBoundaries(item) {
@@ -178,21 +204,34 @@ TestCase {
     var lowerBounds = rectIn(fixture.companionCard, tile)
     var stateBefore = persistentSnapshot()
 
+    setupSpy.target = fixture.clock.parent
+    setupSpy.clear()
+    mouseClick(fixture.weather, fixture.weather.width / 2, fixture.weather.height / 2)
+    compare(setupSpy.count, 0, "Weather input must not request Timer setup")
     mouseClick(fixture.clock, fixture.clock.width / 2, fixture.clock.height / 2)
-    fixture.timer.startSelectedTimer()
+    compare(setupSpy.count, 1, "Clock click must request setup exactly once")
+    mouseClick(fixture.timer, 4, 4)
+    compare(setupSpy.count, 1, "Timer input must not request setup again")
+    clickAccessible(fixture.timer, "Cancel timer setup")
+    compare(fixture.weather.visible, true)
+
+    mouseClick(fixture.clock, fixture.clock.width / 2, fixture.clock.height / 2)
+    compare(setupSpy.count, 2)
+    clickAccessible(fixture.timer, "Start timer")
     compare(timerController.startCalls, 1)
     compare(timerController.status, "active")
     compare(fixture.timer.visible, true)
-    timerController.pause()
+    clickAccessible(fixture.timer, "Pause timer")
     compare(timerController.status, "paused")
-    timerController.resume()
+    clickAccessible(fixture.timer, "Resume timer")
     compare(timerController.status, "active")
-    timerController.cancel()
+    clickAccessible(fixture.timer, "Cancel timer")
     compare(fixture.weather.visible, true)
     timerController.status = "completed"
     compare(fixture.timer.visible, true)
-    timerController.dismiss()
+    clickAccessible(fixture.timer, "Dismiss timer")
     compare(fixture.weather.visible, true)
+    compare(setupSpy.count, 2, "lower controls must not duplicate setup callbacks")
     compareRect(rectIn(fixture.clockCard, tile), clockBounds, "Clock throughout timer lifecycle")
     compareRect(rectIn(fixture.companionCard, tile), lowerBounds, "lower card throughout timer lifecycle")
     comparePersistent(persistentSnapshot(), stateBefore, "timer lifecycle", true)
@@ -263,10 +302,16 @@ TestCase {
   }
 
   function test_twentyLifecycleCyclesKeepExactlyTwoBoundaries() {
+    var tile = makeTile(530, 380)
+    var fixture = panelFixture(tile)
+    var clockObject = fixture.clock
+    var clockBounds = rectIn(fixture.clock, tile)
+    var lowerBounds = rectIn(fixture.companionCard, tile)
+    var overlay = findChild(fixture.timer, "timerOverlay")
+    var stateBefore = persistentSnapshot()
+    setupSpy.target = fixture.clock.parent
+    setupSpy.clear()
     for (var cycle = 0; cycle < 20; cycle++) {
-      var tile = makeTile(530, 380)
-      var fixture = panelFixture(tile)
-      var stateBefore = persistentSnapshot()
       compare(countCardBoundaries(tile), 2)
       var weatherPresenters = []
       var timerPresenters = []
@@ -276,16 +321,27 @@ TestCase {
       compare(timerPresenters.length, 1)
       compare(Number(fixture.weather.visible) + Number(fixture.timer.visible), 1)
       mouseClick(fixture.clock, fixture.clock.width / 2, fixture.clock.height / 2)
+      compare(setupSpy.count, cycle + 1, "one setup callback per Clock click")
       compare(Number(fixture.weather.visible) + Number(fixture.timer.visible), 1)
-      timerController.previewSelectedSound()
-      fixture.timer.cancelSetup()
+      compare(overlay.visible, true)
+      compareRect(rectIn(overlay, tile), rectIn(fixture.companionContent, tile),
+        "lower-only overlay cycle " + cycle)
+      clickAccessible(fixture.timer, "Preview timer sound")
+      clickAccessible(fixture.timer, "Cancel timer setup")
+      compare(overlay.visible, false)
       compare(timerController.previewRunning, false)
-      compare(timerController.stopPreviewCalls, 1)
+      compare(timerController.stopPreviewCalls, cycle + 1)
+      compare(fixture.clock, clockObject, "Clock object must persist")
+      compareRect(rectIn(fixture.clock, tile), clockBounds, "Clock bounds cycle " + cycle)
+      compareRect(rectIn(fixture.companionCard, tile), lowerBounds, "lower bounds cycle " + cycle)
       comparePersistent(persistentSnapshot(), stateBefore, "lifecycle cycle " + cycle, true)
-      tile.destroy()
-      wait(0)
       compare(timerController.previewRunning, false)
     }
+  }
+
+  SignalSpy {
+    id: setupSpy
+    signalName: "setupRequested"
   }
 
   Component {

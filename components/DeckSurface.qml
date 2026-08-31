@@ -30,7 +30,7 @@ PanelWindow {
   readonly property string sourceDir: pluginDir
 
   readonly property bool isTarget: screen && screen.name === targetScreen
-  readonly property bool deckHovered: backgroundHover.hovered || centerHover.hovered
+  readonly property bool deckHovered: backgroundHover.hovered || centerCanvas.pointerHovered
     || leftDrawer.pointerHovered || rightDrawer.pointerHovered
     || topDrawer.pointerHovered || bottomDrawer.pointerHovered
   readonly property bool pointerRevealed: deckHovered
@@ -93,7 +93,7 @@ PanelWindow {
       build: drawerBuild,
       deckHovered: deckHovered,
       backgroundHovered: backgroundHover.hovered,
-      centerHovered: centerHover.hovered,
+      centerHovered: centerCanvas.pointerHovered,
       touchInProgress: directTouch.touchInProgress,
       pointerRevealed: pointerRevealed
     }
@@ -268,34 +268,24 @@ PanelWindow {
     }
   }
 
-  Item {
+  DeckCenter {
     id: centerCanvas
-    x: root.outerGap + root.reservedLeft
-    y: root.outerGap + root.reservedTop
-    width: Math.max(0, root.usableWidth - root.reservedLeft - root.reservedRight)
-    height: Math.max(0, root.usableHeight - root.reservedTop - root.reservedBottom)
-
-    Rectangle {
-      anchors.fill: parent
-      color: Color.background
-    }
-
-    SplitNode {
-      anchors.fill: parent
-      controller: root.layoutController
-      path: ""
-      deck: root
-      shell: root.shell
-      primaryMonitor: root.primaryMonitor
-      appearanceController: root.appearanceController
-      weatherController: root.weatherController
-      timerController: root.timerController
-    }
-
-    HoverHandler {
-      id: centerHover
-    }
-
+    surfaceWidth: root.width
+    surfaceHeight: root.height
+    outerGap: root.outerGap
+    usableWidth: root.usableWidth
+    usableHeight: root.usableHeight
+    reservedLeft: root.reservedLeft
+    reservedRight: root.reservedRight
+    reservedTop: root.reservedTop
+    reservedBottom: root.reservedBottom
+    layoutController: root.layoutController
+    deck: root
+    shell: root.shell
+    primaryMonitor: root.primaryMonitor
+    appearanceController: root.appearanceController
+    weatherController: root.weatherController
+    timerController: root.timerController
   }
 
   // Generous touch zones begin the drawer gesture. The first foundation uses

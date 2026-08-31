@@ -239,7 +239,7 @@ test("offscreen QML verifies states, drawers, touch geometry, and lifecycle chur
   assert.equal(stateHashes.size, 8, "every Weather and Timer state must render distinctly")
 })
 
-test("actual ModuleTile renders and interacts as two independent Clock panels", {
+test("actual ModuleTile and deck center exercise independent Clock panels", {
   skip: !fs.existsSync("/usr/lib/qt6/bin/qmltestrunner"),
 }, () => {
   const imagePath = "/tmp/omadeck-module-tile-clock.png"
@@ -264,4 +264,23 @@ test("actual ModuleTile renders and interacts as two independent Clock panels", 
   assert.match(result.stdout, /0 failed/)
   assert.equal(fs.existsSync(imagePath), true)
   assert.ok(fs.statSync(imagePath).size > 1000)
+
+  const deckResult = childProcess.spawnSync("/usr/lib/qt6/bin/qmltestrunner", [
+    "-silent",
+    "-input",
+    "tests/qml/tst_deck-center-clock.qml",
+    "-import",
+    "tests/qml/imports",
+  ], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      QT_QPA_PLATFORM: "offscreen",
+      QSG_RHI_BACKEND: "software",
+    },
+  })
+
+  assert.equal(deckResult.status, 0, `${deckResult.stdout}\n${deckResult.stderr}`)
+  assert.match(deckResult.stdout, /0 failed/)
 })

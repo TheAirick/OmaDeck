@@ -28,4 +28,9 @@ Rectangle {
     font.family: Style.font.family
     font.pixelSize: Style.font.body
   }
+
+  TapHandler {
+    enabled: root.enabled
+    onTapped: root.clicked()
+  }
 }

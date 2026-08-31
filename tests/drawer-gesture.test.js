@@ -12,6 +12,7 @@ const DrawerGesture = vm.runInNewContext(`${gestureSource}\n;({
   dismissButtonPosition,
 })`)
 const deckSource = fs.readFileSync(path.join(__dirname, "../components/DeckSurface.qml"), "utf8")
+const centerSource = fs.readFileSync(path.join(__dirname, "../components/DeckCenter.qml"), "utf8")
 const drawerSource = fs.readFileSync(path.join(__dirname, "../components/EdgeDrawer.qml"), "utf8")
 
 test("opening another drawer replaces the current drawer", () => {
@@ -100,12 +101,14 @@ test("drawer close buttons float without reserving content geometry", () => {
 })
 
 test("mouse presence anywhere on OmaDeck reveals drawer controls without touch", () => {
-  assert.match(deckSource, /readonly property bool deckHovered:\s*backgroundHover\.hovered\s*\|\| centerHover\.hovered/)
+  assert.match(deckSource, /readonly property bool deckHovered:\s*backgroundHover\.hovered\s*\|\| centerCanvas\.pointerHovered/)
   for (const id of ["leftDrawer", "rightDrawer", "topDrawer", "bottomDrawer"])
     assert.match(deckSource, new RegExp(`${id}\\.pointerHovered`))
   assert.match(deckSource, /readonly property bool pointerRevealed:\s*deckHovered\s*&& !directTouch\.touchInProgress/)
   assert.match(deckSource, /id:\s*deckBackground[\s\S]*HoverHandler \{\s*id: backgroundHover\s*\}/)
-  assert.match(deckSource, /id:\s*centerCanvas[\s\S]*HoverHandler \{\s*id: centerHover\s*\}/)
+  assert.match(deckSource, /DeckCenter \{\s*id:\s*centerCanvas/)
+  assert.match(centerSource, /readonly property bool pointerHovered:\s*centerHover\.hovered/)
+  assert.match(centerSource, /HoverHandler \{\s*id: centerHover\s*\}/)
   assert.match(drawerSource, /readonly property bool pointerHovered:\s*drawerHover\.hovered/)
   assert.match(drawerSource, /HoverHandler \{\s*id: drawerHover\s*\}/)
   assert.doesNotMatch(deckSource, /acceptedDevices:\s*PointerDevice\.Mouse/)
@@ -116,7 +119,7 @@ test("mouse presence anywhere on OmaDeck reveals drawer controls without touch",
 test("drawer diagnostics expose each mouse reveal gate", () => {
   assert.match(deckSource, /deckHovered:\s*deckHovered/)
   assert.match(deckSource, /backgroundHovered:\s*backgroundHover\.hovered/)
-  assert.match(deckSource, /centerHovered:\s*centerHover\.hovered/)
+  assert.match(deckSource, /centerHovered:\s*centerCanvas\.pointerHovered/)
   assert.match(deckSource, /touchInProgress:\s*directTouch\.touchInProgress/)
   assert.match(deckSource, /pointerRevealed:\s*pointerRevealed/)
 })

@@ -12,6 +12,10 @@ const deckSurfaceSource = fs.readFileSync(
   path.join(repositoryRoot, "components/DeckSurface.qml"),
   "utf8",
 )
+const deckCenterSource = fs.readFileSync(
+  path.join(repositoryRoot, "components/DeckCenter.qml"),
+  "utf8",
+)
 
 function extractFunction(name, dependencies) {
   const signature = new RegExp(`  function ${name}\\(([^)]*)\\) \\{`, "g")
@@ -90,6 +94,10 @@ test("every revision reloads both child boundaries", () => {
 test("the validated split root remains explicit", () => {
   assert.match(
     deckSurfaceSource,
+    /DeckCenter \{[\s\S]*reservedLeft:\s*root\.reservedLeft[\s\S]*reservedRight:\s*root\.reservedRight[\s\S]*reservedTop:\s*root\.reservedTop[\s\S]*reservedBottom:\s*root\.reservedBottom[\s\S]*layoutController:\s*root\.layoutController/,
+  )
+  assert.match(
+    deckCenterSource,
     /SplitNode \{[\s\S]*controller:\s*root\.layoutController[\s\S]*path:\s*""/,
   )
   assert.doesNotMatch(deckSurfaceSource, /(?:source|setSource)[^\n]*ModuleTile\.qml/)

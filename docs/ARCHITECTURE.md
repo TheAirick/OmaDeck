@@ -9,8 +9,9 @@ a web server, Electron process, or separate system daemon.
 - `Service.qml` selects the target screen and owns persistent services and IPC.
   Its IPC handler remains registered while the target monitor is absent and
   forwards surface-specific commands to the current `DeckSurface` when present.
-- `components/DeckSurface.qml` creates the layer surface, drawers, and bounded
-  tiling region, registering itself with the service across monitor hotplug.
+- `components/DeckSurface.qml` creates the layer surface and drawers, registering
+  itself with the service across monitor hotplug. Its `DeckCenter` child owns the
+  reserved center geometry and actual root `SplitNode` tiling region.
 - `services/AppearanceController.qml` validates and atomically persists the
   Clock/Weather presentation model.
 - `services/TimerController.qml` owns the Clock's single deadline-based
