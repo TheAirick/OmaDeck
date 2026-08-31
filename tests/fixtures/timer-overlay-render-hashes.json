@@ -1,0 +1,18 @@
+{
+  "commit": "884efcd51ff6b89b42ff652134182da2560abb24",
+  "environment": "Accepted ClockModule at 884efcd rendered in Qt 6 offscreen software mode with tests/qml/imports mocks",
+  "images": {
+    "setup-normal": "7f3c8b884161f09a399b0a96a66764e4ba0aaf477c856e58d1a4e1bef2d6d615",
+    "setup-constrained": "c8e16eaa440fe896402940c858c3953aa8aa7b037c143cbfed8bd680cfdfd237",
+    "setup-short-wide": "5f11db4d994b9c14815543d4d19340e2ebe8de4f994ba2d91c612cdf10dce5fb",
+    "active-normal": "6db85a47852de1cb939adddbd2d60937ec9d87ebeddac886729ce201f657ba89",
+    "active-constrained": "c4c1ec562f9f86bebfb816074300c4568fd5df367381bea0d12e1fa5e36c2305",
+    "active-short-wide": "272146fd2f4dd67b452a1339a85b31a2c01d67c71e17131749e70f4f14a66247",
+    "paused-normal": "51323b1bf799c23a63d3f04f53cd88ac02a40714cba80134ae4a9f75901f467c",
+    "paused-constrained": "16ce10cd9ba6d7c789b0c30d20b4f1b55dd4b95268e8b01a1161d866f2945ec6",
+    "paused-short-wide": "c748fd85989cadf842cc49cef7dd2e9ba8c6d64699fbe7ca780e608f22b7a6b0",
+    "completed-normal": "f3fe4e0f47c6163133bcda668cd175c66c5049bdc1cfa339658e81b20260308b",
+    "completed-constrained": "3b2229211ff3aab12136b8b0f65de5e77c2398e95ae59698b3c8fc975498b130",
+    "completed-short-wide": "fe016c1ef9e45c039d55ab8a6d3c61b6bf70faf491d043b724bf58a1a2ec7f8b"
+  }
+}

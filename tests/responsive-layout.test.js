@@ -61,14 +61,14 @@ test("ResponsivePanel provides one reusable bounded-content contract", () => {
 })
 
 test("finite action panels reflow where meaningful and never rely on hidden scrolling", () => {
-  const clock = source("modules/ClockModule.qml")
+  const timerModule = source("modules/TimerModule.qml")
   const commandCenter = source("modules/CommandCenterModule.qml")
 
-  assert.match(clock, /ResponsivePanel\s*\{[\s\S]*id:\s*timerViewport/)
-  assert.match(clock, /id:\s*presetGrid[\s\S]*columns:\s*width < Style\.space\(400\) \? 2 : 4/)
-  assert.match(clock, /Flow\s*\{\s*id:\s*soundSelector[\s\S]*width:\s*parent\.width/)
-  assert.doesNotMatch(clock, /id:\s*timerOverlayScroll/)
-  assert.doesNotMatch(clock, /Math\.max\(Style\.space\(360\)/)
+  assert.match(timerModule, /ResponsivePanel\s*\{[\s\S]*id:\s*timerViewport/)
+  assert.match(timerModule, /id:\s*presetGrid[\s\S]*columns:\s*width < Style\.space\(400\) \? 2 : 4/)
+  assert.match(timerModule, /Flow\s*\{\s*id:\s*soundSelector[\s\S]*width:\s*parent\.width/)
+  assert.doesNotMatch(timerModule, /id:\s*timerOverlayScroll/)
+  assert.doesNotMatch(timerModule, /Math\.max\(Style\.space\(360\)/)
 
   assert.match(commandCenter, /import "\.\.\/components\/ResponsiveLayout\.js" as ResponsiveLayout/)
   assert.match(commandCenter, /ResponsiveLayout\.useShortWide\(/)

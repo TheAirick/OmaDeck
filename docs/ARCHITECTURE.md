@@ -30,6 +30,15 @@ surface; disabling Weather still stops provider work through the single
 controller in `Service.qml`. The tray remains the only Clock and Weather
 settings owner.
 
+Timer setup and controls use the same presentation-only boundary:
+`modules/TimerModule.qml` owns the Clock-hosted full-card overlay, duration
+draft, sound selector, and forwarding of timer actions. `ClockModule.qml`
+retains wall-time rendering, ambient timer status and progress, and the tap
+host that opens the presenter. The module does not own authoritative countdown
+state, deadlines, persistence, notification or audio scheduling, processes,
+files, IPC, layout mutation, or settings; those remain with the single
+service-owned `TimerController` and existing service IPC.
+
 ## Layout model
 
 The center uses a recursive binary split tree. Split nodes contain an
