@@ -198,12 +198,13 @@ PanelWindow {
     objectName: "leftMediaDrawer"
     edge: "left"
     framed: false
+    framelessDismissInset: root.innerGap
     open: root.openDrawer === edge
     pointerRevealed: root.pointerRevealed
     onDismissRequested: root.dismissDrawer(edge)
     x: root.outerGap - root.leftDrawerWidth - root.innerGap + root.reservedLeft
     y: root.outerGap
-    width: root.leftDrawerWidth
+    width: root.leftDrawerWidth + root.innerGap
     height: root.usableHeight
 
     MediaModule {

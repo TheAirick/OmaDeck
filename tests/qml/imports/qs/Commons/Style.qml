@@ -27,6 +27,7 @@ QtObject {
     readonly property real display: 28
     readonly property real displayLarge: 36
     readonly property real iconLarge: 24
+    readonly property real icon: 20
   }
 
   function space(value) {

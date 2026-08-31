@@ -47,7 +47,11 @@ TestCase {
       width: 2560,
       height: 720,
       targetScreen: "DP-3",
-      shell: shellFixture
+      shell: shellFixture,
+      layoutController: layoutFixture,
+      appearanceController: appearanceFixture,
+      weatherController: weatherFixture,
+      timerController: timerFixture
     })
     verify(deck !== null)
     return deck
@@ -61,6 +65,21 @@ TestCase {
       if (found) return found
     }
     return null
+  }
+
+  function findWhere(item, predicate) {
+    if (item && predicate(item)) return item
+    if (!item || !item.children) return null
+    for (var index = 0; index < item.children.length; index++) {
+      var found = findWhere(item.children[index], predicate)
+      if (found) return found
+    }
+    return null
+  }
+
+  function rectIn(item, ancestor) {
+    var origin = item.mapToItem(ancestor, 0, 0)
+    return { x: origin.x, y: origin.y, width: item.width, height: item.height }
   }
 
   function collectByObjectName(item, objectName, result) {
@@ -125,6 +144,112 @@ TestCase {
     compare(deck.reservedLeft, deck.leftDrawerWidth + deck.innerGap)
     compare(center.x, deck.outerGap + deck.reservedLeft)
     compare(center.width, deck.usableWidth - deck.reservedLeft)
+  }
+
+  function test_mediaCardsUseOneTokenGapBeforeCenterWithoutChangingOtherGaps() {
+    var deck = createDeck()
+    deck.setOpenDrawer("left", "test:geometry")
+    wait(260)
+
+    var left = findChild(deck, "leftMediaDrawer")
+    var center = findChild(deck, "deckCenterCanvas")
+    var nowPlayingCard = findChild(deck, "nowPlayingPanelCard")
+    var mixerCard = findChild(deck, "audioMixerPanelCard")
+    var clockCard = findChild(deck, "clockPanelCard")
+    var companionCard = findChild(deck, "companionPanelCard")
+    var commandCard = findChild(deck, "moduleCard")
+    verify(left !== null && center !== null)
+    verify(nowPlayingCard !== null && mixerCard !== null)
+    verify(clockCard !== null && companionCard !== null && commandCard !== null)
+
+    var leftBounds = rectIn(left, deck)
+    var nowPlayingBounds = rectIn(nowPlayingCard, deck)
+    var mixerBounds = rectIn(mixerCard, deck)
+    var clockBounds = rectIn(clockCard, deck)
+    var companionBounds = rectIn(companionCard, deck)
+    var commandBounds = rectIn(commandCard, deck)
+
+    compare(leftBounds.width, deck.leftDrawerWidth + deck.innerGap, "carrier includes the reserved strip")
+    compare(nowPlayingBounds.width, deck.leftDrawerWidth, "Now Playing retains Media width")
+    compare(mixerBounds.width, deck.leftDrawerWidth, "Mixer retains Media width")
+    compare(left.dismissInset, deck.innerGap, "the extra carrier strip owns dismissal")
+    verify(leftBounds.x + leftBounds.width - (nowPlayingBounds.x + nowPlayingBounds.width) > 0,
+      "dismissal strip must be outside card controls")
+    verify(Math.abs(clockBounds.x - (nowPlayingBounds.x + nowPlayingBounds.width) - deck.innerGap) <= 0.5,
+      "Media-to-center gap must be exactly one innerGap")
+
+    compare(mixerBounds.y - (nowPlayingBounds.y + nowPlayingBounds.height), deck.innerGap,
+      "Now Playing-to-Mixer gap")
+    compare(companionBounds.y - (clockBounds.y + clockBounds.height), deck.innerGap,
+      "Clock-to-Weather gap")
+    compare(commandBounds.x - (clockBounds.x + clockBounds.width), deck.innerGap,
+      "center-to-Command Center gap")
+    compare(deck.width - (commandBounds.x + commandBounds.width), deck.outerGap,
+      "Command Center right edge")
+  }
+
+  function test_rightmostMixerSliderDragStaysWithSlider() {
+    var deck = createDeck()
+    deck.setOpenDrawer("left", "test:slider")
+    wait(260)
+    var mixer = findChild(deck, "audioMixerPresenter")
+    var slider = findWhere(mixer, function(item) {
+      return item.minimum !== undefined && item.maximum !== undefined
+        && item.dragging !== undefined && item.moved !== undefined
+    })
+    verify(slider !== null)
+    var before = Pw.Pipewire.defaultAudioSink.audio.volume
+
+    mousePress(slider, slider.width * 0.25, slider.height / 2)
+    mouseMove(slider, slider.width - 2, slider.height / 2, 80)
+    mouseRelease(slider, slider.width - 2, slider.height / 2)
+    wait(0)
+
+    verify(Pw.Pipewire.defaultAudioSink.audio.volume > before)
+    compare(deck.openDrawer, "left", "slider drag must not trigger reverse dismissal")
+  }
+
+  function test_reverseSwipeFromDedicatedStripDismissesLeftDrawer() {
+    var deck = createDeck()
+    deck.setOpenDrawer("left", "test:strip")
+    wait(260)
+    var left = findChild(deck, "leftMediaDrawer")
+    var reverseSwipe = findByProperty(left, "reverse", true)
+    verify(reverseSwipe !== null)
+    compare(reverseSwipe.width, left.dismissInset)
+
+    mousePress(reverseSwipe, reverseSwipe.width / 2, reverseSwipe.height / 2)
+    mouseMove(reverseSwipe, reverseSwipe.width / 2 - 20, reverseSwipe.height / 2, 40)
+    mouseMove(reverseSwipe, reverseSwipe.width / 2 - 80, reverseSwipe.height / 2, 80)
+    mouseRelease(reverseSwipe, reverseSwipe.width / 2 - 80, reverseSwipe.height / 2)
+    wait(260)
+
+    compare(deck.openDrawer, "")
+    compare(deck.reservedLeft, 0)
+  }
+
+  function test_pointerCloseAffordanceStaysInsideDedicatedStrip() {
+    var deck = createDeck()
+    deck.setOpenDrawer("left", "test:pointer-close")
+    wait(260)
+    var left = findChild(deck, "leftMediaDrawer")
+    var nowPlayingCard = findChild(deck, "nowPlayingPanelCard")
+    var closeButton = findByProperty(left, "tooltipText", "Close drawer")
+    verify(left !== null && nowPlayingCard !== null && closeButton !== null)
+    left.pointerRevealed = true
+    wait(0)
+
+    var cardBounds = rectIn(nowPlayingCard, deck)
+    var buttonBounds = rectIn(closeButton, deck)
+    var carrierBounds = rectIn(left, deck)
+    verify(buttonBounds.x >= cardBounds.x + cardBounds.width,
+      "pointer close target must not cross into Media card controls")
+    verify(buttonBounds.x + buttonBounds.width <= carrierBounds.x + carrierBounds.width,
+      "pointer close target must remain in the carrier")
+
+    mouseClick(closeButton, closeButton.width / 2, closeButton.height / 2)
+    wait(260)
+    compare(deck.openDrawer, "")
   }
 
   function test_pointerTransportTargetsTheMediaService() {
@@ -295,11 +420,66 @@ TestCase {
     id: layoutFixture
     property int revision: 0
     property bool editMode: false
+    property string selectedPath: ""
     property string layoutBytes: "fixture-layout-v1"
     property string topology: "split(module:clock,module:command-center)"
     property int schemaVersion: 1
     property int mutationCalls: 0
-    function nodeAt(path) { return null }
+    function nodeAt(path) {
+      var clock = { type: "module", moduleId: "clock" }
+      var command = { type: "module", moduleId: "command-center" }
+      if (path === "") return {
+        type: "split", orientation: "horizontal", ratio: 0.36,
+        first: clock, second: command
+      }
+      if (path === "first") return clock
+      if (path === "second") return command
+      return null
+    }
+    function beginEdit(path) { selectedPath = path; editMode = true }
+    function selectOrSwap(path) { selectedPath = path; mutationCalls++ }
+    function swap(first, second) { mutationCalls++ }
     function setRatio(path, ratio) { mutationCalls++ }
+  }
+
+  QtObject {
+    id: appearanceFixture
+    property bool use24Hour: false
+    property bool showSeconds: false
+    property bool showWeather: true
+    property string weatherStyle: "scene"
+    property string weatherDetail: "standard"
+    property string temperatureUnit: "fahrenheit"
+  }
+
+  QtObject {
+    id: weatherFixture
+    property bool loading: false
+    property string error: ""
+    property var current: ({ ok: true, condition: "clear", conditionLabel: "Clear", isDay: true,
+      temperatureC: 18, feelsLikeC: 18, windKph: 5, humidity: 40, highC: 20, lowC: 12,
+      location: "Portland", forecast: [] })
+  }
+
+  QtObject {
+    id: timerFixture
+    property bool loaded: true
+    property string status: "idle"
+    property string remainingText: "5:00"
+    property real progress: 0
+    property string selectedSoundName: "Complete"
+    property bool soundSettingsLoaded: true
+    property string selectedSoundId: "complete"
+    function start(hours, minutes) { status = "active"; return { ok: true } }
+    function stopPreview() {}
+    function selectPreviousSound() {}
+    function selectNextSound() {}
+    function previewSelectedSound() {}
+    function pause() { status = "paused" }
+    function resume() { status = "active" }
+    function add(minutes) {}
+    function restart() { status = "active" }
+    function cancel() { status = "idle" }
+    function dismiss() { status = "idle" }
   }
 }

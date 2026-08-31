@@ -9,6 +9,7 @@ Rectangle {
   property real value: 0
   property color fillColor: Color.accent
   property color knobColor: Color.accent
+  property bool dragging: false
   signal moved(real value)
   signal released(real value)
   signal rightClicked()
@@ -25,5 +26,24 @@ Rectangle {
     height: parent.height
     radius: parent.radius
     color: root.fillColor
+  }
+
+  MouseArea {
+    anchors.fill: parent
+    onPressed: function(mouse) {
+      root.dragging = true
+      root.moved(Math.max(root.minimum, Math.min(root.maximum,
+        root.minimum + mouse.x / root.width * (root.maximum - root.minimum))))
+    }
+    onPositionChanged: function(mouse) {
+      if (!root.dragging) return
+      root.moved(Math.max(root.minimum, Math.min(root.maximum,
+        root.minimum + mouse.x / root.width * (root.maximum - root.minimum))))
+    }
+    onReleased: function(mouse) {
+      root.dragging = false
+      root.released(Math.max(root.minimum, Math.min(root.maximum,
+        root.minimum + mouse.x / root.width * (root.maximum - root.minimum))))
+    }
   }
 }

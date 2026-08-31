@@ -10,7 +10,9 @@ BorderSurface {
   property bool open: false
   property bool pointerRevealed: false
   property bool framed: true
+  property real framelessDismissInset: Style.spacing.panelPadding
   readonly property bool pointerHovered: drawerHover.hovered
+  readonly property bool dismissButtonInInset: !framed && edge === "left"
   readonly property real dismissInset: edge === "left" ? contentRightInset
     : edge === "right" ? contentLeftInset
     : edge === "top" ? contentBottomInset
@@ -25,7 +27,7 @@ BorderSurface {
   color: root.framed ? Color.popups.background : "transparent"
   radius: root.framed ? Style.cornerRadius : 0
   padding: root.framed ? Style.spacing.panelPadding : 0
-  rightPadding: root.framed ? root.padding : Style.spacing.panelPadding
+  rightPadding: root.framed ? root.padding : root.framelessDismissInset
   borderSpec: root.framed
     ? Border.hyprlandActiveSpec(Color.accent, 2)
     : Border.none()
@@ -61,9 +63,9 @@ BorderSurface {
     visible: root.open && (root.pointerRevealed || opacity > 0)
     opacity: root.pointerRevealed ? 1 : 0
     enabled: root.pointerRevealed
-    width: root.navigationSize
+    width: root.dismissButtonInInset ? root.dismissInset : root.navigationSize
     height: root.navigationSize
-    x: root.dismissButtonPosition.x
+    x: root.dismissButtonInInset ? root.width - width : root.dismissButtonPosition.x
     y: root.dismissButtonPosition.y
     z: 30
     iconText: root.edge === "left" ? "←"
