@@ -195,7 +195,9 @@ PanelWindow {
   // Edge modules and the center split tree share one bounded tiling region.
   EdgeDrawer {
     id: leftDrawer
+    objectName: "leftMediaDrawer"
     edge: "left"
+    framed: false
     open: root.openDrawer === edge
     pointerRevealed: root.pointerRevealed
     onDismissRequested: root.dismissDrawer(edge)
@@ -213,6 +215,7 @@ PanelWindow {
 
   EdgeDrawer {
     id: rightDrawer
+    objectName: "rightSystemDrawer"
     edge: "right"
     open: root.openDrawer === edge
     pointerRevealed: root.pointerRevealed
@@ -232,6 +235,7 @@ PanelWindow {
 
   EdgeDrawer {
     id: topDrawer
+    objectName: "topWorkspaceDrawer"
     edge: "top"
     open: root.openDrawer === edge
     pointerRevealed: root.pointerRevealed
@@ -251,6 +255,7 @@ PanelWindow {
 
   EdgeDrawer {
     id: bottomDrawer
+    objectName: "bottomLauncherDrawer"
     edge: "bottom"
     open: root.openDrawer === edge
     pointerRevealed: root.pointerRevealed

@@ -6,6 +6,7 @@ Rectangle {
 
   property string text: ""
   property string iconText: ""
+  property string tooltipText: ""
   property real iconSize: Style.font.body
   property real fontSize: Style.font.body
   property var borderSpec: Border.none()

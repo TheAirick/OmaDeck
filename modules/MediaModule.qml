@@ -1,11 +1,19 @@
 import QtQuick
 import qs.Commons
+import "../components"
 
 Item {
   id: root
+  objectName: "mediaPanelHost"
 
   property var shell: null
   readonly property var media: shell ? shell.serviceFor("omarchy.media") : null
+  readonly property int panelGap: Style.spacing.panelGap
+  readonly property real splitHeight: Math.max(0, height - panelGap)
+  readonly property real nowPlayingHeight: Math.round(splitHeight * 0.573)
+  readonly property real mixerHeight: Math.max(0, splitHeight - nowPlayingHeight)
+
+  clip: true
 
   function setMixerCompact(compact) { mixer.compact = compact }
   function setMixerCategory(category) {
@@ -13,35 +21,32 @@ Item {
     mixer.expandedCategory = ["media", "games", "voice", "other"].indexOf(category) !== -1 ? category : ""
   }
 
-  Text {
-    id: heading
-    anchors.top: parent.top
-    anchors.left: parent.left
-    text: "Media"
-    color: Color.foreground
-    font.family: Style.font.family
-    font.pixelSize: Style.font.title
-    font.bold: true
+  DeckCard {
+    id: nowPlayingCard
+    objectName: "nowPlayingPanelCard"
+    width: parent.width
+    height: root.nowPlayingHeight
+    title: "Now Playing"
+
+    NowPlayingModule {
+      id: playerSurface
+      anchors.fill: parent
+      clip: true
+      media: root.media
+    }
   }
 
-  AudioMixerModule {
-    id: mixer
-    anchors.top: heading.bottom
-    anchors.topMargin: Style.spacing.controlGap
-    anchors.left: parent.left
-    anchors.right: parent.right
-    anchors.bottom: parent.bottom
-  }
+  DeckCard {
+    id: mixerCard
+    objectName: "audioMixerPanelCard"
+    y: root.nowPlayingHeight + root.panelGap
+    width: parent.width
+    height: root.mixerHeight
+    title: "Audio Mixer"
 
-  NowPlayingModule {
-    id: playerSurface
-    anchors.top: heading.bottom
-    anchors.topMargin: Style.spacing.controlGap
-    anchors.left: parent.left
-    anchors.right: parent.right
-    anchors.bottom: parent.bottom
-    anchors.bottomMargin: mixer.contentHeight + Style.spacing.controlGap
-    clip: true
-    media: root.media
+    AudioMixerModule {
+      id: mixer
+      anchors.fill: parent
+    }
   }
 }

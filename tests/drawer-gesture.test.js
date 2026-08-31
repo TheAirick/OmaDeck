@@ -56,6 +56,19 @@ test("drawer integration keeps center taps and drawer content outside dismissal 
   assert.match(drawerSource, /gestureThickness:\s*root\.dismissInset/)
 })
 
+test("only the left media drawer opts into a frameless carrier", () => {
+  assert.match(drawerSource, /property bool framed:\s*true/)
+  assert.match(drawerSource, /color:\s*root\.framed \? Color\.popups\.background : "transparent"/)
+  assert.match(drawerSource, /borderSpec:\s*root\.framed[\s\S]*Border\.none\(\)/)
+  assert.match(drawerSource, /rightPadding:\s*root\.framed \? root\.padding : Style\.spacing\.panelPadding/)
+
+  const drawers = [...deckSource.matchAll(/EdgeDrawer\s*\{([\s\S]*?)\n  \}/g)].map(match => match[1])
+  assert.equal(drawers.length, 4)
+  assert.match(drawers[0], /id:\s*leftDrawer/)
+  assert.match(drawers[0], /framed:\s*false/)
+  for (const framedDrawer of drawers.slice(1)) assert.doesNotMatch(framedDrawer, /framed:\s*false/)
+})
+
 test("every open drawer exposes a mouse-only button back to the center", () => {
   assert.match(drawerSource, /Button \{\s*id: dismissButton/)
   assert.match(drawerSource, /property bool pointerRevealed:\s*false/)

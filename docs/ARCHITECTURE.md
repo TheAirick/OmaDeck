@@ -46,11 +46,13 @@ countdown state, deadlines, persistence, notification or audio scheduling,
 processes, files, IPC, layout mutation, or settings; those remain with the single
 service-owned `TimerController` and existing service IPC.
 
-Media presentation is split at a lifecycle-free Now Playing boundary without
-changing the combined drawer composition. `modules/MediaModule.qml` resolves
-the existing `omarchy.media` service, retains the `Media` heading and mixer
-automation methods, and composes exactly one `NowPlayingModule` above one
-`AudioMixerModule` using the mixer's existing `contentHeight` reservation.
+Media presentation uses a frameless left-drawer carrier with two persistent
+sibling `DeckCard` boundaries separated by the panel-gap token. The upper card
+hosts exactly one lifecycle-free `NowPlayingModule`; the lower card hosts
+exactly one `AudioMixerModule`. `modules/MediaModule.qml` resolves the existing
+`omarchy.media` service and retains the mixer automation methods. Its initial
+vertical allocation is presentation-only and creates no persisted layout node,
+schema, setting, or resizable divider.
 `modules/NowPlayingModule.qml` owns only the active-player projection, local
 duration/position and same-track artwork caches, transport controls, metadata,
 and timeline. It creates no PipeWire model, process, persistence, IPC, settings,

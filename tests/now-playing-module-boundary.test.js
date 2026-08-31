@@ -94,47 +94,78 @@ test("NowPlayingModule owns the unchanged player presentation", () => {
   }
 })
 
-test("MediaModule preserves combined heading mixer and player geometry", () => {
+test("MediaModule owns two independent sibling cards with a token gap", () => {
   const mediaModule = source("modules/MediaModule.qml")
 
   assert.equal((mediaModule.match(/NowPlayingModule\s*\{/g) || []).length, 1)
   assert.equal((mediaModule.match(/AudioMixerModule\s*\{/g) || []).length, 1)
-  assert.match(mediaModule, /Text\s*\{\s*id:\s*heading[\s\S]*text:\s*"Media"/)
-  assert.match(mediaModule, /AudioMixerModule\s*\{[\s\S]*anchors\.top:\s*heading\.bottom/)
-  assert.match(mediaModule, /NowPlayingModule\s*\{[\s\S]*anchors\.bottomMargin:\s*mixer\.contentHeight \+ Style\.spacing\.controlGap/)
+  assert.equal((mediaModule.match(/DeckCard\s*\{/g) || []).length, 2)
+  assert.doesNotMatch(mediaModule, /text:\s*"Media"/)
+  assert.match(mediaModule, /readonly property int panelGap:\s*Style\.spacing\.panelGap/)
+  assert.match(mediaModule, /readonly property real nowPlayingHeight:\s*Math\.round\(splitHeight \* 0\.573\)/)
+  assert.match(mediaModule, /objectName:\s*"nowPlayingPanelCard"[\s\S]*title:\s*"Now Playing"[\s\S]*NowPlayingModule\s*\{/)
+  assert.match(mediaModule, /objectName:\s*"audioMixerPanelCard"[\s\S]*title:\s*"Audio Mixer"[\s\S]*AudioMixerModule\s*\{/)
+  assert.match(mediaModule, /id:\s*mixerCard[\s\S]*y:\s*root\.nowPlayingHeight \+ root\.panelGap/)
   assert.match(mediaModule, /function setMixerCompact\(compact\) \{ mixer\.compact = compact \}/)
   assert.match(mediaModule, /function setMixerCategory\(category\)/)
 })
 
 const qmlTestRunner = "/usr/lib/qt6/bin/qmltestrunner"
-test("offscreen full Media composition preserves render and interaction parity", {
+test("offscreen NowPlaying controls and disabled lifecycle states remain valid", {
   skip: !fs.existsSync(qmlTestRunner),
 }, () => {
-  const qmlTestPath = path.join(repositoryRoot, "tests/qml/tst_now-playing-module-render.qml")
-  assert.equal(fs.existsSync(qmlTestPath), true, "Now Playing render-parity test must exist")
+  const result = childProcess.spawnSync(qmlTestRunner, [
+    "-input",
+    "tests/qml/tst_now-playing-module-render.qml",
+    "-import",
+    "tests/qml/imports",
+  ], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      QT_QPA_PLATFORM: "offscreen",
+      QSG_RHI_BACKEND: "software",
+    },
+  })
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
+  assert.match(result.stdout, /0 failed/)
+  assert.doesNotMatch(result.stdout + result.stderr, /QWARN|QCRITICAL|QFATAL/)
+})
 
-  const baselineDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "omadeck-now-playing-"))
-  const acceptedSource = childProcess.execFileSync(
-    "git",
-    ["show", "76783ab4cd2a32a439485345cc397d44fcf44862:modules/MediaModule.qml"],
-    { cwd: repositoryRoot, encoding: "utf8" },
-  )
-    .replace('import "MediaArtwork.js" as MediaArtwork', `import "file:${path.join(repositoryRoot, "modules/MediaArtwork.js")}" as MediaArtwork`)
-    .replace("  AudioMixerModule {", "  Modules.AudioMixerModule {")
+test("offscreen actual DeckSurface path renders separate media panels", {
+  skip: !fs.existsSync(qmlTestRunner),
+}, () => {
+  const qmlTestPath = path.join(repositoryRoot, "tests/qml/tst_deck-surface-media.qml")
+  assert.equal(fs.existsSync(qmlTestPath), true, "DeckSurface media-panel test must exist")
+
+  const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), "omadeck-deck-surface-"))
   try {
-    fs.writeFileSync(
-      path.join(baselineDirectory, "AcceptedMediaModule.qml"),
-      `import "file:${path.join(repositoryRoot, "modules")}" as Modules\n${acceptedSource}`,
-      { flag: "wx" },
-    )
-    const generatedTestPath = path.join(baselineDirectory, "tst_now-playing-module-render.qml")
+    const generatedComponents = path.join(testRoot, "components")
+    fs.mkdirSync(generatedComponents)
+    for (const entry of fs.readdirSync(path.join(repositoryRoot, "components"))) {
+      if (entry === "DeckSurface.qml") continue
+      fs.symlinkSync(path.join(repositoryRoot, "components", entry), path.join(generatedComponents, entry))
+    }
+    fs.symlinkSync(path.join(repositoryRoot, "modules"), path.join(testRoot, "modules"))
+
+    const touchFixture = `  QtObject {\n    id: directTouch\n    property bool touchInProgress: false\n    property bool active: false\n    property string devicePath: ""\n    property var deviceNames: []\n    property string status: "test"\n    property var window: null\n    function start() {}\n    function stop() {}\n  }`
+    const deckSurface = source("components/DeckSurface.qml")
+      .replace(/^import Quickshell.*\n/gm, "")
+      .replace(/^import "\.\.\/native\/OmaDeck\/Touch".*\n/m, "")
+      .replace("PanelWindow {", "Rectangle {\n  property var screen: ({ name: \"DP-3\" })")
+      .replace(/^  anchors \{ top: true; right: true; bottom: true; left: true \}\n/m, "")
+      .replace(/^  exclusionMode:.*\n/m, "")
+      .replace(/^  WlrLayershell\..*\n/gm, "")
+      .replace(/  NativeTouch\.TouchBridge \{[\s\S]*?\n  \}/, touchFixture)
+    fs.writeFileSync(path.join(generatedComponents, "DeckSurface.qml"), deckSurface, { flag: "wx" })
+
+    const generatedTestPath = path.join(testRoot, "tst_deck-surface-media.qml")
     const generatedTest = fs.readFileSync(qmlTestPath, "utf8")
-      .replace('import "../../modules" as Modules', `import "file:${path.join(repositoryRoot, "modules")}" as Modules`)
-      .replace('Qt.resolvedUrl("../../assets/screenshots/media.png")', `"file:${path.join(repositoryRoot, "assets/screenshots/media.png")}"`)
+      .replace('import "../../components" as Components', 'import "components" as Components')
     fs.writeFileSync(generatedTestPath, generatedTest, { flag: "wx" })
 
     const result = childProcess.spawnSync(qmlTestRunner, [
-      "-silent",
       "-input",
       generatedTestPath,
       "-import",
@@ -151,7 +182,8 @@ test("offscreen full Media composition preserves render and interaction parity",
 
     assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
     assert.match(result.stdout, /0 failed/)
+    assert.doesNotMatch(result.stdout + result.stderr, /QWARN|QCRITICAL|QFATAL/)
   } finally {
-    fs.rmSync(baselineDirectory, { recursive: true, force: true })
+    fs.rmSync(testRoot, { recursive: true, force: true })
   }
 })

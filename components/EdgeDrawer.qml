@@ -9,6 +9,7 @@ BorderSurface {
   property string edge: "left"
   property bool open: false
   property bool pointerRevealed: false
+  property bool framed: true
   readonly property bool pointerHovered: drawerHover.hovered
   readonly property real dismissInset: edge === "left" ? contentRightInset
     : edge === "right" ? contentLeftInset
@@ -21,10 +22,13 @@ BorderSurface {
   default property alias content: contentHost.data
   signal dismissRequested()
 
-  color: Color.popups.background
-  radius: Style.cornerRadius
-  padding: Style.spacing.panelPadding
-  borderSpec: Border.hyprlandActiveSpec(Color.accent, 2)
+  color: root.framed ? Color.popups.background : "transparent"
+  radius: root.framed ? Style.cornerRadius : 0
+  padding: root.framed ? Style.spacing.panelPadding : 0
+  rightPadding: root.framed ? root.padding : Style.spacing.panelPadding
+  borderSpec: root.framed
+    ? Border.hyprlandActiveSpec(Color.accent, 2)
+    : Border.none()
   visible: open || opacity > 0
   opacity: open ? 1 : 0
 

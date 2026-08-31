@@ -2,9 +2,11 @@ pragma Singleton
 import QtQuick
 
 QtObject {
+  readonly property real gapsOut: 5
   readonly property real cornerRadius: 12
   readonly property real normalBorderWidth: 1
   readonly property color normalFill: "#27272a"
+  readonly property color hoverFill: "#3f3f46"
   readonly property QtObject spacing: QtObject {
     readonly property real controlGap: 8
     readonly property real panelGap: 12

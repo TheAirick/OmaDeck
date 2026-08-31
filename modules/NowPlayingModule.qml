@@ -5,6 +5,7 @@ import "MediaArtwork.js" as MediaArtwork
 
 Item {
   id: root
+  objectName: "nowPlayingPresenter"
 
   property var media: null
   readonly property var player: media ? media.activePlayer : null
@@ -77,6 +78,8 @@ Item {
   onPublishedArtworkUrlChanged: captureArtwork()
   Component.onCompleted: captureArtwork()
   Timer {
+    id: positionTimer
+    objectName: "nowPlayingPositionTimer"
     interval: 500
     running: root.hasPlayer
     repeat: true

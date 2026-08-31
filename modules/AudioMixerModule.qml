@@ -8,6 +8,7 @@ import "AudioModel.js" as AudioModel
 
 Item {
   id: root
+  objectName: "audioMixerPresenter"
   clip: true
 
   property string expandedCategory: ""
@@ -101,7 +102,12 @@ Item {
 
   PwObjectTracker { objects: root.liveStreams }
 
-  Timer { id: snapshotTimer; interval: 75; onTriggered: root.refreshStreams() }
+  Timer {
+    id: snapshotTimer
+    objectName: "audioSnapshotTimer"
+    interval: 75
+    onTriggered: root.refreshStreams()
+  }
   Timer { interval: 5000; running: true; repeat: true; onTriggered: root.resolveVolumeSink() }
   Process {
     id: sinkResolver
@@ -294,6 +300,7 @@ Item {
 
     Flickable {
       id: sourceViewport
+      objectName: category.categoryId + "SourceViewport"
       anchors.top: categoryHeader.bottom
       width: parent.width
       height: category.childrenHeight

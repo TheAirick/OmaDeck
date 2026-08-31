@@ -1,6 +1,5 @@
 import QtQuick
 import QtTest
-import "." as Baseline
 import "../../modules" as Modules
 
 TestCase {
@@ -83,45 +82,6 @@ TestCase {
     return { player: player, media: media, shell: shell }
   }
 
-  function renderRows() {
-    return [
-      { tag: "no-player", state: "no-player" },
-      { tag: "playing", state: "playing" },
-      { tag: "paused", state: "paused" },
-      { tag: "missing-artwork", state: "missing-artwork" },
-      { tag: "published-artwork", state: "published-artwork" },
-      { tag: "derived-artwork", state: "derived-artwork" },
-      { tag: "missing-length", state: "missing-length" },
-      { tag: "disabled-capabilities", state: "disabled-capabilities" }
-    ]
-  }
-
-  function test_fullCompositionParity_data() {
-    return renderRows()
-  }
-
-  function test_fullCompositionParity(data) {
-    var beforeFixture = fixtureFor(data.state, testCase)
-    var afterFixture = fixtureFor(data.state, testCase)
-    var properties = { width: 780, height: 720 }
-    var before = createTemporaryObject(acceptedMediaComponent, testCase, {
-      width: properties.width,
-      height: properties.height,
-      shell: beforeFixture.shell
-    })
-    var after = createTemporaryObject(mediaModuleComponent, testCase, {
-      width: properties.width,
-      height: properties.height,
-      shell: afterFixture.shell
-    })
-    verify(before !== null)
-    verify(after !== null)
-
-    wait(data.state === "published-artwork" ? 250 : 20)
-    compare(after.width, before.width)
-    compare(after.height, before.height)
-    verify(grabImage(after).equals(grabImage(before)), data.tag)
-  }
 
   function findByProperty(item, propertyName, value) {
     if (item && item[propertyName] === value) return item
@@ -190,15 +150,6 @@ TestCase {
     compare(module.artworkUrl, "")
   }
 
-  Component {
-    id: acceptedMediaComponent
-    Baseline.AcceptedMediaModule {}
-  }
-
-  Component {
-    id: mediaModuleComponent
-    Modules.MediaModule {}
-  }
 
   Component {
     id: nowPlayingComponent
