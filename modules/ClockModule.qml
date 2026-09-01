@@ -43,11 +43,12 @@ Item {
       spacing: Style.spacing.labelGap
 
       Text {
+        objectName: "clockTime"
         anchors.horizontalCenter: parent.horizontalCenter
         text: root.timeText()
         color: Color.foreground
         font.family: Style.font.family
-        font.pixelSize: Math.min(root.width * 0.14, root.height * 0.46, Style.font.displayLarge * 1.35)
+        font.pixelSize: Math.min(root.width * 0.18, root.height * 0.62, Style.font.displayLarge * 2.2)
         font.weight: Font.DemiBold
       }
       Text {

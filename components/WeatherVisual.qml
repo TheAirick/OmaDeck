@@ -80,7 +80,25 @@ Item {
     anchors.fill: parent
     visible: root.available
     sourceComponent: root.visualStyle === "minimal" ? minimalWeather
-      : root.visualStyle === "glyph" ? glyphWeather : detailedWeather
+      : root.visualStyle === "glyph" ? glyphWeather
+      : root.effectiveDetail !== "compact" && root.width >= Style.space(350)
+        && root.height >= Style.space(110) ? omarchyWeather : detailedWeather
+  }
+
+  Component {
+    id: omarchyWeather
+
+    OmarchyWeatherVisual {
+      weather: root.weather
+      forecastDays: root.available && root.weather.forecast
+        ? root.weather.forecast.slice(0, 3) : []
+      glyphFor: root.glyphFor
+      tempNumber: root.tempNumber
+      temp: root.temp
+      wind: root.wind
+      dayName: root.dayName
+      unitLetter: root.unitLetter
+    }
   }
 
   Component {

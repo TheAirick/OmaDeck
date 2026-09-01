@@ -135,9 +135,10 @@ TestCase {
     verify(nowPlayingCard.parent !== left)
     verify(nowPlayingCard.visible)
     verify(mixerCard.visible)
-    compare(nowPlayingCard.x, mixerCard.x)
-    verify(nowPlayingCard.y + nowPlayingCard.height < mixerCard.y)
-    compare(mixerCard.y - nowPlayingCard.y - nowPlayingCard.height, left.content[0].panelGap)
+    compare(nowPlayingCard.y, mixerCard.y)
+    compare(nowPlayingCard.height, mixerCard.height)
+    verify(mixerCard.x + mixerCard.width < nowPlayingCard.x)
+    compare(nowPlayingCard.x - mixerCard.x - mixerCard.width, left.content[0].panelGap)
     verify(nowPlayingCard.x + nowPlayingCard.width <= left.width - left.dismissInset)
     verify(mixerCard.y + mixerCard.height <= left.height)
 
@@ -170,16 +171,18 @@ TestCase {
     var commandBounds = rectIn(commandCard, deck)
 
     compare(leftBounds.width, deck.leftDrawerWidth + deck.innerGap, "carrier includes the reserved strip")
-    compare(nowPlayingBounds.width, deck.leftDrawerWidth, "Now Playing retains Media width")
-    compare(mixerBounds.width, deck.leftDrawerWidth, "Mixer retains Media width")
+    compare(mixerBounds.x, leftBounds.x, "Mixer owns the far-left strip")
+    compare(nowPlayingBounds.x - (mixerBounds.x + mixerBounds.width), deck.innerGap,
+      "Mixer-to-Now Playing gap")
+    compare(mixerBounds.width + deck.innerGap + nowPlayingBounds.width,
+      deck.leftDrawerWidth, "sibling cards fill the Media width")
     compare(left.dismissInset, deck.innerGap, "the extra carrier strip owns dismissal")
     verify(leftBounds.x + leftBounds.width - (nowPlayingBounds.x + nowPlayingBounds.width) > 0,
       "dismissal strip must be outside card controls")
     verify(Math.abs(clockBounds.x - (nowPlayingBounds.x + nowPlayingBounds.width) - deck.innerGap) <= 0.5,
       "Media-to-center gap must be exactly one innerGap")
 
-    compare(mixerBounds.y - (nowPlayingBounds.y + nowPlayingBounds.height), deck.innerGap,
-      "Now Playing-to-Mixer gap")
+    compare(mixerBounds.height, nowPlayingBounds.height, "both Media cards span the deck height")
     compare(companionBounds.y - (clockBounds.y + clockBounds.height), deck.innerGap,
       "Clock-to-Weather gap")
     compare(commandBounds.x - (clockBounds.x + clockBounds.width), deck.innerGap,
@@ -207,15 +210,18 @@ TestCase {
     verify(center !== null && nowPlayingCard !== null && mixerCard !== null)
     verify(clockCard !== null && commandCard !== null && command !== null && weather !== null)
 
-    compare(deck.leftDrawerWidth, Math.round(deck.usableWidth * 0.42))
-    compare(nowPlayingCard.width, deck.leftDrawerWidth)
-    compare(mixerCard.width, deck.leftDrawerWidth)
+    compare(deck.leftDrawerWidth, Math.round(deck.usableWidth * 0.34))
+    compare(mixerCard.width + deck.innerGap + nowPlayingCard.width, deck.leftDrawerWidth)
+    verify(mixerCard.width < nowPlayingCard.width, "collapsed Volume stays a narrow strip")
+    compare(mixerCard.height, deck.usableHeight)
+    compare(nowPlayingCard.height, deck.usableHeight)
     verify(Math.abs(clockCard.width - commandCard.width) <= 1,
       "Clock/Weather and Command Center should share the remaining width evenly")
     compare(command.contentScale, 1, "Command Center controls must remain full-size")
     verify(weather.width >= 350)
     compare(weather.showDetailedMetrics, true,
       "Weather should regain metrics after borrowing unused Command Center width")
+    grabImage(deck).save("/tmp/omadeck-media-vertical-collapsed.png")
   }
 
   function test_rightmostMixerSliderDragStaysWithSlider() {
@@ -223,16 +229,13 @@ TestCase {
     deck.setOpenDrawer("left", "test:slider")
     wait(260)
     var mixer = findChild(deck, "audioMixerPresenter")
-    var slider = findWhere(mixer, function(item) {
-      return item.minimum !== undefined && item.maximum !== undefined
-        && item.dragging !== undefined && item.moved !== undefined
-    })
-    verify(slider !== null)
+    var slider = findChild(mixer, "verticalVolumeTrack:output")
+    verify(slider !== null && slider.height > 0)
     var before = Pw.Pipewire.defaultAudioSink.audio.volume
 
-    mousePress(slider, slider.width * 0.25, slider.height / 2)
-    mouseMove(slider, slider.width - 2, slider.height / 2, 80)
-    mouseRelease(slider, slider.width - 2, slider.height / 2)
+    mousePress(slider, slider.width / 2, slider.height * 0.8)
+    mouseMove(slider, slider.width / 2, slider.height * 0.1, 80)
+    mouseRelease(slider, slider.width / 2, slider.height * 0.1)
     wait(0)
 
     verify(Pw.Pipewire.defaultAudioSink.audio.volume > before)
@@ -294,8 +297,8 @@ TestCase {
     compare(presenter.hasPlayer, true)
     clickItem(presenter, findByProperty(presenter, "iconText", "󰏤"))
     clickItem(presenter, findByProperty(presenter, "iconText", "󰒮"))
-    clickItem(presenter, findByProperty(presenter, "text", "−10"))
-    clickItem(presenter, findByProperty(presenter, "text", "+10"))
+    clickItem(presenter, findChild(presenter, "seekBackwardControl"))
+    clickItem(presenter, findChild(presenter, "seekForwardControl"))
     clickItem(presenter, findByProperty(presenter, "iconText", "󰒭"))
     compare(JSON.stringify(mediaFixture.actions), JSON.stringify(["playPause", "previous", "next"]))
     compare(JSON.stringify(playerFixture.seeks), JSON.stringify([-10, 10]))
@@ -303,7 +306,7 @@ TestCase {
     compare(playerFixture.position, 95)
   }
 
-  function test_mixerWrappersAndFourStreamOverflowStayInsideCard() {
+  function test_mixerWrappersRevealOnlyUsefulVerticalControlsInsideCard() {
     var deck = createDeck()
     deck.setMediaCompact(true)
     wait(260)
@@ -312,58 +315,151 @@ TestCase {
     verify(mixer !== null)
     verify(mixerCard !== null)
     compare(mixer.compact, true)
+    var collapsedDrawerWidth = deck.leftDrawerWidth
+    var expandButton = findChild(mixer, "mixerExpandButton")
+    verify(expandButton !== null)
 
-    deck.setMediaCategory("media")
+    clickItem(deck, expandButton)
     wait(300)
     compare(mixer.compact, false)
-    compare(mixer.expandedCategory, "media")
     compare(mixer.displayStreams.length, 4)
-    compare(mixer.streamRowHeight, 46)
+    verify(deck.leftDrawerWidth >= Math.round(deck.usableWidth * 0.48),
+      "expanding Volume must reserve horizontal room for its revealed controls")
+    var output = findChild(mixer, "verticalVolume:output")
+    var microphone = findChild(mixer, "verticalVolume:mic")
+    var media = findChild(mixer, "verticalVolume:media")
+    var games = findChild(mixer, "verticalVolume:games")
+    verify(output !== null && output.width >= 48)
+    verify(microphone !== null && microphone.width >= 48)
+    verify(media !== null && media.width >= 48)
+    verify(games !== null && games.width === 0,
+      "inactive categories must not consume mixer width")
+    compare(expandButton.width, 32,
+      "expanded toggle should be a narrow physical-touch chevron at 1.6x scale")
+    verify(expandButton.height >= 48)
 
-    var output = findByProperty(mixer, "label", "Output")
-    var microphone = findByProperty(mixer, "label", "Mic")
-    var viewport = findChild(mixer, "mediaSourceViewport")
-    verify(output !== null && output.height >= 46)
-    verify(microphone !== null && microphone.height >= 46)
-    verify(viewport !== null)
-    verify(viewport.interactive)
-    verify(viewport.height >= mixer.streamRowHeight)
-    verify(viewport.contentHeight >= mixer.streamRowHeight * 4)
+    for (var control of [output, microphone, media, expandButton]) {
+      var origin = control.mapToItem(mixerCard, 0, 0)
+      verify(origin.x >= 0 && origin.y >= 0)
+      verify(origin.x + control.width <= mixerCard.width)
+      verify(origin.y + control.height <= mixerCard.height)
+    }
 
-    var origin = viewport.mapToItem(mixerCard, 0, 0)
-    verify(origin.x >= 0 && origin.y >= 0)
-    verify(origin.x + viewport.width <= mixerCard.width)
-    verify(origin.y + viewport.height <= mixerCard.height)
+    clickItem(deck, expandButton)
+    wait(300)
+    compare(mixer.compact, true)
+    compare(deck.leftDrawerWidth, collapsedDrawerWidth,
+      "a second tap contracts Volume back to its narrow strip")
   }
 
-  function test_scaledDeckMixerCanSwipeToEverySource() {
+  function test_scaledDeckMixerCategoryControlAdjustsEverySource() {
     var deck = createDeck(1600, 450)
+    deck.setOpenDrawer("left", "test:expanded-mixer")
     deck.setMediaCategory("media")
     wait(300)
 
     var mixer = findChild(deck, "audioMixerPresenter")
-    var viewport = findChild(mixer, "mediaSourceViewport")
-    var lastSource = findByProperty(mixer, "streamNode", fixtureStreams[3])
-    verify(mixer !== null && viewport !== null && lastSource !== null)
-    verify(viewport.height >= 46, "the live scaled deck must expose at least one full source row; viewport="
-      + viewport.height + " mixer=" + mixer.height)
-    verify(viewport.contentHeight >= 46 * 4)
-    compare(viewport.contentY, 0)
+    var mediaControl = findChild(mixer, "verticalVolume:media")
+    var mediaTrack = findChild(mixer, "verticalVolumeTrack:media")
+    verify(mixer !== null && mediaControl !== null && mediaTrack !== null)
+    verify(mediaControl.width >= 48 && mediaTrack.height > 0)
+    var before = fixtureStreams.map(function(stream) { return stream.audio.volume })
 
-    for (var swipe = 0; swipe < 10 && !viewport.atYEnd; swipe++) {
-      mousePress(viewport, viewport.width - 4, viewport.height / 2)
-      mouseMove(viewport, viewport.width - 4, 1, 120)
-      mouseRelease(viewport, viewport.width - 4, 1)
-      wait(120)
+    mousePress(mediaTrack, mediaTrack.width / 2, mediaTrack.height * 0.8)
+    mouseMove(mediaTrack, mediaTrack.width / 2, mediaTrack.height * 0.1, 80)
+    mouseRelease(mediaTrack, mediaTrack.width / 2, mediaTrack.height * 0.1)
+    wait(0)
+
+    for (var index = 0; index < fixtureStreams.length; index++)
+      verify(fixtureStreams[index].audio.volume > before[index], "source " + index)
+    wait(300)
+    grabImage(deck).save("/tmp/omadeck-media-vertical-expanded.png")
+  }
+
+  function test_allExpandedCategoryControlsFitTheFullHeightVolumePanel() {
+    var deck = createDeck(1600, 450)
+    var categoryNames = ["Firefox", "Steam Game", "Discord", "System Audio"]
+    var categoryStreams = []
+    for (var index = 0; index < categoryNames.length; index++) {
+      var streamAudio = createTemporaryObject(audioComponent, testCase, {
+        volume: 0.35 + index * 0.1
+      })
+      categoryStreams.push(createTemporaryObject(nodeComponent, testCase, {
+        name: "category-stream-" + index,
+        description: categoryNames[index],
+        isStream: true,
+        isSink: true,
+        type: "Stream/Output/Audio",
+        audio: streamAudio,
+        properties: ({ "application.name": categoryNames[index] })
+      }))
+    }
+    Pw.Pipewire.nodes.values = categoryStreams
+    deck.setMediaCategory("media")
+    wait(600)
+
+    var mixer = findChild(deck, "audioMixerPresenter")
+    var mixerCard = findChild(deck, "audioMixerPanelCard")
+    var nowPlayingCard = findChild(deck, "nowPlayingPanelCard")
+    verify(mixer !== null && mixerCard !== null && nowPlayingCard !== null)
+    compare(mixer.activeCategoryCount, 4)
+    compare(mixer.expandedSliderCount, 6)
+    verify(deck.leftDrawerWidth <= Math.round(deck.usableWidth * 0.62))
+    verify(nowPlayingCard.width >= 360,
+      "expanded Volume must leave a usable Now Playing card")
+
+    for (var controlId of ["output", "mic", "media", "games", "voice", "other"]) {
+      var control = findChild(mixer, "verticalVolume:" + controlId)
+      var track = findChild(mixer, "verticalVolumeTrack:" + controlId)
+      verify(control !== null && track !== null, controlId)
+      verify(control.width >= 48, controlId + " width")
+      verify(track.width >= 48 && track.height >= 250, controlId + " full-height track")
+      var origin = control.mapToItem(mixerCard, 0, 0)
+      verify(origin.x >= 0 && origin.y >= 0, controlId + " top-left")
+      verify(origin.x + control.width <= mixerCard.width, controlId + " right")
+      verify(origin.y + control.height <= mixerCard.height, controlId + " bottom")
+    }
+    grabImage(deck).save("/tmp/omadeck-media-all-categories.png")
+  }
+
+  function test_narrowNowPlayingHandlesNoPlayerAndLongMetadata() {
+    mediaFixture.activePlayer = null
+    var deck = createDeck(1600, 450)
+    deck.setOpenDrawer("left", "test:no-player")
+    wait(300)
+
+    var presenter = findChild(deck, "nowPlayingPresenter")
+    var nowPlayingCard = findChild(deck, "nowPlayingPanelCard")
+    var artwork = findChild(deck, "nowPlayingArtwork")
+    var overlay = findChild(deck, "nowPlayingMetadataOverlay")
+    var controlBand = findChild(deck, "nowPlayingControlBand")
+    var controls = findChild(deck, "nowPlayingControls")
+    var timeline = findChild(deck, "nowPlayingTimeline")
+    verify(presenter !== null && nowPlayingCard !== null)
+    verify(artwork !== null && overlay !== null && controlBand !== null)
+    verify(controls !== null && timeline !== null)
+    compare(presenter.hasPlayer, false)
+    compare(findChild(presenter, "seekBackwardControl").visible, true)
+    compare(findChild(presenter, "seekForwardControl").visible, true)
+    compare(findChild(presenter, "seekBackwardControl").enabled, false)
+    compare(findChild(presenter, "seekForwardControl").enabled, false)
+    for (var item of [artwork, overlay, controlBand, controls, timeline]) {
+      var origin = item.mapToItem(nowPlayingCard, 0, 0)
+      verify(origin.x >= 0 && origin.y >= 0)
+      verify(origin.x + item.width <= nowPlayingCard.width)
+      verify(origin.y + item.height <= nowPlayingCard.height)
     }
 
-    verify(viewport.contentY > 0, "a vertical gutter swipe must move the source viewport")
-    verify(viewport.atYEnd, "repeated natural swipes must reach the end of the source list; contentY="
-      + viewport.contentY + " maximum=" + (viewport.contentHeight - viewport.height))
-    var lastOrigin = lastSource.mapToItem(viewport, 0, 0)
-    verify(lastOrigin.y >= -0.5)
-    verify(lastOrigin.y + lastSource.height <= viewport.height + 0.5,
-      "the final source must become fully reachable")
+    var longTitle = "A deliberately long fixture title that must elide inside the narrow Now Playing card"
+    playerFixture.trackTitle = longTitle
+    mediaFixture.activePlayer = playerFixture
+    wait(1)
+    var title = findByProperty(presenter, "text", longTitle)
+    verify(title !== null)
+    compare(title.maximumLineCount, 1)
+    compare(title.elide, Text.ElideRight)
+    verify(title.width <= overlay.width)
+    playerFixture.trackTitle = "Fixture Song"
   }
 
   function test_twentyLifecycleAndDrawerCyclesKeepOnePresenterPerPanel() {

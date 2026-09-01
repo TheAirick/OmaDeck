@@ -29,14 +29,28 @@ statically embeds one Weather presenter in the lower companion slot. The module
 owns no provider process, polling or retry timer, location state, persistence,
 IPC, or settings surface; disabling Weather still stops provider work through
 the single controller in `Service.qml`. The tray remains the only Clock and
-Weather settings owner.
+Weather settings owner. At ordinary companion geometry, the default scene
+delegates to `components/OmarchyWeatherVisual.qml`, which follows the installed
+Omarchy 4.0.2 weather panel's 64/56 hero scale, right-side location/metric grid,
+14-unit vertical rhythm, hairline divider, and three-cell forecast. Constrained
+scene geometry retains the prior responsive renderer; glyph and minimal styles
+remain separate preferences. The Omarchy renderer activates at `350x110`
+logical pixels so the Xeneon Edge's scaled companion card keeps the divider and
+three-day forecast instead of falling back to the compressed current-only view.
 
 Timer setup and controls use the same presentation-only boundary:
 `modules/TimerModule.qml` owns the duration draft, compact reflow, sound selector,
 and forwarding of timer actions. `components/ClockCompanionTile.qml` is the
 Clock-specific `ModuleTile` host: it replaces the ordinary single-card wrapper
 with two sibling `DeckCard` boundaries separated by the panel-gap token. The
-upper `0.37` card owns only `ClockModule`; the lower `0.63` card owns one static
+Clock and Weather retain Omarchy's panel-padding token around their headers and
+content; the Timer occupant temporarily uses compact padding to preserve its
+48-logical-pixel touch targets. While Weather is visible, the upper Clock card
+uses `0.48` of the available height and the lower Weather card uses `0.52`.
+The Clock time scale uses that added height with an enlarged bounded type scale
+rather than retaining its former compact cap.
+Timer setup and non-idle states restore the touch-safe `0.37/0.63` split. The
+upper card owns only `ClockModule`; the lower card owns one static
 `ClockCompanionModule`, whose title and sole visible occupant switch between
 Weather while idle and Timer during setup and every non-idle state. The pair is
 still one saved `clock` leaf for selection, dragging, swapping, and persistence.
@@ -47,19 +61,28 @@ processes, files, IPC, layout mutation, or settings; those remain with the singl
 service-owned `TimerController` and existing service IPC.
 
 Media presentation uses a frameless left-drawer carrier with two persistent
-sibling `DeckCard` boundaries separated by the panel-gap token. The carrier
-reserves 42% of the usable deck width so the upper `NowPlayingModule` and lower
-`AudioMixerModule` can use the Command Center's former excess width. Their
-52/48 vertical allocation is presentation-only and creates no persisted layout
-node, schema, setting, or resizable divider. The mixer keeps Output and Mic in
-one fixed master row, then gives every dynamic category and source row one
-bounded vertical viewport with a dedicated swipe/tap gutter. The stable
-PipeWire snapshot remains the viewport's model authority.
+sibling full-height `DeckCard` boundaries separated by the panel-gap token. The
+collapsed carrier reserves 34% of the usable deck width. A narrow Volume card
+owns the far-left edge and `NowPlayingModule` fills the remainder beside it.
+This horizontal allocation is presentation-only and creates no persisted layout
+node, schema, setting, or resizable divider. The mixer starts with one
+almost-full-height vertical Output control and a bottom expansion chevron.
+Expanded mode widens the carrier just enough to add a vertical Mic control and
+the active Media, Games, Voice, and Other aggregate categories. Tapping the
+slim edge chevron again restores the narrow strip without reserving a full
+button column. The stable PipeWire snapshot remains
+the presentation model authority while category changes fan out to currently
+live member streams.
 `modules/NowPlayingModule.qml` owns only the active-player projection, local
 duration/position and same-track artwork caches, transport controls, metadata,
-and timeline. It creates no PipeWire model, process, persistence, IPC, settings,
-or dynamic QML path; those concerns remain with the existing service and audio
-mixer owners.
+and timeline. Its presentation centers bounded artwork at the top, overlays the
+single-line title and artist on the artwork's lower edge, centers transport
+controls in the band below it, and pins the seek timeline to the bottom. The
+artwork remains bounded as the card widens. Previous, ten-second rewind,
+play/pause, ten-second forward, and next remain one complete oversized control
+row at the live narrow width. It creates no
+PipeWire model, process, persistence, IPC, settings, or dynamic QML path; those
+concerns remain with the existing service and audio mixer owners.
 
 ## Layout model
 

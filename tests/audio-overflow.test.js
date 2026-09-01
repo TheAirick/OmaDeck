@@ -8,26 +8,30 @@ const audioMixer = fs.readFileSync(
   "utf8",
 )
 
-test("output and microphone share one fixed master row", () => {
-  assert.match(audioMixer, /id: masterColumn/)
-  assert.match(audioMixer, /Row\s*\{[\s\S]*height:\s*Style\.space\(46\)/)
-  assert.match(audioMixer, /label:\s*"Output"[\s\S]*label:\s*"Mic"/)
-  assert.match(audioMixer, /\(parent\.width - parent\.spacing\) \/ 2/)
+test("mixer uses a compact chevron toggle instead of a full-width plus/minus column", () => {
+  assert.match(audioMixer, /property bool compact:\s*true/)
+  assert.match(audioMixer, /component VerticalVolume:\s*Item/)
+  assert.match(audioMixer, /controlId:\s*"output"/)
+  assert.match(audioMixer, /objectName:\s*"mixerExpandButton"/)
+  assert.match(audioMixer, /onClicked:\s*root\.compact = !root\.compact/)
+  assert.match(audioMixer, /preferredWidth:\s*root\.compact \? Style\.space\(70\)/)
+  assert.match(audioMixer, /root\.compact \? 0\s*:\s*Style\.spacing\.labelGap \+ Style\.space\(32\)/)
+  assert.match(audioMixer, /width:\s*root\.compact \? Style\.space\(48\) : Style\.space\(32\)/)
+  assert.match(audioMixer, /iconText:\s*root\.compact \? "󰅂" : "󰅁"/)
+  assert.match(audioMixer, /borderSpec:\s*Border\.none\(\)/)
+  assert.match(audioMixer, /bottomInset:\s*root\.compact \? Style\.space\(56\) : 0/)
 })
 
-test("all categories and sources share one bounded vertical viewport", () => {
-  assert.match(audioMixer, /id: streamViewport/)
-  assert.match(audioMixer, /anchors\.top:\s*masterColumn\.bottom/)
-  assert.match(audioMixer, /contentHeight:\s*streamColumn\.implicitHeight/)
-  assert.match(audioMixer, /interactive:\s*!root\.compact && contentHeight > height/)
-  assert.match(audioMixer, /flickableDirection: Flickable\.VerticalFlick/)
-  assert.match(audioMixer, /boundsBehavior: Flickable\.StopAtBounds/)
-  assert.doesNotMatch(audioMixer, /id:\s*sourceViewport/)
+test("expanded mixer reveals Mic and active aggregate categories as vertical controls", () => {
+  assert.match(audioMixer, /controlId:\s*"mic"[\s\S]*revealed:\s*!root\.compact/)
+  for (const category of ["media", "games", "voice", "other"])
+    assert.match(audioMixer, new RegExp(`controlId:\\s*"${category}"[\\s\\S]*revealed:\\s*!root\\.compact && streams\\.length > 0`))
+  assert.doesNotMatch(audioMixer, /id:\s*streamViewport/)
 })
 
-test("the shared stream viewport exposes tap navigation", () => {
-  assert.match(audioMixer, /function scrollStreams\(direction\)/)
-  assert.match(audioMixer, /id: streamScrollUp[\s\S]*!streamViewport\.atYBeginning/)
-  assert.match(audioMixer, /id: streamScrollDown[\s\S]*!streamViewport\.atYEnd/)
-  assert.equal((audioMixer.match(/onTapped: root\.scrollStreams\([+-]1\)/g) || []).length, 2)
+test("vertical controls preserve the snapshotted PipeWire presentation model", () => {
+  assert.match(audioMixer, /property var displayStreams:\s*\[\]/)
+  assert.match(audioMixer, /function refreshStreams\(\) \{ displayStreams = liveStreams\.slice\(\) \}/)
+  assert.match(audioMixer, /PwObjectTracker \{ objects: root\.liveStreams \}/)
+  assert.match(audioMixer, /id:\s*snapshotTimer/)
 })

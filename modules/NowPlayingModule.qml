@@ -14,6 +14,7 @@ Item {
   readonly property string trackKey: player ? [player.trackTitle || "", player.trackArtist || ""].join("|") : ""
   readonly property real effectiveLength: player && player.lengthSupported && player.length > 0 ? player.length : cachedLength
   readonly property bool canSeek: canSkip && effectiveLength > 0
+  readonly property bool showSecondarySeek: true
   property string cachedArtworkKey: ""
   property string cachedArtworkUrl: ""
   readonly property string publishedArtworkUrl: player && player.trackArtUrl ? String(player.trackArtUrl) : ""
@@ -91,149 +92,60 @@ Item {
     function onLengthSupportedChanged() { root.captureDuration() }
   }
 
-  Column {
-    anchors.fill: parent
-    spacing: Style.spacing.controlGap
+  component CircularSeekIcon: Canvas {
+    id: seekIcon
 
-    Item {
-      id: hero
-      width: parent.width
-      height: Math.max(0, parent.height - timeline.height - parent.spacing)
+    required property bool forward
+    property color strokeColor: Color.accent
 
-      BorderSurface {
-        id: artwork
-        anchors.left: parent.left
-        anchors.verticalCenter: parent.verticalCenter
-        width: Math.min(parent.height, Style.space(190))
-        height: width
-        radius: Style.cornerRadius
-        color: Style.normalFill
-        borderSpec: Border.controlSpec("normal", Color.foreground, Color.accent, Color.urgent)
-        clip: true
-
-        Image {
-          id: artworkImage
-          anchors.fill: parent
-          anchors.margins: artwork.borderLeft
-          source: root.artworkUrl
-          fillMode: Image.PreserveAspectCrop
-          horizontalAlignment: Image.AlignHCenter
-          verticalAlignment: Image.AlignVCenter
-          asynchronous: true
-          cache: true
-          visible: status === Image.Ready
-        }
-        Text {
-          anchors.centerIn: parent
-          visible: artworkImage.status !== Image.Ready
-          text: "󰝚"
-          color: Color.accent
-          font.family: Style.font.family
-          font.pixelSize: Style.font.displayLarge
-        }
-      }
-
-      Column {
-        anchors.left: artwork.right
-        anchors.leftMargin: Style.spacing.panelGap
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.bottom: parent.bottom
-        spacing: Style.spacing.labelGap
-
-        Text {
-          width: parent.width
-          text: root.player ? (root.player.trackTitle || "Ready to play") : "Nothing playing"
-          color: Color.foreground
-          font.family: Style.font.family
-          font.pixelSize: Style.font.subtitle
-          font.bold: true
-          maximumLineCount: 2
-          wrapMode: Text.Wrap
-          elide: Text.ElideRight
-        }
-        Text {
-          width: parent.width
-          text: root.player ? (root.player.trackArtist || root.player.identity || "") : "Start a player and it will appear here."
-          color: Color.muted
-          font.family: Style.font.family
-          font.pixelSize: Style.font.body
-          elide: Text.ElideRight
-        }
-        Text {
-          width: parent.width
-          visible: text !== ""
-          text: root.player && root.player.trackAlbum ? root.player.trackAlbum : ""
-          color: Color.muted
-          opacity: 0.7
-          font.family: Style.font.family
-          font.pixelSize: Style.font.caption
-          elide: Text.ElideRight
-        }
-        Item {
-          id: controlSpacer
-          width: 1
-          height: Math.max(0, artwork.y + artwork.height - controls.height - y - parent.spacing)
-        }
-
-        Column {
-          id: controls
-          width: parent.width
-          height: playPauseControl.height + spacing + transportControls.height
-          anchors.horizontalCenter: parent.horizontalCenter
-          spacing: 0
-
-          Button {
-            id: playPauseControl
-            anchors.horizontalCenter: parent.horizontalCenter
-            iconText: root.player && root.player.isPlaying ? "󰏤" : "󰐊"
-            iconSize: Style.font.displayLarge * 3; horizontalPadding: Style.spacing.panelGap
-            verticalPadding: Style.spacing.controlPaddingY; foreground: Color.accent
-            width: Style.space(120); height: Style.space(64)
-            color: "transparent"; borderSpec: Border.none()
-            enabled: root.hasPlayer; opacity: enabled ? 1 : 0.35
-            onClicked: root.media.runAction("playPause", false)
-          }
-
-          Row {
-            id: transportControls
-            anchors.horizontalCenter: parent.horizontalCenter
-            spacing: Style.spacing.controlGap
-
-            Button {
-              iconText: "󰒮"; iconSize: Style.font.iconLarge * 1.6; foreground: Color.accent
-              width: Style.space(58); height: Style.space(58)
-              color: "transparent"; borderSpec: Border.none()
-              enabled: root.player && root.player.canGoPrevious; opacity: enabled ? 1 : 0.35
-              onClicked: root.media.runAction("previous", false)
-            }
-            Button {
-              text: "−10"; fontSize: Style.font.body * 1.6; foreground: Color.accent
-              width: Style.space(58); height: Style.space(58)
-              color: "transparent"; borderSpec: Border.none()
-              enabled: root.canSkip; opacity: enabled ? 1 : 0.35; onClicked: root.skip(-10)
-            }
-            Button {
-              text: "+10"; fontSize: Style.font.body * 1.6; foreground: Color.accent
-              width: Style.space(58); height: Style.space(58)
-              color: "transparent"; borderSpec: Border.none()
-              enabled: root.canSkip; opacity: enabled ? 1 : 0.35; onClicked: root.skip(10)
-            }
-            Button {
-              iconText: "󰒭"; iconSize: Style.font.iconLarge * 1.6; foreground: Color.accent
-              width: Style.space(58); height: Style.space(58)
-              color: "transparent"; borderSpec: Border.none()
-              enabled: root.player && root.player.canGoNext; opacity: enabled ? 1 : 0.35
-              onClicked: root.media.runAction("next", false)
-            }
-          }
-        }
-      }
+    width: Style.space(34)
+    height: Style.space(34)
+    antialiasing: true
+    transform: Scale {
+      origin.x: seekIcon.width / 2
+      origin.y: seekIcon.height / 2
+      xScale: seekIcon.forward ? 1 : -1
     }
+
+    onPaint: {
+      var context = getContext("2d")
+      var centerX = width / 2
+      var centerY = height / 2
+      var radius = Math.min(width, height) * 0.34
+      context.clearRect(0, 0, width, height)
+      context.save()
+      context.strokeStyle = strokeColor
+      context.fillStyle = strokeColor
+      context.lineWidth = Style.space(3)
+      context.lineCap = "round"
+      context.lineJoin = "round"
+      context.beginPath()
+      context.arc(centerX, centerY, radius, 0, Math.PI * 1.5, false)
+      context.stroke()
+      context.beginPath()
+      context.moveTo(centerX + Style.space(6), centerY - radius)
+      context.lineTo(centerX - Style.space(1), centerY - radius - Style.space(4.5))
+      context.lineTo(centerX - Style.space(1), centerY - radius + Style.space(4.5))
+      context.closePath()
+      context.fill()
+      context.restore()
+    }
+
+    onStrokeColorChanged: requestPaint()
+    onWidthChanged: requestPaint()
+    onHeightChanged: requestPaint()
+    Component.onCompleted: requestPaint()
+  }
+
+  Item {
+    anchors.fill: parent
 
     Row {
       id: timeline
-      width: parent.width
+      objectName: "nowPlayingTimeline"
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
       height: Style.space(30)
       spacing: Style.spacing.controlGap
 
@@ -265,6 +177,161 @@ Item {
         color: Color.muted
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
+      }
+    }
+
+    BorderSurface {
+      id: artwork
+      objectName: "nowPlayingArtwork"
+      anchors.top: parent.top
+      anchors.horizontalCenter: parent.horizontalCenter
+      width: Math.min(parent.width, Style.space(360))
+      height: Math.max(0, Math.min(width * 0.6,
+        parent.height - timeline.height - Style.space(88)))
+      radius: Style.cornerRadius
+      color: Style.normalFill
+      borderSpec: Border.controlSpec("normal", Color.foreground, Color.accent, Color.urgent)
+      clip: true
+
+      Image {
+        id: artworkImage
+        anchors.fill: parent
+        anchors.margins: artwork.borderLeft
+        source: root.artworkUrl
+        fillMode: Image.PreserveAspectCrop
+        horizontalAlignment: Image.AlignHCenter
+        verticalAlignment: Image.AlignVCenter
+        asynchronous: true
+        cache: true
+        visible: status === Image.Ready
+      }
+      Text {
+        anchors.centerIn: parent
+        visible: artworkImage.status !== Image.Ready
+        text: "󰝚"
+        color: Color.accent
+        font.family: Style.font.family
+        font.pixelSize: Style.font.displayLarge
+      }
+
+      Rectangle {
+        id: metadataOverlay
+        objectName: "nowPlayingMetadataOverlay"
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.margins: artwork.borderLeft
+        height: Math.min(parent.height,
+          metadataColumn.implicitHeight + Style.spacing.controlGap * 2)
+        color: Qt.rgba(Color.popups.background.r, Color.popups.background.g,
+          Color.popups.background.b, 0.86)
+        z: 2
+
+        Column {
+          id: metadataColumn
+          anchors.fill: parent
+          anchors.margins: Style.spacing.controlGap
+          spacing: Style.spacing.labelGap
+
+          Text {
+            width: parent.width
+            text: root.player ? (root.player.trackTitle || "Ready to play") : "Nothing playing"
+            color: Color.foreground
+            font.family: Style.font.family
+            font.pixelSize: Style.font.subtitle
+            font.bold: true
+            maximumLineCount: 1
+            elide: Text.ElideRight
+          }
+          Text {
+            width: parent.width
+            text: root.player ? (root.player.trackArtist || root.player.identity || "") : "Start a player and it will appear here."
+            color: Color.muted
+            font.family: Style.font.family
+            font.pixelSize: Style.font.body
+            maximumLineCount: 1
+            elide: Text.ElideRight
+          }
+        }
+      }
+    }
+
+    Item {
+      id: controlBand
+      objectName: "nowPlayingControlBand"
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: artwork.bottom
+      anchors.topMargin: Style.spacing.controlGap
+      anchors.bottom: timeline.top
+      anchors.bottomMargin: Style.spacing.controlGap
+
+      Row {
+        id: controls
+        objectName: "nowPlayingControls"
+        anchors.centerIn: parent
+        spacing: Style.spacing.labelGap
+
+        Button {
+          iconText: "󰒮"; iconSize: Style.font.iconLarge * 2.2; foreground: Color.accent
+          width: Style.space(52); height: Style.space(72)
+          horizontalPadding: 0; verticalPadding: 0
+          color: "transparent"; borderSpec: Border.none()
+          enabled: root.player && root.player.canGoPrevious; opacity: enabled ? 1 : 0.35
+          onClicked: root.media.runAction("previous", false)
+        }
+        Button {
+          objectName: "seekBackwardControl"
+          foreground: Color.accent
+          tooltipText: "Seek backward"
+          width: Style.space(52); height: Style.space(72)
+          horizontalPadding: 0; verticalPadding: 0
+          color: "transparent"; borderSpec: Border.none()
+          visible: root.showSecondarySeek
+          enabled: root.canSkip; opacity: enabled ? 1 : 0.35; onClicked: root.skip(-10)
+
+          CircularSeekIcon {
+            objectName: "seekBackwardIcon"
+            anchors.centerIn: parent
+            forward: false
+            strokeColor: parent.foreground
+          }
+        }
+        Button {
+          id: playPauseControl
+          iconText: root.player && root.player.isPlaying ? "󰏤" : "󰐊"
+          iconSize: Style.font.displayLarge * 2; foreground: Color.accent
+          width: Style.space(72); height: Style.space(72)
+          horizontalPadding: 0; verticalPadding: 0
+          color: "transparent"; borderSpec: Border.none()
+          enabled: root.hasPlayer; opacity: enabled ? 1 : 0.35
+          onClicked: root.media.runAction("playPause", false)
+        }
+        Button {
+          objectName: "seekForwardControl"
+          foreground: Color.accent
+          tooltipText: "Seek forward"
+          width: Style.space(52); height: Style.space(72)
+          horizontalPadding: 0; verticalPadding: 0
+          color: "transparent"; borderSpec: Border.none()
+          visible: root.showSecondarySeek
+          enabled: root.canSkip; opacity: enabled ? 1 : 0.35; onClicked: root.skip(10)
+
+          CircularSeekIcon {
+            objectName: "seekForwardIcon"
+            anchors.centerIn: parent
+            forward: true
+            strokeColor: parent.foreground
+          }
+        }
+        Button {
+          iconText: "󰒭"; iconSize: Style.font.iconLarge * 2.2; foreground: Color.accent
+          width: Style.space(52); height: Style.space(72)
+          horizontalPadding: 0; verticalPadding: 0
+          color: "transparent"; borderSpec: Border.none()
+          enabled: root.player && root.player.canGoNext; opacity: enabled ? 1 : 0.35
+          onClicked: root.media.runAction("next", false)
+        }
       }
     }
   }

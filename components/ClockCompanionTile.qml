@@ -13,7 +13,8 @@ Item {
 
   readonly property int panelGap: Style.spacing.panelGap
   readonly property real splitHeight: Math.max(0, height - panelGap)
-  readonly property real clockHeight: Math.round(splitHeight * 0.37)
+  readonly property real clockShare: root.occupant === "weather" ? 0.48 : 0.37
+  readonly property real clockHeight: Math.round(splitHeight * clockShare)
   readonly property real companionHeight: Math.max(0, splitHeight - clockHeight)
   readonly property string occupant: companionModule.occupant
 
@@ -26,7 +27,7 @@ Item {
     height: root.clockHeight
     title: "Clock"
     subtitle: "DP-3 · edge workspace"
-    padding: Style.spacing.labelGap
+    padding: Style.spacing.panelPadding
     active: root.active
 
     ClockModule {
@@ -45,7 +46,7 @@ Item {
     width: parent.width
     height: root.companionHeight
     title: root.occupant === "timer" ? "Timer" : "Weather"
-    padding: Style.spacing.labelGap
+    padding: root.occupant === "timer" ? Style.spacing.labelGap : Style.spacing.panelPadding
     active: root.active
 
     ClockCompanionModule {

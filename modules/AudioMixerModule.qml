@@ -14,11 +14,19 @@ Item {
   property string expandedCategory: ""
   property var displayStreams: []
   property string volumeSinkName: ""
-  property bool compact: false
-  readonly property int streamRowCapacity: 16
-  readonly property int streamRowHeight: Style.space(46)
-  readonly property real contentHeight: masterColumn.implicitHeight + streamViewport.contentHeight
-  readonly property bool streamOverflow: streamViewport.contentHeight > streamViewport.height + 0.5
+  property bool compact: true
+  readonly property int activeCategoryCount:
+    Number(streamsFor("media").length > 0)
+    + Number(streamsFor("games").length > 0)
+    + Number(streamsFor("voice").length > 0)
+    + Number(streamsFor("other").length > 0)
+  readonly property int expandedSliderCount: 2 + activeCategoryCount
+  readonly property real toggleReserve: root.compact ? 0
+    : Style.spacing.labelGap + Style.space(32)
+  readonly property real preferredWidth: root.compact ? Style.space(70)
+    : expandedSliderCount * Style.space(70)
+      + Math.max(0, expandedSliderCount - 1) * Style.spacing.controlGap
+      + toggleReserve
 
   readonly property var nodes: Pipewire.nodes ? Pipewire.nodes.values : []
   readonly property var defaultSink: Pipewire.defaultAudioSink
@@ -88,12 +96,6 @@ Item {
   }
   function refreshStreams() { displayStreams = liveStreams.slice() }
   function resolveVolumeSink() { if (!sinkResolver.running) sinkResolver.running = true }
-  function scrollStreams(direction) {
-    var maximum = Math.max(0, streamViewport.contentHeight - streamViewport.height)
-    streamViewport.contentY = Math.max(0, Math.min(maximum,
-      streamViewport.contentY + direction * root.streamRowHeight))
-  }
-
   onLiveStreamsChanged: snapshotTimer.restart()
   onDefaultSinkChanged: resolveVolumeSink()
   Component.onCompleted: { refreshStreams(); resolveVolumeSink() }
@@ -113,332 +115,226 @@ Item {
     stdout: StdioCollector { onStreamFinished: root.volumeSinkName = text.trim() }
   }
 
-  component VolumeRow: Item {
-    id: volumeRow
+  component VerticalVolume: Item {
+    id: volumeControl
+    required property string controlId
     required property string label
     required property string glyph
     required property real level
     required property bool muted
     property bool available: true
     property bool revealed: true
-    property bool labelActionEnabled: false
+    property real bottomInset: 0
     signal changed(real value)
     signal muteRequested()
-    signal labelRequested()
 
-    implicitHeight: Style.space(46)
-    height: revealed ? implicitHeight : 0
+    objectName: "verticalVolume:" + controlId
+    implicitWidth: Style.space(70)
+    width: revealed ? implicitWidth : 0
+    height: parent ? parent.height : 0
     opacity: revealed ? (available ? 1 : 0.38) : 0
     clip: true
-    Behavior on height { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+    visible: width > 0 || opacity > 0
+    Behavior on width { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
     Behavior on opacity { NumberAnimation { duration: 150 } }
 
     Item {
       id: volumeIconTarget
-      anchors.left: parent.left
-      anchors.verticalCenter: parent.verticalCenter
-      width: Style.space(30)
-      height: parent.height
+      anchors.top: parent.top
+      anchors.horizontalCenter: parent.horizontalCenter
+      width: Style.space(32)
+      height: Style.space(32)
 
       Text {
         anchors.centerIn: parent
-        text: volumeRow.muted ? "󰝟" : volumeRow.glyph
-        color: volumeRow.muted ? Color.muted : Color.accent
+        text: volumeControl.muted ? "󰝟" : volumeControl.glyph
+        color: volumeControl.muted ? Color.muted : Color.accent
         font.family: Style.font.family
-        font.pixelSize: Style.font.displayLarge
+        font.pixelSize: Style.font.iconLarge
       }
       TapHandler {
-        enabled: volumeRow.available
-        onTapped: volumeRow.muteRequested()
+        enabled: volumeControl.available
+        onTapped: volumeControl.muteRequested()
       }
     }
-    Text {
-      id: volumeLabel
-      anchors.left: volumeIconTarget.right
-      anchors.leftMargin: Style.spacing.controlGap
-      anchors.verticalCenter: parent.verticalCenter
-      width: Style.space(74)
-      height: parent.height
-      verticalAlignment: Text.AlignVCenter
-      text: volumeRow.label
-      color: Color.foreground
-      font.family: Style.font.family
-      font.pixelSize: Style.font.body
-      font.bold: true
-      elide: Text.ElideRight
-      TapHandler { enabled: volumeRow.labelActionEnabled; onTapped: volumeRow.labelRequested() }
-    }
-    PanelSlider {
-      anchors.left: volumeLabel.right
-      anchors.right: percent.left
-      anchors.leftMargin: Style.spacing.controlGap
-      anchors.rightMargin: Style.spacing.controlGap
-      anchors.verticalCenter: parent.verticalCenter
-      value: volumeRow.level
-      enabled: volumeRow.available
-      fillColor: Color.accent
-      knobColor: Color.accent
-      onMoved: value => volumeRow.changed(value)
-      onRightClicked: volumeRow.muteRequested()
-    }
-    Text {
-      id: percent
-      anchors.right: parent.right
-      anchors.verticalCenter: parent.verticalCenter
-      width: Style.space(38)
-      horizontalAlignment: Text.AlignRight
-      text: Math.round(volumeRow.level * 100) + "%"
-      color: Color.muted
-      font.family: Style.font.family
-      font.pixelSize: Style.font.caption
-    }
-  }
-
-  component Category: Item {
-    id: category
-    required property string categoryId
-    required property string label
-    required property string glyph
-    readonly property var streams: root.streamsFor(categoryId)
-    readonly property bool expanded: root.expandedCategory === categoryId
-    readonly property bool anotherExpanded: root.expandedCategory !== "" && !expanded
-    readonly property real headerHeight: anotherExpanded ? Style.space(45) : Style.space(58)
-    readonly property real childrenHeight: expanded ? childrenColumn.implicitHeight : 0
-
-    readonly property bool hasStreams: streams.length > 0
-    visible: height > 0 || opacity > 0
-    width: parent ? parent.width : 0
-    height: hasStreams && !root.compact ? headerHeight + childrenHeight : 0
-    opacity: hasStreams && !root.compact ? 1 : 0
-    clip: true
-    Behavior on height { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
-    Behavior on opacity { NumberAnimation { duration: 150 } }
-
-
-    Item {
-      id: categoryHeader
-      width: parent.width
-      height: category.headerHeight
-
-      Item {
-        id: categoryIconTarget
-        anchors.left: parent.left
-        anchors.verticalCenter: parent.verticalCenter
-        width: Style.space(30)
-        height: parent.height
-
-        Text {
-          anchors.centerIn: parent
-          text: root.categoryMuted(category.categoryId) ? "󰝟" : category.glyph
-          color: root.categoryMuted(category.categoryId) ? Color.muted : Color.accent
-          font.family: Style.font.family
-          font.pixelSize: Style.font.displayLarge
-        }
-        TapHandler { onTapped: root.toggleCategoryMute(category.categoryId) }
-      }
-      Item {
-        id: categoryLabel
-        anchors.left: categoryIconTarget.right
-        anchors.leftMargin: Style.spacing.controlGap
-        anchors.verticalCenter: parent.verticalCenter
-        width: Style.space(74)
-        height: Style.space(38)
-
-        Text {
-          anchors.left: parent.left
-          anchors.top: parent.top
-          text: category.label
-          color: Color.foreground
-          font.family: Style.font.family
-          font.pixelSize: Style.font.body
-          font.bold: true
-        }
-        Text {
-          anchors.left: parent.left
-          anchors.bottom: parent.bottom
-          text: category.streams.length + (category.streams.length === 1 ? " source" : " sources")
-          color: Color.muted
-          font.family: Style.font.family
-          font.pixelSize: Style.font.caption
-        }
-        TapHandler { onTapped: root.expandedCategory = category.expanded ? "" : category.categoryId }
-      }
-      PanelSlider {
-        anchors.left: categoryLabel.right
-        anchors.right: categoryPercent.left
-        anchors.leftMargin: Style.spacing.controlGap
-        anchors.rightMargin: Style.spacing.controlGap
-        anchors.verticalCenter: parent.verticalCenter
-        value: root.categoryVolume(category.categoryId)
-        fillColor: Color.accent
-        knobColor: Color.accent
-        onMoved: value => root.setCategoryVolume(category.categoryId, value)
-        onRightClicked: root.toggleCategoryMute(category.categoryId)
-      }
-      Text {
-        id: categoryPercent
-        anchors.right: parent.right
-        anchors.verticalCenter: parent.verticalCenter
-        width: Style.space(38)
-        horizontalAlignment: Text.AlignRight
-        text: Math.round(root.categoryVolume(category.categoryId) * 100) + "%"
-        color: Color.muted
-        font.family: Style.font.family
-        font.pixelSize: Style.font.caption
-      }
-    }
-
     Column {
-      id: childrenColumn
-      y: category.headerHeight
+      anchors.bottom: parent.bottom
+      anchors.bottomMargin: volumeControl.bottomInset
+      anchors.horizontalCenter: parent.horizontalCenter
       width: parent.width
-      opacity: category.expanded ? 1 : 0
-      Behavior on opacity { NumberAnimation { duration: 160 } }
-
-      Repeater {
-        // Keep the QQuickRepeater model stable while PipeWire destroys and
-        // recreates PwNode objects. Rebinding a Repeater directly to the
-        // shrinking QObject array can crash inside QQmlObjectModel while
-        // PwNode::unbindHooks is notifying QML.
-        model: root.streamRowCapacity
-        delegate: VolumeRow {
-          required property int index
-          readonly property var streamNode: index < category.streams.length
-            ? category.streams[index] : null
-          width: childrenColumn.width
-          label: AudioModel.streamLabel(streamNode)
-          glyph: "󰎆"
-          level: streamNode && streamNode.audio ? streamNode.audio.volume : 0
-          muted: streamNode && streamNode.audio ? streamNode.audio.muted : false
-          available: !!(streamNode && streamNode.audio)
-          revealed: available
-          onChanged: value => { if (streamNode && streamNode.audio) streamNode.audio.volume = root.clamp(value) }
-          onMuteRequested: if (streamNode && streamNode.audio) streamNode.audio.muted = !streamNode.audio.muted
-        }
-      }
-    }
-  }
-
-  Column {
-    id: masterColumn
-    anchors.left: parent.left
-    anchors.right: parent.right
-    spacing: 0
-
-    Row {
-      width: parent.width
-      height: Style.space(46)
-      spacing: root.compact ? 0 : Style.spacing.panelGap
-
-      VolumeRow {
-        width: root.compact ? parent.width : (parent.width - parent.spacing) / 2
-        label: "Output"
-        glyph: "󰕾"
-        level: root.volumeSink && root.volumeSink.audio ? root.volumeSink.audio.volume : 0
-        muted: root.volumeSink && root.volumeSink.audio ? root.volumeSink.audio.muted : false
-        available: !!(root.volumeSink && root.volumeSink.audio)
-        labelActionEnabled: true
-        onChanged: value => root.volumeSink.audio.volume = root.clamp(value)
-        onMuteRequested: root.volumeSink.audio.muted = !root.volumeSink.audio.muted
-        onLabelRequested: root.compact = !root.compact
-      }
-      VolumeRow {
-        width: root.compact ? 0 : (parent.width - parent.spacing) / 2
-        label: "Mic"
-        glyph: "󰍬"
-        level: root.source && root.source.audio ? root.source.audio.volume : 0
-        muted: root.source && root.source.audio ? root.source.audio.muted : false
-        available: !!(root.source && root.source.audio)
-        revealed: !root.compact
-        onChanged: value => root.source.audio.volume = root.clamp(value)
-        onMuteRequested: root.source.audio.muted = !root.source.audio.muted
-      }
-    }
-
-    Rectangle {
-      width: parent.width
-      height: root.compact ? 0 : 1
-      color: Color.muted
-      opacity: root.compact ? 0 : 0.25
-      Behavior on height { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
-      Behavior on opacity { NumberAnimation { duration: 150 } }
-    }
-  }
-
-  Flickable {
-    id: streamViewport
-    objectName: "mediaSourceViewport"
-    anchors.top: masterColumn.bottom
-    anchors.right: parent.right
-    anchors.bottom: parent.bottom
-    anchors.left: parent.left
-    contentHeight: streamColumn.implicitHeight
-    clip: true
-    boundsBehavior: Flickable.StopAtBounds
-    flickableDirection: Flickable.VerticalFlick
-    interactive: !root.compact && contentHeight > height
-    opacity: root.compact ? 0 : 1
-    onContentHeightChanged: contentY = Math.min(contentY, Math.max(0, contentHeight - height))
-    Behavior on opacity { NumberAnimation { duration: 160 } }
-
-    Column {
-      id: streamColumn
-      width: streamViewport.width - (root.streamOverflow ? Style.space(28) : 0)
-      Category { categoryId: "media"; label: "Media"; glyph: "󰎆" }
-      Category { categoryId: "games"; label: "Games"; glyph: "󰊴" }
-      Category { categoryId: "voice"; label: "Voice"; glyph: "󰍬" }
-      Category { categoryId: "other"; label: "Other"; glyph: "󰘔" }
+      spacing: 0
 
       Text {
         width: parent.width
-        visible: !root.compact && root.displayStreams.length === 0
-        topPadding: Style.spacing.lg
-        text: "Audio streams appear here when they start playing."
-        color: Color.muted
         horizontalAlignment: Text.AlignHCenter
-        wrapMode: Text.WordWrap
+        text: volumeControl.label
+        color: Color.foreground
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+        font.bold: true
+        elide: Text.ElideRight
+      }
+      Text {
+        width: parent.width
+        horizontalAlignment: Text.AlignHCenter
+        text: Math.round(volumeControl.level * 100) + "%"
+        color: Color.muted
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
       }
     }
+
+    Item {
+      id: verticalTrackTarget
+      objectName: "verticalVolumeTrack:" + volumeControl.controlId
+      anchors.top: volumeIconTarget.bottom
+      anchors.topMargin: Style.spacing.labelGap
+      anchors.bottom: parent.bottom
+      anchors.bottomMargin: Style.space(36) + volumeControl.bottomInset
+      anchors.horizontalCenter: parent.horizontalCenter
+      width: Style.space(48)
+
+      Rectangle {
+        id: verticalTrack
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: Style.space(8)
+        radius: width / 2
+        color: Color.muted
+        opacity: 0.35
+
+        Rectangle {
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.bottom: parent.bottom
+          height: parent.height * root.clamp(volumeControl.level)
+          radius: parent.radius
+          color: volumeControl.muted ? Color.muted : Color.accent
+          opacity: volumeControl.muted ? 0.55 : 1
+        }
+      }
+
+      Rectangle {
+        anchors.horizontalCenter: parent.horizontalCenter
+        y: Math.max(0, Math.min(parent.height - height,
+          (1 - root.clamp(volumeControl.level)) * parent.height - height / 2))
+        width: Style.space(24)
+        height: Style.space(8)
+        radius: height / 2
+        color: volumeControl.muted ? Color.muted : Color.accent
+      }
+
+      MouseArea {
+        anchors.fill: parent
+        enabled: volumeControl.available
+        function volumeAt(pointerY) {
+          return root.clamp(1 - pointerY / Math.max(1, height))
+        }
+        onPressed: mouse => volumeControl.changed(volumeAt(mouse.y))
+        onPositionChanged: mouse => { if (pressed) volumeControl.changed(volumeAt(mouse.y)) }
+      }
+    }
   }
 
-  Item {
-    id: streamScrollUp
-    objectName: "mixerScrollUp"
-    visible: !root.compact && root.streamOverflow && !streamViewport.atYBeginning
-    anchors.top: streamViewport.top
-    anchors.right: parent.right
-    width: Style.space(28)
-    height: Style.space(28)
-    z: 2
-    Text {
-      anchors.centerIn: parent
-      text: "󰅀"
-      rotation: 180
-      color: Color.muted
-      font.family: Style.font.family
-      font.pixelSize: Style.font.iconLarge
+  Row {
+    id: verticalControlRow
+    anchors.left: parent.left
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
+    spacing: Style.spacing.controlGap
+
+    VerticalVolume {
+      controlId: "output"
+      label: "Output"
+      glyph: "󰕾"
+      level: root.volumeSink && root.volumeSink.audio ? root.volumeSink.audio.volume : 0
+      muted: root.volumeSink && root.volumeSink.audio ? root.volumeSink.audio.muted : false
+      available: !!(root.volumeSink && root.volumeSink.audio)
+      bottomInset: root.compact ? Style.space(56) : 0
+      onChanged: value => { if (root.volumeSink && root.volumeSink.audio) root.volumeSink.audio.volume = root.clamp(value) }
+      onMuteRequested: if (root.volumeSink && root.volumeSink.audio) root.volumeSink.audio.muted = !root.volumeSink.audio.muted
     }
-    TapHandler { onTapped: root.scrollStreams(-1) }
+
+    VerticalVolume {
+      controlId: "mic"
+      label: "Mic"
+      glyph: "󰍬"
+      level: root.source && root.source.audio ? root.source.audio.volume : 0
+      muted: root.source && root.source.audio ? root.source.audio.muted : false
+      available: !!(root.source && root.source.audio)
+      revealed: !root.compact
+      onChanged: value => { if (root.source && root.source.audio) root.source.audio.volume = root.clamp(value) }
+      onMuteRequested: if (root.source && root.source.audio) root.source.audio.muted = !root.source.audio.muted
+    }
+
+    VerticalVolume {
+      readonly property var streams: root.streamsFor("media")
+      controlId: "media"
+      label: "Media"
+      glyph: "󰎆"
+      level: root.categoryVolume("media")
+      muted: root.categoryMuted("media")
+      available: streams.length > 0
+      revealed: !root.compact && streams.length > 0
+      onChanged: value => root.setCategoryVolume("media", value)
+      onMuteRequested: root.toggleCategoryMute("media")
+    }
+
+    VerticalVolume {
+      readonly property var streams: root.streamsFor("games")
+      controlId: "games"
+      label: "Games"
+      glyph: "󰊴"
+      level: root.categoryVolume("games")
+      muted: root.categoryMuted("games")
+      available: streams.length > 0
+      revealed: !root.compact && streams.length > 0
+      onChanged: value => root.setCategoryVolume("games", value)
+      onMuteRequested: root.toggleCategoryMute("games")
+    }
+
+    VerticalVolume {
+      readonly property var streams: root.streamsFor("voice")
+      controlId: "voice"
+      label: "Voice"
+      glyph: "󰍬"
+      level: root.categoryVolume("voice")
+      muted: root.categoryMuted("voice")
+      available: streams.length > 0
+      revealed: !root.compact && streams.length > 0
+      onChanged: value => root.setCategoryVolume("voice", value)
+      onMuteRequested: root.toggleCategoryMute("voice")
+    }
+
+    VerticalVolume {
+      readonly property var streams: root.streamsFor("other")
+      controlId: "other"
+      label: "Other"
+      glyph: "󰘔"
+      level: root.categoryVolume("other")
+      muted: root.categoryMuted("other")
+      available: streams.length > 0
+      revealed: !root.compact && streams.length > 0
+      onChanged: value => root.setCategoryVolume("other", value)
+      onMuteRequested: root.toggleCategoryMute("other")
+    }
   }
 
-  Item {
-    id: streamScrollDown
-    objectName: "mixerScrollDown"
-    visible: !root.compact && root.streamOverflow && !streamViewport.atYEnd
-    anchors.right: parent.right
-    anchors.bottom: streamViewport.bottom
-    width: Style.space(28)
-    height: Style.space(28)
+  Button {
+    objectName: "mixerExpandButton"
+    x: root.compact ? (parent.width - width) / 2 : parent.width - width
+    y: root.compact ? parent.height - height : (parent.height - height) / 2
+    width: root.compact ? Style.space(48) : Style.space(32)
+    height: root.compact ? Style.space(48) : Style.space(72)
+    iconText: root.compact ? "󰅂" : "󰅁"
+    iconSize: Style.font.icon
+    horizontalPadding: 0
+    verticalPadding: 0
+    foreground: Color.muted
+    color: "transparent"
+    borderSpec: Border.none()
     z: 2
-    Text {
-      anchors.centerIn: parent
-      text: "󰅀"
-      color: Color.muted
-      font.family: Style.font.family
-      font.pixelSize: Style.font.iconLarge
-    }
-    TapHandler { onTapped: root.scrollStreams(+1) }
+    onClicked: root.compact = !root.compact
   }
 }

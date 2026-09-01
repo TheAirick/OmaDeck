@@ -107,6 +107,20 @@ test("ModuleTile gives Clock two sibling card boundaries instead of one composit
   assert.doesNotMatch(companionTile, /\bRectangle\s*\{/, "the split must not be a decorative divider")
 })
 
+test("Clock and companion cards retain Omarchy panel padding", () => {
+  const tile = source("components/ClockCompanionTile.qml")
+
+  assert.equal((tile.match(/padding:\s*Style\.spacing\.panelPadding/g) || []).length, 1)
+  assert.match(tile, /padding:\s*root\.occupant === "timer"\s*\? Style\.spacing\.labelGap\s*:\s*Style\.spacing\.panelPadding/)
+})
+
+test("the taller Weather-state Clock uses the available card height for a larger time", () => {
+  const clock = source("modules/ClockModule.qml")
+
+  assert.match(clock, /objectName:\s*"clockTime"/)
+  assert.match(clock, /font\.pixelSize:\s*Math\.min\(root\.width \* 0\.18, root\.height \* 0\.62, Style\.font\.displayLarge \* 2\.2\)/)
+})
+
 test("companion Timer setup cancel stops preview and non-idle state is always presented", () => {
   const timerModule = source("modules/TimerModule.qml")
 
@@ -178,9 +192,10 @@ test("companion transitions preserve layout bytes, topology, edit selection, and
   }
 })
 
-test("fixed companion geometry remains 0.37/0.63 through all drawer reservations", () => {
+test("Weather yields vertical space to Clock while Timer retains its touch-safe split", () => {
   const tile = source("components/ClockCompanionTile.qml")
-  assert.match(tile, /clockHeight:\s*Math\.round\(splitHeight \* 0\.37\)/)
+  assert.match(tile, /clockShare:\s*root\.occupant === "weather" \? 0\.48 : 0\.37/)
+  assert.match(tile, /clockHeight:\s*Math\.round\(splitHeight \* clockShare\)/)
   assert.match(tile, /companionHeight:\s*Math\.max\(0, splitHeight - clockHeight\)/)
 
   const screen = { width: 1600, height: 450, outer: 5, gap: 14 }
@@ -196,11 +211,15 @@ test("fixed companion geometry remains 0.37/0.63 through all drawer reservations
       const centerWidth = screen.width - screen.outer * 2 - left - right
       const centerHeight = screen.height - screen.outer * 2 - top - bottom
       const clockWidth = Math.round((centerWidth - screen.gap) * ratio)
-      const clockHeight = Math.round((centerHeight - screen.gap) * 0.37)
-      const companionHeight = centerHeight - screen.gap - clockHeight
+      const availableHeight = centerHeight - screen.gap
+      const weatherClockHeight = Math.round(availableHeight * 0.48)
+      const weatherHeight = availableHeight - weatherClockHeight
+      const timerClockHeight = Math.round(availableHeight * 0.37)
+      const timerHeight = availableHeight - timerClockHeight
       assert.ok(clockWidth >= 367, `${drawer} ${ratio} width ${clockWidth}`)
-      assert.ok(clockHeight >= 109, `${drawer} ${ratio} clock ${clockHeight}`)
-      assert.ok(companionHeight >= 181, `${drawer} ${ratio} companion ${companionHeight}`)
+      assert.ok(weatherClockHeight > timerClockHeight, `${drawer} ${ratio} enlarged clock`)
+      assert.ok(weatherHeight > 0, `${drawer} ${ratio} weather ${weatherHeight}`)
+      assert.ok(timerHeight >= 181, `${drawer} ${ratio} timer ${timerHeight}`)
     }
   }
 })

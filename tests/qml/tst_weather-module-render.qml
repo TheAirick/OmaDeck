@@ -127,6 +127,24 @@ TestCase {
     return { before: before, after: after }
   }
 
+  function collectByObjectName(item, objectName, result) {
+    if (!item) return
+    if (item.objectName === objectName) result.push(item)
+    for (var index = 0; item.children && index < item.children.length; index++)
+      collectByObjectName(item.children[index], objectName, result)
+  }
+
+  function rectIn(item, ancestor) {
+    var origin = item.mapToItem(ancestor, 0, 0)
+    var corner = item.mapToItem(ancestor, item.width, item.height)
+    return {
+      x: Math.min(origin.x, corner.x),
+      y: Math.min(origin.y, corner.y),
+      width: Math.abs(corner.x - origin.x),
+      height: Math.abs(corner.y - origin.y)
+    }
+  }
+
   function test_contract_data() {
     return contractRows()
   }
@@ -173,8 +191,203 @@ TestCase {
     verify(grabImage(after).equals(grabImage(before)), data.tag)
   }
 
+  function test_omarchyPanelGeometry() {
+    var module = createTemporaryObject(weatherModuleComponent, testCase, {
+      width: 430,
+      height: 200,
+      enabled: true,
+      weatherController: controllerFor("current"),
+      visualStyle: "scene",
+      detailMode: "standard",
+      temperatureUnit: "fahrenheit"
+    })
+    verify(module !== null)
+    wait(1)
+
+    var column = findChild(module, "omarchyWeatherColumn")
+    var hero = findChild(module, "omarchyWeatherHero")
+    var heroLeft = findChild(module, "omarchyWeatherHeroLeft")
+    var heroRight = findChild(module, "omarchyWeatherHeroRight")
+    var stats = findChild(module, "omarchyWeatherStats")
+    var divider = findChild(module, "omarchyWeatherDivider")
+    var forecast = findChild(module, "omarchyWeatherForecast")
+    var heroIcon = findChild(module, "omarchyWeatherHeroIcon")
+    var heroTemperature = findChild(module, "omarchyWeatherHeroTemperature")
+    var cells = []
+    collectByObjectName(module, "omarchyWeatherForecastCell", cells)
+
+    verify(column !== null && hero !== null && heroLeft !== null && heroRight !== null)
+    verify(stats !== null && divider !== null && forecast !== null)
+    verify(heroIcon !== null && heroTemperature !== null)
+    compare(heroIcon.font.pixelSize, 64)
+    compare(heroTemperature.font.pixelSize, 56)
+    compare(cells.length, 3)
+    var columnBounds = rectIn(column, module)
+    var leftBounds = rectIn(heroLeft, module)
+    var rightBounds = rectIn(heroRight, module)
+    var forecastBounds = rectIn(forecast, module)
+    verify(columnBounds.x >= -0.5 && columnBounds.y >= -0.5)
+    verify(columnBounds.x + columnBounds.width <= module.width + 0.5)
+    verify(columnBounds.y + columnBounds.height <= module.height + 0.5)
+    verify(leftBounds.x + leftBounds.width <= rightBounds.x + 0.5)
+    verify(forecastBounds.x >= -0.5 && forecastBounds.y >= -0.5)
+    verify(forecastBounds.x + forecastBounds.width <= module.width + 0.5)
+    verify(forecastBounds.y + forecastBounds.height <= module.height + 0.5)
+  }
+
+  function test_omarchyAuthorityGeometryAt480() {
+    var module = createTemporaryObject(weatherModuleComponent, testCase, {
+      width: 480,
+      height: 200,
+      enabled: true,
+      weatherController: controllerFor("current"),
+      visualStyle: "scene",
+      detailMode: "standard",
+      temperatureUnit: "fahrenheit"
+    })
+    verify(module !== null)
+    wait(1)
+
+    var nativeContent = findChild(module, "omarchyWeatherNativeContent")
+    var hero = findChild(module, "omarchyWeatherHero")
+    var heroRight = findChild(module, "omarchyWeatherHeroRight")
+    var stats = findChild(module, "omarchyWeatherStats")
+    var forecastRow = findChild(module, "omarchyWeatherForecastRow")
+    verify(nativeContent !== null && hero !== null && heroRight !== null)
+    verify(stats !== null && forecastRow !== null)
+    compare(nativeContent.width, 480)
+    compare(nativeContent.scale, 1)
+    compare(hero.width - (heroRight.x + heroRight.width), 20)
+    compare(stats.spacing, 36)
+    compare(forecastRow.spacing, 44)
+    verify(forecastRow.width <= 480)
+  }
+
+  function test_omarchyLiveCompanionGeometry() {
+    var module = createTemporaryObject(weatherModuleComponent, testCase, {
+      width: 384,
+      height: 140,
+      enabled: true,
+      weatherController: controllerFor("current"),
+      visualStyle: "scene",
+      detailMode: "standard",
+      temperatureUnit: "fahrenheit"
+    })
+    verify(module !== null)
+    wait(1)
+
+    var nativeContent = findChild(module, "omarchyWeatherNativeContent")
+    var divider = findChild(module, "omarchyWeatherDivider")
+    var forecast = findChild(module, "omarchyWeatherForecast")
+    var cells = []
+    collectByObjectName(module, "omarchyWeatherForecastCell", cells)
+    verify(nativeContent !== null && divider !== null && forecast !== null)
+    compare(divider.visible, true)
+    compare(forecast.visible, true)
+    compare(cells.length, 3)
+    var contentBounds = rectIn(nativeContent, module)
+    verify(contentBounds.x >= -0.5 && contentBounds.y >= -0.5)
+    verify(contentBounds.x + contentBounds.width <= module.width + 0.5)
+    verify(contentBounds.y + contentBounds.height <= module.height + 0.5)
+    grabImage(module).save("/tmp/omadeck-weather-live-companion.png")
+  }
+
+  function test_omarchyWideValuesFitWithoutOverlap() {
+    var wide = currentWeather()
+    wide.temperatureC = 1234
+    wide.feelsLikeC = -1234
+    wide.windKph = 12345
+    wide.humidity = 999
+    wide.location = "A VERY LONG NORMALIZED WEATHER LOCATION NAME"
+    for (var forecastIndex = 0; forecastIndex < wide.forecast.length; forecastIndex++) {
+      wide.forecast[forecastIndex].highC = 123456789
+      wide.forecast[forecastIndex].lowC = -123456789
+    }
+
+    var geometries = [{ width: 400, height: 160 }, { width: 430, height: 200 }]
+    for (var geometryIndex = 0; geometryIndex < geometries.length; geometryIndex++) {
+      var geometry = geometries[geometryIndex]
+      var module = createTemporaryObject(weatherModuleComponent, testCase, {
+        width: geometry.width,
+        height: geometry.height,
+        enabled: true,
+        weatherController: { current: wide, loading: false, error: "" },
+        visualStyle: "scene",
+        detailMode: "standard",
+        temperatureUnit: "fahrenheit"
+      })
+      verify(module !== null)
+      wait(1)
+
+      var nativeContent = findChild(module, "omarchyWeatherNativeContent")
+      var heroLeft = findChild(module, "omarchyWeatherHeroLeft")
+      var heroRight = findChild(module, "omarchyWeatherHeroRight")
+      var forecastRow = findChild(module, "omarchyWeatherForecastRow")
+      var cells = []
+      collectByObjectName(module, "omarchyWeatherForecastCell", cells)
+      verify(nativeContent !== null && heroLeft !== null && heroRight !== null)
+      verify(forecastRow !== null && cells.length === 3)
+      var leftBounds = rectIn(heroLeft, module)
+      var rightBounds = rectIn(heroRight, module)
+      var contentBounds = rectIn(nativeContent, module)
+      var forecastBounds = rectIn(forecastRow, module)
+      verify(leftBounds.x + leftBounds.width <= rightBounds.x + 0.5)
+      verify(contentBounds.x >= -0.5 && contentBounds.y >= -0.5)
+      verify(contentBounds.x + contentBounds.width <= module.width + 0.5)
+      verify(contentBounds.y + contentBounds.height <= module.height + 0.5)
+      verify(forecastBounds.x >= -0.5 && forecastBounds.y >= -0.5)
+      verify(forecastBounds.x + forecastBounds.width <= module.width + 0.5)
+      verify(forecastBounds.y + forecastBounds.height <= module.height + 0.5)
+      for (var cellIndex = 0; cellIndex < cells.length; cellIndex++) {
+        var cellBounds = rectIn(cells[cellIndex], module)
+        verify(cellBounds.x >= -0.5 && cellBounds.y >= -0.5)
+        verify(cellBounds.x + cellBounds.width <= module.width + 0.5)
+        verify(cellBounds.y + cellBounds.height <= module.height + 0.5)
+      }
+      verify(nativeContent.scale < 1)
+      verify(nativeContent.scale > 0)
+    }
+  }
+
+  function test_omarchyRoutingBoundaryAndNullSafety() {
+    var fallback = createTemporaryObject(weatherModuleComponent, testCase, {
+      width: 349,
+      height: 120,
+      enabled: true,
+      weatherController: controllerFor("current"),
+      visualStyle: "scene",
+      detailMode: "standard",
+      temperatureUnit: "fahrenheit"
+    })
+    var native = createTemporaryObject(weatherModuleComponent, testCase, {
+      width: 350,
+      height: 120,
+      enabled: true,
+      weatherController: controllerFor("current"),
+      visualStyle: "scene",
+      detailMode: "standard",
+      temperatureUnit: "fahrenheit"
+    })
+    var empty = createTemporaryObject(omarchyWeatherComponent, testCase, {
+      width: 430,
+      height: 200,
+      weather: null,
+      forecastDays: []
+    })
+    verify(fallback !== null && native !== null && empty !== null)
+    wait(1)
+    compare(findChild(fallback, "omarchyWeatherColumn"), null)
+    verify(findChild(native, "omarchyWeatherColumn") !== null)
+    verify(findChild(empty, "omarchyWeatherColumn") !== null)
+  }
+
   Component {
     id: weatherModuleComponent
     Modules.WeatherModule {}
+  }
+
+  Component {
+    id: omarchyWeatherComponent
+    Components.OmarchyWeatherVisual {}
   }
 }

@@ -79,6 +79,47 @@ test("the compact Clock delegates one static Weather presenter", () => {
   assert.match(companion, /visualStyle:\s*root\.weatherStyle/)
 })
 
+test("scene weather follows the installed Omarchy panel hierarchy and scale", () => {
+  const weatherVisual = source("components/WeatherVisual.qml")
+  const scene = source("components/OmarchyWeatherVisual.qml")
+
+  for (const objectName of [
+    "omarchyWeatherColumn",
+    "omarchyWeatherHero",
+    "omarchyWeatherHeroLeft",
+    "omarchyWeatherHeroRight",
+    "omarchyWeatherStats",
+    "omarchyWeatherDivider",
+    "omarchyWeatherForecast",
+  ]) assert.match(scene, new RegExp(`objectName:\\s*"${objectName}"`))
+
+  assert.match(scene, /id:\s*heroIcon[\s\S]*font\.pixelSize:\s*64/)
+  assert.match(scene, /id:\s*heroTemperature[\s\S]*font\.pixelSize:\s*56/)
+  assert.match(scene, /label:\s*"FEELS"[\s\S]*label:\s*"WIND"[\s\S]*label:\s*"HUMID"/)
+  assert.match(scene, /spacing:\s*Style\.space\(14\)/)
+  assert.match(scene, /height:\s*Style\.spacing\.hairline/)
+  assert.match(scene, /spacing:\s*Style\.space\(36\)/)
+  assert.match(scene, /anchors\.rightMargin:\s*Style\.space\(20\)/)
+  assert.match(scene, /id:\s*forecastRow[\s\S]*spacing:\s*Style\.space\(44\)/)
+  assert.match(scene, /width:\s*Math\.max\(Style\.space\(480\)/)
+  assert.match(weatherVisual, /return days\.slice\(0, effectiveDetail === "full" \? 3 : 2\)/)
+  assert.match(weatherVisual, /id:\s*omarchyWeather[\s\S]*OmarchyWeatherVisual\s*\{/)
+  assert.match(weatherVisual, /root\.width >= Style\.space\(350\)[\s\S]*root\.height >= Style\.space\(110\)/)
+  assert.match(weatherVisual, /root\.weather\.forecast\.slice\(0, 3\)/)
+})
+
+test("the constrained scene renderer remains byte-identical to the reviewed layout candidate", () => {
+  const reviewedWeatherVisual = childProcess.execFileSync(
+    "git",
+    ["show", "b7e178cb9a7f50cdf72477c28652e13a2868c207:components/WeatherVisual.qml"],
+    { cwd: repositoryRoot, encoding: "utf8" },
+  )
+  assert.equal(
+    componentBlock(source("components/WeatherVisual.qml"), "detailedWeather"),
+    componentBlock(reviewedWeatherVisual, "detailedWeather"),
+  )
+})
+
 test("WeatherModule exposes controller state without owning lifecycle or settings", () => {
   const weatherModule = source("modules/WeatherModule.qml")
   const service = source("Service.qml")
@@ -171,5 +212,6 @@ test("offscreen QML rendering matches the accepted presentation boundary", {
   })
 
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
-  assert.match(result.stdout, /Totals: 276 passed, 0 failed/)
+  assert.match(result.stdout, /Totals: 281 passed, 0 failed/)
+  assert.doesNotMatch(result.stdout + result.stderr, /TypeError|Cannot read propert/)
 })

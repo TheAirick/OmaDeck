@@ -9,9 +9,12 @@ Item {
   property var shell: null
   readonly property var media: shell ? shell.serviceFor("omarchy.media") : null
   readonly property int panelGap: Style.spacing.panelGap
-  readonly property real splitHeight: Math.max(0, height - panelGap)
-  readonly property real nowPlayingHeight: Math.round(splitHeight * 0.52)
-  readonly property real mixerHeight: Math.max(0, splitHeight - nowPlayingHeight)
+  readonly property bool mixerExpanded: !mixer.compact
+  readonly property real mixerCardWidth: Math.min(width,
+    mixer.preferredWidth + Style.spacing.panelPadding * 2)
+  readonly property real nowPlayingWidth: Math.max(0, width - mixerCardWidth - panelGap)
+  readonly property real preferredDrawerWidth: mixer.preferredWidth
+    + Style.spacing.panelPadding * 2 + panelGap + Style.space(360)
 
   clip: true
 
@@ -22,10 +25,24 @@ Item {
   }
 
   DeckCard {
+    id: mixerCard
+    objectName: "audioMixerPanelCard"
+    width: root.mixerCardWidth
+    height: parent.height
+    title: "Volume"
+
+    AudioMixerModule {
+      id: mixer
+      anchors.fill: parent
+    }
+  }
+
+  DeckCard {
     id: nowPlayingCard
     objectName: "nowPlayingPanelCard"
-    width: parent.width
-    height: root.nowPlayingHeight
+    x: root.mixerCardWidth + root.panelGap
+    width: root.nowPlayingWidth
+    height: parent.height
     title: "Now Playing"
 
     NowPlayingModule {
@@ -33,20 +50,6 @@ Item {
       anchors.fill: parent
       clip: true
       media: root.media
-    }
-  }
-
-  DeckCard {
-    id: mixerCard
-    objectName: "audioMixerPanelCard"
-    y: root.nowPlayingHeight + root.panelGap
-    width: parent.width
-    height: root.mixerHeight
-    title: "Audio Mixer"
-
-    AudioMixerModule {
-      id: mixer
-      anchors.fill: parent
     }
   }
 }

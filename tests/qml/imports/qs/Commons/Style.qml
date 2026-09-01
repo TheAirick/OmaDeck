@@ -17,11 +17,13 @@ QtObject {
     readonly property real controlPaddingY: 8
     readonly property real rowPaddingX: 8
     readonly property real lg: 16
+    readonly property real hairline: 1
   }
   readonly property QtObject font: QtObject {
     readonly property string family: "DejaVu Sans"
     readonly property real caption: 12
     readonly property real body: 14
+    readonly property real bodySmall: 12
     readonly property real subtitle: 18
     readonly property real title: 20
     readonly property real display: 28

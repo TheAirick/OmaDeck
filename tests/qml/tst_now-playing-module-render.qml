@@ -111,11 +111,11 @@ TestCase {
 
     clickItem(module, findByProperty(module, "iconText", "󰏤"))
     clickItem(module, findByProperty(module, "iconText", "󰒮"))
+    clickItem(module, findChild(module, "seekBackwardControl"))
+    clickItem(module, findChild(module, "seekForwardControl"))
     clickItem(module, findByProperty(module, "iconText", "󰒭"))
     compare(JSON.stringify(fixture.media.actions), JSON.stringify(["playPause", "previous", "next"]))
 
-    module.skip(-10)
-    module.skip(10)
     compare(JSON.stringify(fixture.player.seeks), JSON.stringify([-10, 10]))
     module.seekTo(95)
     compare(fixture.player.position, 95)
@@ -132,8 +132,8 @@ TestCase {
     verify(module !== null)
     wait(1)
 
-    compare(findByProperty(module, "text", "−10").enabled, false)
-    compare(findByProperty(module, "text", "+10").enabled, false)
+    compare(findChild(module, "seekBackwardControl").enabled, false)
+    compare(findChild(module, "seekForwardControl").enabled, false)
     compare(findByProperty(module, "iconText", "󰒮").enabled, false)
     compare(findByProperty(module, "iconText", "󰒭").enabled, false)
 
@@ -148,6 +148,54 @@ TestCase {
     compare(module.displayedPosition, 0)
     compare(module.optimisticPosition, false)
     compare(module.artworkUrl, "")
+  }
+
+  function test_centeredArtworkOverlayAndVerticalControlGeometry() {
+    var fixture = fixtureFor("playing", testCase)
+    var module = createTemporaryObject(nowPlayingComponent, testCase, {
+      width: 420,
+      height: 390,
+      media: fixture.media
+    })
+    verify(module !== null)
+    wait(1)
+
+    var artwork = findChild(module, "nowPlayingArtwork")
+    var overlay = findChild(module, "nowPlayingMetadataOverlay")
+    var controlBand = findChild(module, "nowPlayingControlBand")
+    var controls = findChild(module, "nowPlayingControls")
+    var timeline = findChild(module, "nowPlayingTimeline")
+    var previous = findByProperty(module, "iconText", "󰒮")
+    var seekBack = findChild(module, "seekBackwardControl")
+    var playPause = findByProperty(module, "iconText", "󰏤")
+    var seekForward = findChild(module, "seekForwardControl")
+    var next = findByProperty(module, "iconText", "󰒭")
+    verify(artwork !== null && overlay !== null && controlBand !== null)
+    verify(controls !== null && timeline !== null)
+    verify(previous !== null && seekBack !== null && playPause !== null)
+    verify(seekForward !== null && next !== null)
+    compare(artwork.y, 0)
+    verify(Math.abs(artwork.x + artwork.width / 2 - module.width / 2) <= 0.5)
+    verify(artwork.height < module.height)
+    var overlayOrigin = overlay.mapToItem(module, 0, 0)
+    var bandOrigin = controlBand.mapToItem(module, 0, 0)
+    var timelineOrigin = timeline.mapToItem(module, 0, 0)
+    verify(overlayOrigin.y >= artwork.y)
+    verify(overlayOrigin.y + overlay.height <= artwork.y + artwork.height + 0.5)
+    verify(bandOrigin.y >= artwork.y + artwork.height)
+    verify(bandOrigin.y + controlBand.height <= timelineOrigin.y + 0.5)
+    verify(controls.y >= 0 && controls.y + controls.height <= controlBand.height)
+    verify(controls.width <= controlBand.width)
+    compare(seekBack.visible, true)
+    compare(seekForward.visible, true)
+    verify(previous.iconSize >= 48)
+    verify(next.iconSize >= 48)
+    verify(playPause.iconSize >= 64)
+    compare(findChild(module, "seekBackwardIcon").width, 34)
+    compare(findChild(module, "seekBackwardIcon").height, 34)
+    compare(findChild(module, "seekForwardIcon").width, 34)
+    compare(findChild(module, "seekForwardIcon").height, 34)
+    compare(timelineOrigin.y + timeline.height, module.height)
   }
 
 
