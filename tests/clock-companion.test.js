@@ -119,15 +119,15 @@ test("companion Timer setup cancel stops preview and non-idle state is always pr
   assert.doesNotMatch(timerModule, /text:\s*"Close"/)
 })
 
-test("the direct Clock split gets a presentation-only 0.36 minimum on either side", () => {
+test("the direct Clock split gives Clock and Weather at least half of the center", () => {
   const policy = loadSplitPolicy()
 
-  assert.equal(policy.effectiveRatio(true, "clock", "command-center", 0.28), 0.36)
-  assert.equal(policy.effectiveRatio(true, "clock", "command-center", 0.36), 0.36)
-  assert.equal(policy.effectiveRatio(true, "clock", "command-center", 0.44), 0.44)
-  assert.equal(policy.effectiveRatio(true, "command-center", "clock", 0.72), 0.64)
-  assert.equal(policy.effectiveRatio(true, "command-center", "clock", 0.64), 0.64)
-  assert.equal(policy.effectiveRatio(true, "command-center", "clock", 0.56), 0.56)
+  assert.equal(policy.effectiveRatio(true, "clock", "command-center", 0.28), 0.5)
+  assert.equal(policy.effectiveRatio(true, "clock", "command-center", 0.5), 0.5)
+  assert.equal(policy.effectiveRatio(true, "clock", "command-center", 0.56), 0.56)
+  assert.equal(policy.effectiveRatio(true, "command-center", "clock", 0.72), 0.5)
+  assert.equal(policy.effectiveRatio(true, "command-center", "clock", 0.5), 0.5)
+  assert.equal(policy.effectiveRatio(true, "command-center", "clock", 0.44), 0.44)
   assert.equal(policy.effectiveRatio(false, "clock", "command-center", 0.28), 0.28)
   assert.equal(policy.effectiveRatio(true, "clock", "workspaces", 0.28), 0.28)
 })
@@ -163,7 +163,7 @@ test("companion transitions preserve layout bytes, topology, edit selection, and
         ["paused", false], ["completed", false], ["idle", false],
       ]) {
         assert.ok(["weather", "timer"].includes(companionPolicy.occupant(status, setupOpen)))
-        assert.equal(splitPolicy.effectiveRatio(true, "clock", "command-center", saved.root.ratio), 0.36)
+        assert.equal(splitPolicy.effectiveRatio(true, "clock", "command-center", saved.root.ratio), 0.5)
       }
     }
 
@@ -186,12 +186,12 @@ test("fixed companion geometry remains 0.37/0.63 through all drawer reservations
   const screen = { width: 1600, height: 450, outer: 5, gap: 14 }
   const drawers = {
     closed: [0, 0, 0, 0],
-    left: [555, 0, 0, 0],
+    left: [682, 0, 0, 0],
     right: [0, 555, 0, 0],
     top: [0, 0, 92, 0],
     bottom: [0, 0, 0, 130],
   }
-  for (const ratio of [0.36, 0.44]) {
+  for (const ratio of [0.5, 0.56]) {
     for (const [drawer, [left, right, top, bottom]] of Object.entries(drawers)) {
       const centerWidth = screen.width - screen.outer * 2 - left - right
       const centerHeight = screen.height - screen.outer * 2 - top - bottom

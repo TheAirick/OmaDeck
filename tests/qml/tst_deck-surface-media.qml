@@ -42,10 +42,10 @@ TestCase {
     Pw.Pipewire.nodes.values = streams
   }
 
-  function createDeck() {
+  function createDeck(width, height) {
     var deck = createTemporaryObject(deckSurfaceComponent, testCase, {
-      width: 2560,
-      height: 720,
+      width: width || 2560,
+      height: height || 720,
       targetScreen: "DP-3",
       shell: shellFixture,
       layoutController: layoutFixture,
@@ -188,6 +188,36 @@ TestCase {
       "Command Center right edge")
   }
 
+  function test_scaledDeckRedistributesCommandSpaceToMediaAndWeather() {
+    var deck = createDeck(1600, 450)
+    deck.setOpenDrawer("left", "test:scaled-balance")
+    wait(260)
+
+    var center = findChild(deck, "deckCenterCanvas")
+    var nowPlayingCard = findChild(deck, "nowPlayingPanelCard")
+    var mixerCard = findChild(deck, "audioMixerPanelCard")
+    var clockCard = findChild(deck, "clockPanelCard")
+    var commandCard = findChild(deck, "moduleCard")
+    var command = findWhere(commandCard, function(item) {
+      return item.useWideLayout !== undefined && item.contentScale !== undefined
+    })
+    var weather = findWhere(deck, function(item) {
+      return item.effectiveDetail !== undefined && item.showDetailedMetrics !== undefined
+    })
+    verify(center !== null && nowPlayingCard !== null && mixerCard !== null)
+    verify(clockCard !== null && commandCard !== null && command !== null && weather !== null)
+
+    compare(deck.leftDrawerWidth, Math.round(deck.usableWidth * 0.42))
+    compare(nowPlayingCard.width, deck.leftDrawerWidth)
+    compare(mixerCard.width, deck.leftDrawerWidth)
+    verify(Math.abs(clockCard.width - commandCard.width) <= 1,
+      "Clock/Weather and Command Center should share the remaining width evenly")
+    compare(command.contentScale, 1, "Command Center controls must remain full-size")
+    verify(weather.width >= 350)
+    compare(weather.showDetailedMetrics, true,
+      "Weather should regain metrics after borrowing unused Command Center width")
+  }
+
   function test_rightmostMixerSliderDragStaysWithSlider() {
     var deck = createDeck()
     deck.setOpenDrawer("left", "test:slider")
@@ -288,7 +318,7 @@ TestCase {
     compare(mixer.compact, false)
     compare(mixer.expandedCategory, "media")
     compare(mixer.displayStreams.length, 4)
-    compare(mixer.visibleStreamRowLimit, 2)
+    compare(mixer.streamRowHeight, 46)
 
     var output = findByProperty(mixer, "label", "Output")
     var microphone = findByProperty(mixer, "label", "Mic")
@@ -297,13 +327,43 @@ TestCase {
     verify(microphone !== null && microphone.height >= 46)
     verify(viewport !== null)
     verify(viewport.interactive)
-    compare(viewport.height, 46 * mixer.visibleStreamRowLimit)
-    verify(viewport.contentHeight >= 46 * 4)
+    verify(viewport.height >= mixer.streamRowHeight)
+    verify(viewport.contentHeight >= mixer.streamRowHeight * 4)
 
     var origin = viewport.mapToItem(mixerCard, 0, 0)
     verify(origin.x >= 0 && origin.y >= 0)
     verify(origin.x + viewport.width <= mixerCard.width)
     verify(origin.y + viewport.height <= mixerCard.height)
+  }
+
+  function test_scaledDeckMixerCanSwipeToEverySource() {
+    var deck = createDeck(1600, 450)
+    deck.setMediaCategory("media")
+    wait(300)
+
+    var mixer = findChild(deck, "audioMixerPresenter")
+    var viewport = findChild(mixer, "mediaSourceViewport")
+    var lastSource = findByProperty(mixer, "streamNode", fixtureStreams[3])
+    verify(mixer !== null && viewport !== null && lastSource !== null)
+    verify(viewport.height >= 46, "the live scaled deck must expose at least one full source row; viewport="
+      + viewport.height + " mixer=" + mixer.height)
+    verify(viewport.contentHeight >= 46 * 4)
+    compare(viewport.contentY, 0)
+
+    for (var swipe = 0; swipe < 10 && !viewport.atYEnd; swipe++) {
+      mousePress(viewport, viewport.width - 4, viewport.height / 2)
+      mouseMove(viewport, viewport.width - 4, 1, 120)
+      mouseRelease(viewport, viewport.width - 4, 1)
+      wait(120)
+    }
+
+    verify(viewport.contentY > 0, "a vertical gutter swipe must move the source viewport")
+    verify(viewport.atYEnd, "repeated natural swipes must reach the end of the source list; contentY="
+      + viewport.contentY + " maximum=" + (viewport.contentHeight - viewport.height))
+    var lastOrigin = lastSource.mapToItem(viewport, 0, 0)
+    verify(lastOrigin.y >= -0.5)
+    verify(lastOrigin.y + lastSource.height <= viewport.height + 0.5,
+      "the final source must become fully reachable")
   }
 
   function test_twentyLifecycleAndDrawerCyclesKeepOnePresenterPerPanel() {
@@ -346,7 +406,7 @@ TestCase {
     var left = findChild(deck, "leftMediaDrawer")
     verify(left !== null)
     left.dismissRequested()
-    wait(230)
+    wait(260)
     compare(deck.openDrawer, "")
     compare(deck.reservedLeft, 0)
     compare(JSON.stringify({

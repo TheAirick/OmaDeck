@@ -8,21 +8,26 @@ const audioMixer = fs.readFileSync(
   "utf8",
 )
 
-test("expanded categories show at most two source sliders", () => {
-  assert.match(audioMixer, /readonly property int visibleStreamRowLimit: 2/)
-  assert.match(audioMixer, /Style\.space\(46 \* root\.visibleStreamRowLimit\)/)
+test("output and microphone share one fixed master row", () => {
+  assert.match(audioMixer, /id: masterColumn/)
+  assert.match(audioMixer, /Row\s*\{[\s\S]*height:\s*Style\.space\(46\)/)
+  assert.match(audioMixer, /label:\s*"Output"[\s\S]*label:\s*"Mic"/)
+  assert.match(audioMixer, /\(parent\.width - parent\.spacing\) \/ 2/)
 })
 
-test("overflowing source sliders support vertical swiping", () => {
-  assert.match(audioMixer, /id: sourceViewport/)
-  assert.match(audioMixer, /interactive: contentHeight > height/)
+test("all categories and sources share one bounded vertical viewport", () => {
+  assert.match(audioMixer, /id: streamViewport/)
+  assert.match(audioMixer, /anchors\.top:\s*masterColumn\.bottom/)
+  assert.match(audioMixer, /contentHeight:\s*streamColumn\.implicitHeight/)
+  assert.match(audioMixer, /interactive:\s*!root\.compact && contentHeight > height/)
   assert.match(audioMixer, /flickableDirection: Flickable\.VerticalFlick/)
   assert.match(audioMixer, /boundsBehavior: Flickable\.StopAtBounds/)
+  assert.doesNotMatch(audioMixer, /id:\s*sourceViewport/)
 })
 
-test("overflowing source sliders expose tap navigation", () => {
-  assert.match(audioMixer, /function scrollSources\(direction\)/)
-  assert.match(audioMixer, /id: sourceScrollUp[\s\S]*!sourceViewport\.atYBeginning/)
-  assert.match(audioMixer, /id: sourceScrollDown[\s\S]*!sourceViewport\.atYEnd/)
-  assert.equal((audioMixer.match(/onTapped: category\.scrollSources\([+-]1\)/g) || []).length, 2)
+test("the shared stream viewport exposes tap navigation", () => {
+  assert.match(audioMixer, /function scrollStreams\(direction\)/)
+  assert.match(audioMixer, /id: streamScrollUp[\s\S]*!streamViewport\.atYBeginning/)
+  assert.match(audioMixer, /id: streamScrollDown[\s\S]*!streamViewport\.atYEnd/)
+  assert.equal((audioMixer.match(/onTapped: root\.scrollStreams\([+-]1\)/g) || []).length, 2)
 })

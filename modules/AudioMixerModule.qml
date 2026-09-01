@@ -16,8 +16,9 @@ Item {
   property string volumeSinkName: ""
   property bool compact: false
   readonly property int streamRowCapacity: 16
-  readonly property int visibleStreamRowLimit: 2
-  readonly property real contentHeight: mixerColumn.implicitHeight
+  readonly property int streamRowHeight: Style.space(46)
+  readonly property real contentHeight: masterColumn.implicitHeight + streamViewport.contentHeight
+  readonly property bool streamOverflow: streamViewport.contentHeight > streamViewport.height + 0.5
 
   readonly property var nodes: Pipewire.nodes ? Pipewire.nodes.values : []
   readonly property var defaultSink: Pipewire.defaultAudioSink
@@ -40,14 +41,6 @@ Item {
     }
     return result
   }
-  readonly property int visibleCategoryCount: {
-    var count = 0
-    var ids = ["media", "games", "voice", "other"]
-    for (var i = 0; i < ids.length; i++) if (streamsFor(ids[i]).length > 0) count++
-    return count
-  }
-  readonly property real expandedChildrenLimit: Math.max(0,
-    height - Style.space(93) - visibleCategoryCount * Style.space(45) - Style.space(13))
 
   function clamp(value) { return Math.max(0, Math.min(1, value)) }
   function streamAudio(stream) { return stream && stream.audio ? stream.audio : null }
@@ -95,6 +88,11 @@ Item {
   }
   function refreshStreams() { displayStreams = liveStreams.slice() }
   function resolveVolumeSink() { if (!sinkResolver.running) sinkResolver.running = true }
+  function scrollStreams(direction) {
+    var maximum = Math.max(0, streamViewport.contentHeight - streamViewport.height)
+    streamViewport.contentY = Math.max(0, Math.min(maximum,
+      streamViewport.contentY + direction * root.streamRowHeight))
+  }
 
   onLiveStreamsChanged: snapshotTimer.restart()
   onDefaultSinkChanged: resolveVolumeSink()
@@ -205,10 +203,7 @@ Item {
     readonly property bool expanded: root.expandedCategory === categoryId
     readonly property bool anotherExpanded: root.expandedCategory !== "" && !expanded
     readonly property real headerHeight: anotherExpanded ? Style.space(45) : Style.space(58)
-    readonly property real childrenHeight: expanded
-      ? Math.min(Style.space(46 * root.visibleStreamRowLimit), root.expandedChildrenLimit, childrenColumn.implicitHeight)
-      : 0
-    readonly property bool sourceOverflow: sourceViewport.contentHeight > sourceViewport.height + 0.5
+    readonly property real childrenHeight: expanded ? childrenColumn.implicitHeight : 0
 
     readonly property bool hasStreams: streams.length > 0
     visible: height > 0 || opacity > 0
@@ -219,11 +214,6 @@ Item {
     Behavior on height { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
     Behavior on opacity { NumberAnimation { duration: 150 } }
 
-    function scrollSources(direction) {
-      var maximum = Math.max(0, sourceViewport.contentHeight - sourceViewport.height)
-      sourceViewport.contentY = Math.max(0, Math.min(maximum,
-        sourceViewport.contentY + direction * Style.space(46)))
-    }
 
     Item {
       id: categoryHeader
@@ -298,117 +288,71 @@ Item {
       }
     }
 
-    Flickable {
-      id: sourceViewport
-      objectName: category.categoryId + "SourceViewport"
-      anchors.top: categoryHeader.bottom
+    Column {
+      id: childrenColumn
+      y: category.headerHeight
       width: parent.width
-      height: category.childrenHeight
-      contentHeight: childrenColumn.implicitHeight
-      clip: true
-      boundsBehavior: Flickable.StopAtBounds
-      flickableDirection: Flickable.VerticalFlick
-      interactive: contentHeight > height
       opacity: category.expanded ? 1 : 0
-      onContentHeightChanged: contentY = Math.min(contentY, Math.max(0, contentHeight - height))
       Behavior on opacity { NumberAnimation { duration: 160 } }
 
-      Column {
-        id: childrenColumn
-        width: sourceViewport.width - (category.sourceOverflow ? Style.space(28) : 0)
-        Repeater {
-          // Keep the QQuickRepeater model stable while PipeWire destroys and
-          // recreates PwNode objects. Rebinding a Repeater directly to the
-          // shrinking QObject array can crash inside QQmlObjectModel while
-          // PwNode::unbindHooks is notifying QML.
-          model: root.streamRowCapacity
-          delegate: VolumeRow {
-            required property int index
-            readonly property var streamNode: index < category.streams.length
-              ? category.streams[index] : null
-            width: childrenColumn.width
-            label: AudioModel.streamLabel(streamNode)
-            glyph: "󰎆"
-            level: streamNode && streamNode.audio ? streamNode.audio.volume : 0
-            muted: streamNode && streamNode.audio ? streamNode.audio.muted : false
-            available: !!(streamNode && streamNode.audio)
-            revealed: available
-            onChanged: value => { if (streamNode && streamNode.audio) streamNode.audio.volume = root.clamp(value) }
-            onMuteRequested: if (streamNode && streamNode.audio) streamNode.audio.muted = !streamNode.audio.muted
-          }
+      Repeater {
+        // Keep the QQuickRepeater model stable while PipeWire destroys and
+        // recreates PwNode objects. Rebinding a Repeater directly to the
+        // shrinking QObject array can crash inside QQmlObjectModel while
+        // PwNode::unbindHooks is notifying QML.
+        model: root.streamRowCapacity
+        delegate: VolumeRow {
+          required property int index
+          readonly property var streamNode: index < category.streams.length
+            ? category.streams[index] : null
+          width: childrenColumn.width
+          label: AudioModel.streamLabel(streamNode)
+          glyph: "󰎆"
+          level: streamNode && streamNode.audio ? streamNode.audio.volume : 0
+          muted: streamNode && streamNode.audio ? streamNode.audio.muted : false
+          available: !!(streamNode && streamNode.audio)
+          revealed: available
+          onChanged: value => { if (streamNode && streamNode.audio) streamNode.audio.volume = root.clamp(value) }
+          onMuteRequested: if (streamNode && streamNode.audio) streamNode.audio.muted = !streamNode.audio.muted
         }
       }
-    }
-
-    Item {
-      id: sourceScrollUp
-      visible: category.expanded && category.sourceOverflow && !sourceViewport.atYBeginning
-      anchors.top: categoryHeader.bottom
-      anchors.right: parent.right
-      width: Style.space(28)
-      height: Style.space(28)
-      z: 2
-
-      Text {
-        anchors.centerIn: parent
-        text: "󰅀"
-        rotation: 180
-        color: Color.muted
-        font.family: Style.font.family
-        font.pixelSize: Style.font.iconLarge
-      }
-      TapHandler { onTapped: category.scrollSources(-1) }
-    }
-
-    Item {
-      id: sourceScrollDown
-      visible: category.expanded && category.sourceOverflow && !sourceViewport.atYEnd
-      anchors.right: parent.right
-      anchors.bottom: parent.bottom
-      width: Style.space(28)
-      height: Style.space(28)
-      z: 2
-
-      Text {
-        anchors.centerIn: parent
-        text: "󰅀"
-        color: Color.muted
-        font.family: Style.font.family
-        font.pixelSize: Style.font.iconLarge
-      }
-      TapHandler { onTapped: category.scrollSources(+1) }
     }
   }
 
   Column {
-    id: mixerColumn
+    id: masterColumn
     anchors.left: parent.left
     anchors.right: parent.right
-    anchors.bottom: parent.bottom
     spacing: 0
 
-    VolumeRow {
+    Row {
       width: parent.width
-      label: "Output"
-      glyph: "󰕾"
-      level: root.volumeSink && root.volumeSink.audio ? root.volumeSink.audio.volume : 0
-      muted: root.volumeSink && root.volumeSink.audio ? root.volumeSink.audio.muted : false
-      available: !!(root.volumeSink && root.volumeSink.audio)
-      labelActionEnabled: true
-      onChanged: value => root.volumeSink.audio.volume = root.clamp(value)
-      onMuteRequested: root.volumeSink.audio.muted = !root.volumeSink.audio.muted
-      onLabelRequested: root.compact = !root.compact
-    }
-    VolumeRow {
-      width: parent.width
-      label: "Mic"
-      glyph: "󰍬"
-      level: root.source && root.source.audio ? root.source.audio.volume : 0
-      muted: root.source && root.source.audio ? root.source.audio.muted : false
-      available: !!(root.source && root.source.audio)
-      revealed: !root.compact
-      onChanged: value => root.source.audio.volume = root.clamp(value)
-      onMuteRequested: root.source.audio.muted = !root.source.audio.muted
+      height: Style.space(46)
+      spacing: root.compact ? 0 : Style.spacing.panelGap
+
+      VolumeRow {
+        width: root.compact ? parent.width : (parent.width - parent.spacing) / 2
+        label: "Output"
+        glyph: "󰕾"
+        level: root.volumeSink && root.volumeSink.audio ? root.volumeSink.audio.volume : 0
+        muted: root.volumeSink && root.volumeSink.audio ? root.volumeSink.audio.muted : false
+        available: !!(root.volumeSink && root.volumeSink.audio)
+        labelActionEnabled: true
+        onChanged: value => root.volumeSink.audio.volume = root.clamp(value)
+        onMuteRequested: root.volumeSink.audio.muted = !root.volumeSink.audio.muted
+        onLabelRequested: root.compact = !root.compact
+      }
+      VolumeRow {
+        width: root.compact ? 0 : (parent.width - parent.spacing) / 2
+        label: "Mic"
+        glyph: "󰍬"
+        level: root.source && root.source.audio ? root.source.audio.volume : 0
+        muted: root.source && root.source.audio ? root.source.audio.muted : false
+        available: !!(root.source && root.source.audio)
+        revealed: !root.compact
+        onChanged: value => root.source.audio.volume = root.clamp(value)
+        onMuteRequested: root.source.audio.muted = !root.source.audio.muted
+      }
     }
 
     Rectangle {
@@ -419,21 +363,82 @@ Item {
       Behavior on height { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
       Behavior on opacity { NumberAnimation { duration: 150 } }
     }
-    Category { categoryId: "media"; label: "Media"; glyph: "󰎆" }
-    Category { categoryId: "games"; label: "Games"; glyph: "󰊴" }
-    Category { categoryId: "voice"; label: "Voice"; glyph: "󰍬" }
-    Category { categoryId: "other"; label: "Other"; glyph: "󰘔" }
+  }
 
-    Text {
-      width: parent.width
-      visible: !root.compact && root.displayStreams.length === 0
-      topPadding: Style.spacing.lg
-      text: "Audio streams appear here when they start playing."
-      color: Color.muted
-      horizontalAlignment: Text.AlignHCenter
-      wrapMode: Text.WordWrap
-      font.family: Style.font.family
-      font.pixelSize: Style.font.caption
+  Flickable {
+    id: streamViewport
+    objectName: "mediaSourceViewport"
+    anchors.top: masterColumn.bottom
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    anchors.left: parent.left
+    contentHeight: streamColumn.implicitHeight
+    clip: true
+    boundsBehavior: Flickable.StopAtBounds
+    flickableDirection: Flickable.VerticalFlick
+    interactive: !root.compact && contentHeight > height
+    opacity: root.compact ? 0 : 1
+    onContentHeightChanged: contentY = Math.min(contentY, Math.max(0, contentHeight - height))
+    Behavior on opacity { NumberAnimation { duration: 160 } }
+
+    Column {
+      id: streamColumn
+      width: streamViewport.width - (root.streamOverflow ? Style.space(28) : 0)
+      Category { categoryId: "media"; label: "Media"; glyph: "󰎆" }
+      Category { categoryId: "games"; label: "Games"; glyph: "󰊴" }
+      Category { categoryId: "voice"; label: "Voice"; glyph: "󰍬" }
+      Category { categoryId: "other"; label: "Other"; glyph: "󰘔" }
+
+      Text {
+        width: parent.width
+        visible: !root.compact && root.displayStreams.length === 0
+        topPadding: Style.spacing.lg
+        text: "Audio streams appear here when they start playing."
+        color: Color.muted
+        horizontalAlignment: Text.AlignHCenter
+        wrapMode: Text.WordWrap
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+      }
     }
+  }
+
+  Item {
+    id: streamScrollUp
+    objectName: "mixerScrollUp"
+    visible: !root.compact && root.streamOverflow && !streamViewport.atYBeginning
+    anchors.top: streamViewport.top
+    anchors.right: parent.right
+    width: Style.space(28)
+    height: Style.space(28)
+    z: 2
+    Text {
+      anchors.centerIn: parent
+      text: "󰅀"
+      rotation: 180
+      color: Color.muted
+      font.family: Style.font.family
+      font.pixelSize: Style.font.iconLarge
+    }
+    TapHandler { onTapped: root.scrollStreams(-1) }
+  }
+
+  Item {
+    id: streamScrollDown
+    objectName: "mixerScrollDown"
+    visible: !root.compact && root.streamOverflow && !streamViewport.atYEnd
+    anchors.right: parent.right
+    anchors.bottom: streamViewport.bottom
+    width: Style.space(28)
+    height: Style.space(28)
+    z: 2
+    Text {
+      anchors.centerIn: parent
+      text: "󰅀"
+      color: Color.muted
+      font.family: Style.font.family
+      font.pixelSize: Style.font.iconLarge
+    }
+    TapHandler { onTapped: root.scrollStreams(+1) }
   }
 }

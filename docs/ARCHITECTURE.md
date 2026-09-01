@@ -47,12 +47,14 @@ processes, files, IPC, layout mutation, or settings; those remain with the singl
 service-owned `TimerController` and existing service IPC.
 
 Media presentation uses a frameless left-drawer carrier with two persistent
-sibling `DeckCard` boundaries separated by the panel-gap token. The upper card
-hosts exactly one lifecycle-free `NowPlayingModule`; the lower card hosts
-exactly one `AudioMixerModule`. `modules/MediaModule.qml` resolves the existing
-`omarchy.media` service and retains the mixer automation methods. Its initial
-vertical allocation is presentation-only and creates no persisted layout node,
-schema, setting, or resizable divider.
+sibling `DeckCard` boundaries separated by the panel-gap token. The carrier
+reserves 42% of the usable deck width so the upper `NowPlayingModule` and lower
+`AudioMixerModule` can use the Command Center's former excess width. Their
+52/48 vertical allocation is presentation-only and creates no persisted layout
+node, schema, setting, or resizable divider. The mixer keeps Output and Mic in
+one fixed master row, then gives every dynamic category and source row one
+bounded vertical viewport with a dedicated swipe/tap gutter. The stable
+PipeWire snapshot remains the viewport's model authority.
 `modules/NowPlayingModule.qml` owns only the active-player projection, local
 duration/position and same-track artwork caches, transport controls, metadata,
 and timeline. It creates no PipeWire model, process, persistence, IPC, settings,
@@ -65,7 +67,9 @@ The center uses a recursive binary split tree. Split nodes contain an
 orientation, ratio, and two children; leaves contain module IDs.
 `services/LayoutController.qml` validates and atomically persists layout state.
 For the current direct horizontal Clock/Command Center split only,
-`SplitPresentationPolicy.js` renders the Clock side at a minimum `0.36` share.
+`SplitPresentationPolicy.js` renders the Clock/Weather side at a minimum `0.50`
+share. This restores Weather detail while the finite Command Center controls
+remain full-size in the other half.
 The saved ratio, topology, revision, selected edit path, and drawer state remain
 unchanged; other nested or vertical topologies retain their saved geometry.
 

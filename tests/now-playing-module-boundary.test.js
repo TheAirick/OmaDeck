@@ -102,7 +102,7 @@ test("MediaModule owns two independent sibling cards with a token gap", () => {
   assert.equal((mediaModule.match(/DeckCard\s*\{/g) || []).length, 2)
   assert.doesNotMatch(mediaModule, /text:\s*"Media"/)
   assert.match(mediaModule, /readonly property int panelGap:\s*Style\.spacing\.panelGap/)
-  assert.match(mediaModule, /readonly property real nowPlayingHeight:\s*Math\.round\(splitHeight \* 0\.573\)/)
+  assert.match(mediaModule, /readonly property real nowPlayingHeight:\s*Math\.round\(splitHeight \* 0\.52\)/)
   assert.match(mediaModule, /objectName:\s*"nowPlayingPanelCard"[\s\S]*title:\s*"Now Playing"[\s\S]*NowPlayingModule\s*\{/)
   assert.match(mediaModule, /objectName:\s*"audioMixerPanelCard"[\s\S]*title:\s*"Audio Mixer"[\s\S]*AudioMixerModule\s*\{/)
   assert.match(mediaModule, /id:\s*mixerCard[\s\S]*y:\s*root\.nowPlayingHeight \+ root\.panelGap/)

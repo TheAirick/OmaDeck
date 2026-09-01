@@ -10,7 +10,7 @@ Item {
   readonly property var media: shell ? shell.serviceFor("omarchy.media") : null
   readonly property int panelGap: Style.spacing.panelGap
   readonly property real splitHeight: Math.max(0, height - panelGap)
-  readonly property real nowPlayingHeight: Math.round(splitHeight * 0.573)
+  readonly property real nowPlayingHeight: Math.round(splitHeight * 0.52)
   readonly property real mixerHeight: Math.max(0, splitHeight - nowPlayingHeight)
 
   clip: true

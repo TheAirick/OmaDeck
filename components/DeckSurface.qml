@@ -39,7 +39,7 @@ PanelWindow {
   readonly property int innerGap: Style.spacing.panelGap
   readonly property int usableWidth: Math.max(0, width - outerGap * 2)
   readonly property int usableHeight: Math.max(0, height - outerGap * 2)
-  readonly property int leftDrawerWidth: Math.round(usableWidth * 0.34)
+  readonly property int leftDrawerWidth: Math.round(usableWidth * 0.42)
   readonly property int rightDrawerWidth: Math.round(usableWidth * 0.34)
   readonly property int topDrawerHeight: Style.space(78)
   readonly property int bottomDrawerHeight: Style.space(116)

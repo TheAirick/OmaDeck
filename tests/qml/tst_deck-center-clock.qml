@@ -18,7 +18,7 @@ TestCase {
     layoutController.revision++
     var reservations = {
       "": [0, 0, 0, 0],
-      left: [555, 0, 0, 0],
+      left: [682, 0, 0, 0],
       right: [0, 555, 0, 0],
       top: [0, 0, 92, 0],
       bottom: [0, 0, 0, 130]
@@ -88,11 +88,11 @@ TestCase {
     for (var drawerIndex = 0; drawerIndex < 5; drawerIndex++) {
       var drawer = ["", "left", "right", "top", "bottom"][drawerIndex]
       rows.push({ tag: (drawer || "closed") + "-clock-first-guard", drawer: drawer,
-        clockFirst: true, ratio: 0.30, effectiveRatio: 0.36, clockFraction: 0.36 })
+        clockFirst: true, ratio: 0.30, effectiveRatio: 0.5, clockFraction: 0.5 })
       rows.push({ tag: (drawer || "closed") + "-clock-first-saved", drawer: drawer,
-        clockFirst: true, ratio: 0.44, effectiveRatio: 0.44, clockFraction: 0.44 })
+        clockFirst: true, ratio: 0.44, effectiveRatio: 0.5, clockFraction: 0.5 })
       rows.push({ tag: (drawer || "closed") + "-clock-second-guard", drawer: drawer,
-        clockFirst: false, ratio: 0.70, effectiveRatio: 0.64, clockFraction: 0.36 })
+        clockFirst: false, ratio: 0.70, effectiveRatio: 0.5, clockFraction: 0.5 })
     }
     return rows
   }
@@ -112,7 +112,11 @@ TestCase {
     compare(center.height, 440 - center.reservedTop - center.reservedBottom)
     compare(center.x, 5 + center.reservedLeft)
     compare(center.y, 5 + center.reservedTop)
-    compare(clockCard.width, Math.round((center.width - split.gap) * data.clockFraction))
+    var availableWidth = center.width - split.gap
+    var expectedClockWidth = data.clockFirst
+      ? Math.round(availableWidth * data.clockFraction)
+      : availableWidth - Math.round(availableWidth * data.effectiveRatio)
+    compare(clockCard.width, expectedClockWidth)
     verify(clockCard.y + clockCard.height < companionCard.y)
     compare(companionCard.y - clockCard.y - clockCard.height, split.gap)
     comparePersistent(persistentSnapshot(), stateBefore, data.tag)
@@ -120,8 +124,8 @@ TestCase {
 
   function test_clockMayBeEitherDirectSplitChild_data() {
     return [
-      { tag: "clock-first", clockFirst: true, savedRatio: 0.30, effectiveRatio: 0.36 },
-      { tag: "clock-second", clockFirst: false, savedRatio: 0.70, effectiveRatio: 0.64 }
+      { tag: "clock-first", clockFirst: true, savedRatio: 0.30, effectiveRatio: 0.5 },
+      { tag: "clock-second", clockFirst: false, savedRatio: 0.70, effectiveRatio: 0.5 }
     ]
   }
 
@@ -132,7 +136,7 @@ TestCase {
     verify(split !== null)
     verify(clockCard !== null)
     compare(split.effectiveRatio, data.effectiveRatio)
-    var expectedWidth = Math.round((center.width - split.gap) * 0.36)
+    var expectedWidth = Math.round((center.width - split.gap) * 0.5)
     compare(clockCard.width, expectedWidth)
     compare(layoutController.savedRatio, data.savedRatio)
   }
