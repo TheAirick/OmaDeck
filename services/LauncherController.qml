@@ -54,7 +54,7 @@ Item {
 
   Process {
     id: mkdirProcess
-    command: ["mkdir", "-p", root.configDir]
+    command: ["/usr/bin/mkdir", "-p", root.configDir]
     onExited: {
       root.directoryReady = true
       settingsFile.reload()

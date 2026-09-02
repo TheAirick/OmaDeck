@@ -91,7 +91,11 @@ Item {
     else if (entry.action === "overview") deck.openOverlay("overview")
     else if (entry.action === "clipboard") deck.showSystemSection("clipboard")
     else if (entry.action === "performance") deck.showSystemSection("performance")
-    else if (entry.action === "lock") Quickshell.execDetached(["omarchy", "system", "lock"])
+    else if (entry.action === "lock") Quickshell.execDetached([
+      "/usr/bin/env", "PATH=/usr/bin:/usr/share/omarchy/bin",
+      "/usr/bin/timeout", "--signal=TERM", "--kill-after=1s", "10s",
+      "/usr/bin/omarchy-system-lock"
+    ])
   }
 
   function activate(entry) {

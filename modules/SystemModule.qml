@@ -84,9 +84,17 @@ Item {
   function copyClipboard(entry) {
     if (!entry) return
     if (entry.type === "image") {
-      Quickshell.execDetached(["omarchy-clipboard-paste-file", "--copy-only", entry.mime || "image/png", entry.path])
+      Quickshell.execDetached([
+        "/usr/bin/env", "PATH=/usr/bin:/usr/share/omarchy/bin",
+        "/usr/bin/timeout", "--signal=TERM", "--kill-after=1s", "3s",
+        "/usr/bin/omarchy-clipboard-paste-file", "--copy-only", entry.mime || "image/png", entry.path
+      ])
     } else {
-      Quickshell.execDetached(["omarchy-clipboard-paste-text", "--copy-only", entry.text || ""])
+      Quickshell.execDetached([
+        "/usr/bin/env", "PATH=/usr/bin:/usr/share/omarchy/bin",
+        "/usr/bin/timeout", "--signal=TERM", "--kill-after=1s", "3s",
+        "/usr/bin/omarchy-clipboard-paste-text", "--copy-only", entry.text || ""
+      ])
     }
     clipboardNotice = "Copied"
     noticeTimer.restart()
@@ -143,10 +151,14 @@ Item {
   }
   function summon(panel) {
     if (shell && typeof shell.summon === "function") shell.summon(panel, "{}")
-    else Quickshell.execDetached(["omarchy-shell", "shell", "summon", panel])
+    else Quickshell.execDetached([
+      "/usr/bin/env", "PATH=/usr/bin:/usr/share/omarchy/bin",
+      "/usr/bin/timeout", "--signal=TERM", "--kill-after=1s", "4s",
+      "/usr/bin/omarchy-shell", "shell", "summon", panel
+    ])
   }
   function focusClient(client) {
-    if (client && client.address) Quickshell.execDetached(["hyprctl", "dispatch", "focuswindow", "address:" + client.address])
+    if (client && client.address) Quickshell.execDetached(["/usr/bin/hyprctl", "dispatch", "focuswindow", "address:" + client.address])
   }
   function applicationIcon(client) {
     var value = String(client && client.class || "").toLowerCase()
@@ -181,12 +193,12 @@ Item {
     return String(client.workspace)
   }
   function closeClient(client) {
-    if (client && client.address) Quickshell.execDetached(["hyprctl", "dispatch", "closewindow", "address:" + client.address])
+    if (client && client.address) Quickshell.execDetached(["/usr/bin/hyprctl", "dispatch", "closewindow", "address:" + client.address])
   }
   function forceKillClient(client) {
     if (!client || !client.pid) return
     if (!forceKillArmed) { forceKillArmed = true; killTimer.restart(); return }
-    Quickshell.execDetached(["kill", "-KILL", String(client.pid)])
+    Quickshell.execDetached(["/usr/bin/kill", "-KILL", String(client.pid)])
     forceKillArmed = false
     selectedClientAddress = ""
   }

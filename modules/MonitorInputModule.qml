@@ -23,7 +23,11 @@ BorderSurface {
     if (inputSwitch.running) return
     pendingSource = source
     statusText = "Switching…"
-    inputSwitch.command = [source === "mac" ? macCommand : omarchyCommand]
+    inputSwitch.command = [
+      "/usr/bin/env", "PATH=/usr/bin:/usr/share/omarchy/bin",
+      "/usr/bin/timeout", "--signal=TERM", "--kill-after=1s", "15s",
+      "/usr/bin/bash", source === "mac" ? macCommand : omarchyCommand
+    ]
     inputSwitch.running = true
   }
 

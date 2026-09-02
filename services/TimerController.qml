@@ -279,7 +279,7 @@ Item {
 
   Process {
     id: mkdirProcess
-    command: ["mkdir", "-p", root.configDir]
+    command: ["/usr/bin/mkdir", "-p", root.configDir]
     onExited: {
       root.directoryReady = true
       timerFile.reload()
@@ -354,7 +354,8 @@ Item {
 
   Process {
     id: completionNotification
-    command: ["notify-send", "-e", "-t", "6000", "-a", "OmaDeck", "-i", "alarm-symbolic",
+    command: ["/usr/bin/timeout", "--signal=TERM", "--kill-after=1s", "3s",
+              "/usr/bin/notify-send", "-e", "-t", "6000", "-a", "OmaDeck", "-i", "alarm-symbolic",
               "Time's up", "OmaDeck timer finished"]
   }
 

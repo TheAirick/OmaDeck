@@ -21,7 +21,7 @@ test("the service owns one persisted timer controller", () => {
   assert.match(controller, /TimerPolicy\.restore\(/)
   assert.match(controller, /TimerPolicy\.completeIfDue\(/)
   assert.match(controller, /interval:\s*100/)
-  assert.match(controller, /command:\s*\["notify-send", "-e"/)
+  assert.match(controller, /command:\s*\["\/usr\/bin\/timeout"[\s\S]*"\/usr\/bin\/notify-send", "-e"/)
   assert.doesNotMatch(controller, /property var state:/)
   assert.match(controller, /function actionNow\(\)\s*\{[\s\S]*nowMs = Date\.now\(\)[\s\S]*return nowMs/)
   assert.ok((controller.match(/var actionTime = actionNow\(\)/g) || []).length >= 5)

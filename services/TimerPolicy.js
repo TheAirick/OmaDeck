@@ -60,18 +60,20 @@ function restoreSoundSettings(raw) {
 }
 
 function playbackCommand(eventId) {
+  var prefix = ["/usr/bin/timeout", "--signal=TERM", "--kill-after=1s", "3s",
+                "/usr/bin/canberra-gtk-play"]
   switch (normalizeSoundId(eventId)) {
   case "": return null
   case "alarm-clock-elapsed":
-    return ["canberra-gtk-play", "-i", "alarm-clock-elapsed", "-d", "OmaDeck timer sound"]
+    return prefix.concat(["-i", "alarm-clock-elapsed", "-d", "OmaDeck timer sound"])
   case "bell":
-    return ["canberra-gtk-play", "-i", "bell", "-d", "OmaDeck timer sound"]
+    return prefix.concat(["-i", "bell", "-d", "OmaDeck timer sound"])
   case "phone-incoming-call":
-    return ["canberra-gtk-play", "-i", "phone-incoming-call", "-d", "OmaDeck timer sound"]
+    return prefix.concat(["-i", "phone-incoming-call", "-d", "OmaDeck timer sound"])
   case "dialog-warning":
-    return ["canberra-gtk-play", "-i", "dialog-warning", "-d", "OmaDeck timer sound"]
+    return prefix.concat(["-i", "dialog-warning", "-d", "OmaDeck timer sound"])
   default:
-    return ["canberra-gtk-play", "-i", "complete", "-d", "OmaDeck timer sound"]
+    return prefix.concat(["-i", "complete", "-d", "OmaDeck timer sound"])
   }
 }
 

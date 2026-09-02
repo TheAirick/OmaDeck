@@ -256,22 +256,26 @@ test("timer sound settings default and repair corrupt or invalid persistence", (
   assert.equal(JSON.stringify(policy.soundSettings("bell")), '{"version":1,"eventId":"bell"}')
 })
 
-test("sound commands are static allowlisted Canberra invocations and Silent has none", () => {
+test("sound commands are static deadline-bounded Canberra invocations and Silent has none", () => {
   const policy = loadPolicy()
+  const prefix = [
+    "/usr/bin/timeout", "--signal=TERM", "--kill-after=1s", "3s",
+    "/usr/bin/canberra-gtk-play",
+  ]
 
   assert.equal(policy.playbackCommand(""), null)
   assert.deepEqual(Array.from(policy.playbackCommand("bell")), [
-    "canberra-gtk-play", "-i", "bell", "-d", "OmaDeck timer sound",
+    ...prefix, "-i", "bell", "-d", "OmaDeck timer sound",
   ])
   assert.deepEqual(Array.from(policy.playbackCommand("/tmp/untrusted.oga")), [
-    "canberra-gtk-play", "-i", "complete", "-d", "OmaDeck timer sound",
+    ...prefix, "-i", "complete", "-d", "OmaDeck timer sound",
   ])
   for (const option of policy.soundOptions()) {
     const command = policy.playbackCommand(option.eventId)
     if (option.eventId === "") continue
-    assert.equal(command[0], "canberra-gtk-play")
-    assert.equal(command[1], "-i")
-    assert.equal(command[2], option.eventId)
+    assert.deepEqual(Array.from(command.slice(0, prefix.length)), prefix)
+    assert.equal(command[prefix.length], "-i")
+    assert.equal(command[prefix.length + 1], option.eventId)
     assert.equal(command.includes("-f"), false)
   }
 })

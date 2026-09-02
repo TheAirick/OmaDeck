@@ -1,0 +1,138 @@
+#!/usr/bin/python3
+
+"""Emit a bounded, validated prefix of Omarchy notification history.
+
+The long-running QML process must never concatenate an attacker-controlled
+number of files or retain an unbounded producer stream. This helper caps the
+directory scan, file count, per-file bytes, and total output before QML sees it.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import stat
+import sys
+from pathlib import Path
+from typing import Any
+
+
+UID = os.getuid()
+DIRECTORY_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
+FILE_FLAGS = os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW
+HISTORY_NAME = re.compile(r"^(\d{1,20})-(\d{1,20})\.json$")
+MAX_DIRECTORY_ENTRIES = 256
+MAX_HISTORY_FILES = 12
+MAX_FILE_BYTES = 64 * 1024
+MAX_OUTPUT_BYTES = 128 * 1024
+
+
+def checked_directory(path: str) -> int:
+    """Open an absolute directory through a validated, no-follow parent chain."""
+    if not os.path.isabs(path):
+        raise RuntimeError("history directory must be absolute")
+
+    descriptor = os.open("/", DIRECTORY_FLAGS)
+    try:
+        for component in Path(path).parts[1:]:
+            next_descriptor = os.open(component, DIRECTORY_FLAGS, dir_fd=descriptor)
+            metadata = os.fstat(next_descriptor)
+            mode = stat.S_IMODE(metadata.st_mode)
+            writable = mode & 0o022
+            sticky_root = metadata.st_uid == 0 and bool(mode & stat.S_ISVTX)
+            if metadata.st_uid not in (0, UID) or (writable and not sticky_root):
+                os.close(next_descriptor)
+                raise RuntimeError("unsafe notification-history parent")
+            os.close(descriptor)
+            descriptor = next_descriptor
+        return descriptor
+    except Exception:
+        os.close(descriptor)
+        raise
+
+
+def candidate_names(directory: int) -> list[str]:
+    """Return at most the newest fixed number of canonical history names."""
+    candidates: list[tuple[int, int, str]] = []
+    scanned = 0
+    with os.scandir(directory) as entries:
+        for entry in entries:
+            scanned += 1
+            if scanned > MAX_DIRECTORY_ENTRIES:
+                raise RuntimeError("notification-history entry limit exceeded")
+            match = HISTORY_NAME.fullmatch(entry.name)
+            if match:
+                candidates.append((int(match.group(1)), int(match.group(2)), entry.name))
+    candidates.sort(reverse=True)
+    return [name for _, _, name in candidates[:MAX_HISTORY_FILES]]
+
+
+def read_entry(directory: int, name: str) -> dict[str, Any] | None:
+    """Read and parse one regular, user-owned, non-writable bounded file."""
+    try:
+        descriptor = os.open(name, FILE_FLAGS, dir_fd=directory)
+    except (FileNotFoundError, PermissionError, OSError):
+        return None
+    try:
+        metadata = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_uid != UID
+            or metadata.st_nlink != 1
+            or stat.S_IMODE(metadata.st_mode) & 0o022
+            or metadata.st_size > MAX_FILE_BYTES
+        ):
+            return None
+
+        output = bytearray()
+        while len(output) <= MAX_FILE_BYTES:
+            chunk = os.read(descriptor, min(16384, MAX_FILE_BYTES - len(output) + 1))
+            if not chunk:
+                break
+            output.extend(chunk)
+        if len(output) > MAX_FILE_BYTES:
+            return None
+        decoded = json.loads(output.decode("utf-8", "strict"))
+        return decoded if isinstance(decoded, dict) else None
+    except (OSError, UnicodeError, json.JSONDecodeError, RecursionError):
+        return None
+    finally:
+        os.close(descriptor)
+
+
+def bounded_payload(directory: int) -> bytes:
+    rows: list[bytes] = []
+    used = 0
+    for name in candidate_names(directory):
+        entry = read_entry(directory, name)
+        if entry is None:
+            continue
+        row = json.dumps(entry, ensure_ascii=False, separators=(",", ":")).encode("utf-8") + b"\n"
+        if used + len(row) > MAX_OUTPUT_BYTES:
+            break
+        rows.append(row)
+        used += len(row)
+    return b"".join(rows)
+
+
+def main() -> int:
+    if len(sys.argv) != 2:
+        raise RuntimeError("usage: notification-history HISTORY_DIRECTORY")
+    try:
+        directory = checked_directory(sys.argv[1])
+    except FileNotFoundError:
+        return 0
+    try:
+        sys.stdout.buffer.write(bounded_payload(directory))
+        return 0
+    finally:
+        os.close(directory)
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except Exception as error:
+        print(f"OmaDeck notification history unavailable: {error}", file=sys.stderr)
+        raise SystemExit(1)

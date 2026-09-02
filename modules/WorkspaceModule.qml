@@ -28,7 +28,7 @@ Item {
 
   function focusWorkspace(id) {
     Quickshell.execDetached([
-      "hyprctl", "dispatch",
+      "/usr/bin/hyprctl", "dispatch",
       "hl.dsp.focus({ workspace = " + luaString(String(id)) + " })"
     ])
   }

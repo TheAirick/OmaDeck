@@ -12,7 +12,7 @@ Item {
 
   function toggleScratchpad() {
     Quickshell.execDetached([
-      "hyprctl", "dispatch",
+      "/usr/bin/hyprctl", "dispatch",
       "hl.dsp.workspace.toggle_special(\"scratchpad\")"
     ])
     if (deck) deck.closeOverlay()
@@ -20,7 +20,7 @@ Item {
 
   function sendFocusedToScratchpad() {
     Quickshell.execDetached([
-      "hyprctl", "dispatch",
+      "/usr/bin/hyprctl", "dispatch",
       "hl.dsp.window.move({ workspace = \"special:scratchpad\", follow = false })"
     ])
     if (deck) deck.closeOverlay()

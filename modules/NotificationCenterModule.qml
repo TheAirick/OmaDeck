@@ -16,6 +16,7 @@ Item {
   property bool active: false
   property var historyEntries: []
   property int historyRevision: 0
+  readonly property string pluginDir: deck ? String(deck.pluginDir || "") : ""
   readonly property string historyDir: Quickshell.env("HOME") + "/.local/state/omarchy/notifications/history"
   readonly property var notificationService: shell && typeof shell.firstPartyServiceFor === "function"
     ? shell.firstPartyServiceFor("omarchy.notifications") : null
@@ -60,10 +61,15 @@ Item {
   }
 
   function reloadHistory() {
-    if (historyReader.running) return
-    historyReader.command = ["bash", "-c",
-      "awk 1 \"$1\"/*.json 2>/dev/null || true", "--", historyDir]
+    if (historyReader.running || pluginDir === "") return
     historyReader.running = true
+  }
+
+  function stopHistoryReader() {
+    historyLifecycleBackstop.stop()
+    if (!historyReader.running) return
+    historyReader.running = false
+    historyForceStopDelay.restart()
   }
 
   function applyHistory(raw) {
@@ -105,7 +111,9 @@ Item {
   function toggleBluetooth() {
     if (!bluetoothAdapter) return
     Quickshell.execDetached([
-      "omarchy-bluetooth-power",
+      "/usr/bin/env", "PATH=/usr/bin:/usr/share/omarchy/bin",
+      "/usr/bin/timeout", "--signal=TERM", "--kill-after=1s", "12s",
+      "/usr/bin/omarchy-bluetooth-power",
       bluetoothAdapter.enabled ? "off" : "on"
     ])
   }
@@ -120,11 +128,39 @@ Item {
   Process {
     id: historyReader
     running: false
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: root.applyHistory(text)
+    command: ["/usr/bin/timeout", "--signal=TERM", "--kill-after=1s", "2s",
+              root.pluginDir + "/scripts/notification-history", root.historyDir]
+    stdout: BoundedOutputParser {
+      id: historyOutput
+      maxBytes: 128 * 1024
+    }
+    onStarted: {
+      historyOutput.reset()
+      historyLifecycleBackstop.restart()
+    }
+    onExited: function(exitCode) {
+      historyLifecycleBackstop.stop()
+      historyForceStopDelay.stop()
+      if (exitCode === 0 && !historyOutput.truncated)
+        root.applyHistory(historyOutput.text)
     }
   }
+
+  Timer {
+    id: historyLifecycleBackstop
+    interval: 3 * 1000
+    repeat: false
+    onTriggered: root.stopHistoryReader()
+  }
+
+  Timer {
+    id: historyForceStopDelay
+    interval: 500
+    repeat: false
+    onTriggered: if (historyReader.running) historyReader.signal(9)
+  }
+
+  Component.onDestruction: root.stopHistoryReader()
 
   Row {
     anchors.top: parent.top

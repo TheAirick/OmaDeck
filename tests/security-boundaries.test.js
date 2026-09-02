@@ -132,12 +132,83 @@ test("long-running QML consumers retain only bounded output prefixes", () => {
   const parser = source("components/BoundedOutputParser.qml")
   const weather = source("services/WeatherController.qml")
   const system = source("modules/SystemModule.qml")
+  const audio = source("modules/AudioMixerModule.qml")
+  const notifications = source("modules/NotificationCenterModule.qml")
 
   assert.match(parser, /splitMarker: ""/)
   assert.match(parser, /property int maxBytes:/)
   assert.match(parser, /property bool truncated:/)
   assert.match(weather, /stdout: BoundedOutputParser/)
   assert.match(system, /stdout: BoundedOutputParser/)
+  assert.match(audio, /id: sinkResolver[\s\S]*stdout: BoundedOutputParser/)
+  assert.match(audio, /maxBytes: 4096/)
+  assert.match(notifications, /id: historyReader[\s\S]*stdout: BoundedOutputParser/)
+  assert.match(notifications, /maxBytes: 128 \* 1024/)
   assert.doesNotMatch(weather, /stdout: StdioCollector/)
   assert.doesNotMatch(system, /stdout: StdioCollector/)
+  assert.doesNotMatch(audio, /stdout: StdioCollector/)
+  assert.doesNotMatch(notifications, /stdout: StdioCollector/)
+})
+
+test("recurring audio and notification producers have external deadlines and QML backstops", () => {
+  const audio = source("modules/AudioMixerModule.qml")
+  const notifications = source("modules/NotificationCenterModule.qml")
+
+  assert.match(audio, /"\/usr\/bin\/env", "PATH=\/usr\/bin:\/usr\/share\/omarchy\/bin"/)
+  assert.match(audio, /"\/usr\/bin\/timeout", "--signal=TERM", "--kill-after=1s", "2s"/)
+  assert.match(audio, /"\/usr\/bin\/omarchy-audio-output-sink"/)
+  assert.match(audio, /id: sinkLifecycleBackstop/)
+  assert.match(audio, /sinkResolver\.signal\(9\)/)
+  assert.match(notifications, /"\/usr\/bin\/timeout", "--signal=TERM", "--kill-after=1s", "2s"/)
+  assert.match(notifications, /scripts\/notification-history/)
+  assert.match(notifications, /id: historyLifecycleBackstop/)
+  assert.match(notifications, /historyReader\.signal\(9\)/)
+})
+
+test("keep-loaded QML launches only absolute executable paths", () => {
+  const trackedQml = spawnSync("git", ["ls-files", "*.qml"], {
+    cwd: root,
+    encoding: "utf8",
+  }).stdout.trim().split("\n").filter(Boolean)
+  const bareExecutables = /(?:command:\s*|\.command\s*=\s*|execDetached\s*\()\[\s*"(?!\/)([^"\n]+)"/
+
+  for (const relative of trackedQml) {
+    const contents = source(relative)
+    assert.doesNotMatch(contents, bareExecutables, `${relative} launches a bare executable`)
+  }
+})
+
+test("notification history helper enforces file, byte, and directory cardinality bounds", t => {
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "omadeck-notifications-"))
+  const history = path.join(temporary, "history")
+  fs.mkdirSync(history, { mode: 0o700 })
+  t.after(() => fs.rmSync(temporary, { recursive: true, force: true }))
+
+  for (let index = 1; index <= 20; index++) {
+    fs.writeFileSync(path.join(history, `${index}-1.json`), JSON.stringify({
+      app: "Test",
+      summary: `Row ${index}`,
+      timestamp: index,
+      originalId: index,
+    }), { mode: 0o600 })
+  }
+  fs.symlinkSync(path.join(history, "20-1.json"), path.join(history, "999-1.json"))
+  fs.writeFileSync(path.join(history, "1000-1.json"), "x".repeat(65 * 1024), { mode: 0o600 })
+
+  const helper = path.join(root, "scripts/notification-history")
+  const result = spawnSync(helper, [history], { encoding: "utf8", timeout: 2000 })
+  assert.equal(result.status, 0, result.stderr)
+  const rows = result.stdout.trim().split("\n").filter(Boolean).map(JSON.parse)
+  assert.equal(rows.length, 10)
+  assert.deepEqual(rows.map(row => row.timestamp), [20, 19, 18, 17, 16, 15, 14, 13, 12, 11])
+  assert.ok(Buffer.byteLength(result.stdout) <= 128 * 1024)
+
+  const crowded = path.join(temporary, "crowded")
+  fs.mkdirSync(crowded, { mode: 0o700 })
+  for (let index = 0; index <= 256; index++)
+    fs.writeFileSync(path.join(crowded, `noise-${index}`), "", { mode: 0o600 })
+  const crowdedResult = spawnSync(helper, [crowded], { encoding: "utf8", timeout: 2000 })
+  assert.equal(crowdedResult.status, 1)
+  assert.equal(crowdedResult.stdout, "")
+  assert.match(crowdedResult.stderr, /entry limit exceeded/)
 })

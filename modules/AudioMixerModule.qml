@@ -4,6 +4,7 @@ import Quickshell.Io
 import Quickshell.Services.Pipewire
 import qs.Commons
 import qs.Ui
+import "../components"
 import "AudioModel.js" as AudioModel
 
 Item {
@@ -95,7 +96,17 @@ Item {
     }
   }
   function refreshStreams() { displayStreams = liveStreams.slice() }
+  function validSinkName(value) {
+    var candidate = String(value || "").trim()
+    return /^[A-Za-z0-9_.:-]{1,256}$/.test(candidate) ? candidate : ""
+  }
   function resolveVolumeSink() { if (!sinkResolver.running) sinkResolver.running = true }
+  function stopSinkResolver() {
+    sinkLifecycleBackstop.stop()
+    if (!sinkResolver.running) return
+    sinkResolver.running = false
+    sinkForceStopDelay.restart()
+  }
   onLiveStreamsChanged: snapshotTimer.restart()
   onDefaultSinkChanged: resolveVolumeSink()
   Component.onCompleted: { refreshStreams(); resolveVolumeSink() }
@@ -111,9 +122,41 @@ Item {
   Timer { interval: 5000; running: true; repeat: true; onTriggered: root.resolveVolumeSink() }
   Process {
     id: sinkResolver
-    command: ["omarchy-audio-output-sink"]
-    stdout: StdioCollector { onStreamFinished: root.volumeSinkName = text.trim() }
+    command: ["/usr/bin/env", "PATH=/usr/bin:/usr/share/omarchy/bin",
+              "/usr/bin/timeout", "--signal=TERM", "--kill-after=1s", "2s",
+              "/usr/bin/omarchy-audio-output-sink"]
+    stdout: BoundedOutputParser {
+      id: sinkOutput
+      maxBytes: 4096
+    }
+    onStarted: {
+      sinkOutput.reset()
+      sinkLifecycleBackstop.restart()
+    }
+    onExited: function(exitCode) {
+      sinkLifecycleBackstop.stop()
+      sinkForceStopDelay.stop()
+      var resolved = exitCode === 0 && !sinkOutput.truncated
+        ? root.validSinkName(sinkOutput.text) : ""
+      if (resolved !== "") root.volumeSinkName = resolved
+    }
   }
+
+  Timer {
+    id: sinkLifecycleBackstop
+    interval: 3 * 1000
+    repeat: false
+    onTriggered: root.stopSinkResolver()
+  }
+
+  Timer {
+    id: sinkForceStopDelay
+    interval: 500
+    repeat: false
+    onTriggered: if (sinkResolver.running) sinkResolver.signal(9)
+  }
+
+  Component.onDestruction: root.stopSinkResolver()
 
   component VerticalVolume: Item {
     id: volumeControl

@@ -38,7 +38,7 @@ def fetch_json(url: str) -> dict[str, Any]:
         raise ValueError("weather providers must use HTTPS")
     request = urllib.request.Request(
         url,
-        headers={"Accept": "application/json", "User-Agent": "OmaDeck/0.7.1"},
+        headers={"Accept": "application/json", "User-Agent": "OmaDeck/0.7.2"},
         method="GET",
     )
     with urllib.request.urlopen(request, timeout=remaining_timeout()) as response:
