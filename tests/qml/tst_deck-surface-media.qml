@@ -50,6 +50,7 @@ TestCase {
       shell: shellFixture,
       layoutController: layoutFixture,
       appearanceController: appearanceFixture,
+      launcherController: launcherFixture,
       weatherController: weatherFixture,
       timerController: timerFixture
     })
@@ -100,23 +101,25 @@ TestCase {
     mouseClick(item, item.width / 2, item.height / 2)
   }
 
-  function test_leftDrawerUsesTwoPersistentCards() {
+  function test_nowPlayingIsStaticAndLeftDrawerOwnsOnlyVolume() {
     var deck = createDeck()
     deck.setOpenDrawer("left", "test")
     wait(260)
 
-    var left = findChild(deck, "leftMediaDrawer")
+    var left = findChild(deck, "leftVolumeDrawer")
     var right = findChild(deck, "rightSystemDrawer")
-    var top = findChild(deck, "topWorkspaceDrawer")
-    var bottom = findChild(deck, "bottomLauncherDrawer")
+    var notifications = findChild(deck, "notificationCenterOverlay")
+    var overview = findChild(deck, "omadeckOverviewOverlay")
     var center = findChild(deck, "deckCenterCanvas")
+    var media = findChild(deck, "staticMediaPanel")
     var nowPlayingCard = findChild(deck, "nowPlayingPanelCard")
     var mixerCard = findChild(deck, "audioMixerPanelCard")
     verify(left !== null)
     verify(right !== null)
-    verify(top !== null)
-    verify(bottom !== null)
+    verify(notifications !== null)
+    verify(overview !== null)
     verify(center !== null)
+    verify(media !== null)
     verify(nowPlayingCard !== null)
     verify(mixerCard !== null)
 
@@ -126,33 +129,100 @@ TestCase {
     verify(left.dismissInset > 0)
     compare(right.framed, true)
     verify(right.border.width > 0)
-    compare(top.framed, true)
-    compare(bottom.framed, true)
-    verify(top.border.width > 0)
-    verify(bottom.border.width > 0)
+    compare(notifications.open, false)
+    compare(overview.open, false)
 
-    compare(nowPlayingCard.parent, mixerCard.parent)
+    verify(nowPlayingCard.parent !== mixerCard.parent)
     verify(nowPlayingCard.parent !== left)
+    verify(mixerCard.parent !== media)
     verify(nowPlayingCard.visible)
     verify(mixerCard.visible)
     compare(nowPlayingCard.y, mixerCard.y)
     compare(nowPlayingCard.height, mixerCard.height)
-    verify(mixerCard.x + mixerCard.width < nowPlayingCard.x)
-    compare(nowPlayingCard.x - mixerCard.x - mixerCard.width, left.content[0].panelGap)
-    verify(nowPlayingCard.x + nowPlayingCard.width <= left.width - left.dismissInset)
+    var mixerBounds = rectIn(mixerCard, deck)
+    var nowPlayingBounds = rectIn(nowPlayingCard, deck)
+    compare(nowPlayingBounds.x - (mixerBounds.x + mixerBounds.width), deck.innerGap)
+    compare(nowPlayingCard.width, deck.staticMediaWidth)
     verify(mixerCard.y + mixerCard.height <= left.height)
 
     compare(deck.reservedLeft, deck.leftDrawerWidth + deck.innerGap)
-    compare(center.x, deck.outerGap + deck.reservedLeft)
-    compare(center.width, deck.usableWidth - deck.reservedLeft)
+    compare(center.x, deck.outerGap + deck.staticMediaReserve + deck.reservedLeft)
+    compare(center.width, deck.usableWidth - deck.staticMediaReserve - deck.reservedLeft)
   }
 
-  function test_mediaCardsUseOneTokenGapBeforeCenterWithoutChangingOtherGaps() {
+  function test_verticalOverlaysPreserveCenterGeometryAndHorizontalDrawers() {
+    var deck = createDeck()
+    var center = findChild(deck, "deckCenterCanvas")
+    var notifications = findChild(deck, "notificationCenterOverlay")
+    var overview = findChild(deck, "omadeckOverviewOverlay")
+    verify(center !== null && notifications !== null && overview !== null)
+    deck.setOpenDrawer("left", "test:before-overlay")
+    wait(260)
+    verify(deck.reservedLeft > 0)
+    var underlyingCenter = rectIn(center, deck)
+    var underlyingMedia = rectIn(findChild(deck, "nowPlayingPanelCard"), deck)
+    deck.openOverlay("notifications")
+    wait(280)
+    compare(deck.openDrawer, "left")
+    compare(deck.openOverlayName, "notifications")
+    compare(deck.reservedTop, 0)
+    compare(deck.reservedBottom, 0)
+    compare(JSON.stringify(rectIn(center, deck)), JSON.stringify(underlyingCenter))
+    compare(JSON.stringify(rectIn(findChild(deck, "nowPlayingPanelCard"), deck)), JSON.stringify(underlyingMedia))
+    compare(notifications.y, 0)
+
+    deck.openOverlay("overview")
+    wait(280)
+    compare(deck.openDrawer, "left")
+    compare(deck.openOverlayName, "overview")
+    compare(JSON.stringify(rectIn(center, deck)), JSON.stringify(underlyingCenter))
+    compare(overview.y, 0)
+
+    deck.closeOverlay()
+    wait(280)
+    compare(deck.openDrawer, "left")
+    compare(deck.openOverlayName, "")
+    compare(JSON.stringify(rectIn(center, deck)), JSON.stringify(underlyingCenter))
+  }
+
+  function test_commandCenterApplicationsPageEditsPersistentOrder() {
+    launcherFixture.reset()
+    var deck = createDeck()
+    wait(100)
+    var page = findChild(deck, "commandCenterApplicationsPage")
+    var applicationsButton = findByProperty(deck, "label", "Applications")
+    verify(page !== null && applicationsButton !== null)
+    compare(page.visible, false)
+
+    clickItem(deck, applicationsButton)
+    wait(100)
+    compare(page.visible, true)
+    compare(page.entries.length, 3)
+    verify(findChild(page, "launcherEntry-terminal") !== null)
+
+    page.beginEditing("browser")
+    page.moveSelected(-1)
+    compare(JSON.stringify(launcherFixture.entryIds), JSON.stringify(["browser", "terminal", "files"]))
+    page.removeSelected()
+    compare(JSON.stringify(launcherFixture.entryIds), JSON.stringify(["terminal", "files"]))
+    page.catalogOpen = true
+    page.activate(launcherFixture.entryForId("browser"))
+    compare(JSON.stringify(launcherFixture.entryIds), JSON.stringify(["terminal", "files", "browser"]))
+
+    page.catalogOpen = false
+    page.finishEditing()
+    page.backRequested()
+    wait(0)
+    compare(page.visible, false)
+    compare(deck.commandCenterPage, "home")
+  }
+
+  function test_volumeNowPlayingAndCenterUseOneTokenGaps() {
     var deck = createDeck()
     deck.setOpenDrawer("left", "test:geometry")
     wait(260)
 
-    var left = findChild(deck, "leftMediaDrawer")
+    var left = findChild(deck, "leftVolumeDrawer")
     var center = findChild(deck, "deckCenterCanvas")
     var nowPlayingCard = findChild(deck, "nowPlayingPanelCard")
     var mixerCard = findChild(deck, "audioMixerPanelCard")
@@ -174,15 +244,15 @@ TestCase {
     compare(mixerBounds.x, leftBounds.x, "Mixer owns the far-left strip")
     compare(nowPlayingBounds.x - (mixerBounds.x + mixerBounds.width), deck.innerGap,
       "Mixer-to-Now Playing gap")
-    compare(mixerBounds.width + deck.innerGap + nowPlayingBounds.width,
-      deck.leftDrawerWidth, "sibling cards fill the Media width")
+    compare(mixerBounds.width, deck.leftDrawerWidth, "Volume fills its drawer width")
+    compare(nowPlayingBounds.width, deck.staticMediaWidth, "Now Playing retains its static width")
     compare(left.dismissInset, deck.innerGap, "the extra carrier strip owns dismissal")
-    verify(leftBounds.x + leftBounds.width - (nowPlayingBounds.x + nowPlayingBounds.width) > 0,
-      "dismissal strip must be outside card controls")
+    compare(leftBounds.x + leftBounds.width, nowPlayingBounds.x,
+      "the dismissal strip must end where static Now Playing begins")
     verify(Math.abs(clockBounds.x - (nowPlayingBounds.x + nowPlayingBounds.width) - deck.innerGap) <= 0.5,
-      "Media-to-center gap must be exactly one innerGap")
+      "Now Playing-to-center gap must be exactly one innerGap")
 
-    compare(mixerBounds.height, nowPlayingBounds.height, "both Media cards span the deck height")
+    compare(mixerBounds.height, nowPlayingBounds.height, "Volume and Now Playing span the deck height")
     compare(companionBounds.y - (clockBounds.y + clockBounds.height), deck.innerGap,
       "Clock-to-Weather gap")
     compare(commandBounds.x - (clockBounds.x + clockBounds.width), deck.innerGap,
@@ -191,7 +261,7 @@ TestCase {
       "Command Center right edge")
   }
 
-  function test_scaledDeckRedistributesCommandSpaceToMediaAndWeather() {
+  function test_scaledDeckKeepsStaticMediaAndFullSizeCenterControls() {
     var deck = createDeck(1600, 450)
     deck.setOpenDrawer("left", "test:scaled-balance")
     wait(260)
@@ -210,8 +280,8 @@ TestCase {
     verify(center !== null && nowPlayingCard !== null && mixerCard !== null)
     verify(clockCard !== null && commandCard !== null && command !== null && weather !== null)
 
-    compare(deck.leftDrawerWidth, Math.round(deck.usableWidth * 0.34))
-    compare(mixerCard.width + deck.innerGap + nowPlayingCard.width, deck.leftDrawerWidth)
+    compare(mixerCard.width, deck.leftDrawerWidth)
+    compare(nowPlayingCard.width, deck.staticMediaWidth)
     verify(mixerCard.width < nowPlayingCard.width, "collapsed Volume stays a narrow strip")
     compare(mixerCard.height, deck.usableHeight)
     compare(nowPlayingCard.height, deck.usableHeight)
@@ -246,7 +316,7 @@ TestCase {
     var deck = createDeck()
     deck.setOpenDrawer("left", "test:strip")
     wait(260)
-    var left = findChild(deck, "leftMediaDrawer")
+    var left = findChild(deck, "leftVolumeDrawer")
     var reverseSwipe = findByProperty(left, "reverse", true)
     verify(reverseSwipe !== null)
     compare(reverseSwipe.width, left.dismissInset)
@@ -265,14 +335,14 @@ TestCase {
     var deck = createDeck()
     deck.setOpenDrawer("left", "test:pointer-close")
     wait(260)
-    var left = findChild(deck, "leftMediaDrawer")
-    var nowPlayingCard = findChild(deck, "nowPlayingPanelCard")
+    var left = findChild(deck, "leftVolumeDrawer")
+    var mixerCard = findChild(deck, "audioMixerPanelCard")
     var closeButton = findByProperty(left, "tooltipText", "Close drawer")
-    verify(left !== null && nowPlayingCard !== null && closeButton !== null)
+    verify(left !== null && mixerCard !== null && closeButton !== null)
     left.pointerRevealed = true
     wait(0)
 
-    var cardBounds = rectIn(nowPlayingCard, deck)
+    var cardBounds = rectIn(mixerCard, deck)
     var buttonBounds = rectIn(closeButton, deck)
     var carrierBounds = rectIn(left, deck)
     verify(buttonBounds.x >= cardBounds.x + cardBounds.width,
@@ -289,8 +359,7 @@ TestCase {
     mediaFixture.actions = []
     playerFixture.seeks = []
     var deck = createDeck()
-    deck.setOpenDrawer("left", "test:pointer")
-    wait(260)
+    wait(100)
     var presenter = findChild(deck, "nowPlayingPresenter")
     verify(presenter !== null)
 
@@ -323,8 +392,9 @@ TestCase {
     wait(300)
     compare(mixer.compact, false)
     compare(mixer.displayStreams.length, 4)
-    verify(deck.leftDrawerWidth >= Math.round(deck.usableWidth * 0.48),
-      "expanding Volume must reserve horizontal room for its revealed controls")
+    verify(deck.leftDrawerWidth > collapsedDrawerWidth,
+      "expanding Volume must reserve room for its revealed controls")
+    verify(deck.leftDrawerWidth <= Math.round(deck.usableWidth * 0.46))
     var output = findChild(mixer, "verticalVolume:output")
     var microphone = findChild(mixer, "verticalVolume:mic")
     var media = findChild(mixer, "verticalVolume:media")
@@ -404,9 +474,9 @@ TestCase {
     verify(mixer !== null && mixerCard !== null && nowPlayingCard !== null)
     compare(mixer.activeCategoryCount, 4)
     compare(mixer.expandedSliderCount, 6)
-    verify(deck.leftDrawerWidth <= Math.round(deck.usableWidth * 0.62))
-    verify(nowPlayingCard.width >= 360,
-      "expanded Volume must leave a usable Now Playing card")
+    verify(deck.leftDrawerWidth <= Math.round(deck.usableWidth * 0.46))
+    compare(nowPlayingCard.width, deck.staticMediaWidth,
+      "expanded Volume must not resize static Now Playing")
 
     for (var controlId of ["output", "mic", "media", "games", "voice", "other"]) {
       var control = findChild(mixer, "verticalVolume:" + controlId)
@@ -425,8 +495,7 @@ TestCase {
   function test_narrowNowPlayingHandlesNoPlayerAndLongMetadata() {
     mediaFixture.activePlayer = null
     var deck = createDeck(1600, 450)
-    deck.setOpenDrawer("left", "test:no-player")
-    wait(300)
+    wait(100)
 
     var presenter = findChild(deck, "nowPlayingPresenter")
     var nowPlayingCard = findChild(deck, "nowPlayingPanelCard")
@@ -465,7 +534,7 @@ TestCase {
   function test_twentyLifecycleAndDrawerCyclesKeepOnePresenterPerPanel() {
     var deck = createDeck()
     deck.layoutController = layoutFixture
-    var host = findChild(deck, "mediaPanelHost")
+    var host = findChild(deck, "staticMediaPanel")
     var presenter = findChild(deck, "nowPlayingPresenter")
     var mixer = findChild(deck, "audioMixerPresenter")
     var positionTimers = []
@@ -491,7 +560,7 @@ TestCase {
       mediaFixture.activePlayer = cycle % 2 === 0 ? playerFixture : null
       Pw.Pipewire.nodes.values = cycle % 2 === 0 ? fixtureStreams : []
       wait(120)
-      compare(findChild(deck, "mediaPanelHost"), host)
+      compare(findChild(deck, "staticMediaPanel"), host)
       compare(findChild(deck, "nowPlayingPresenter"), presenter)
       compare(findChild(deck, "audioMixerPresenter"), mixer)
       compare(mixer.displayStreams.length, cycle % 2 === 0 ? 4 : 0)
@@ -499,7 +568,7 @@ TestCase {
 
     deck.setOpenDrawer("left", "test:dismiss")
     wait(230)
-    var left = findChild(deck, "leftMediaDrawer")
+    var left = findChild(deck, "leftVolumeDrawer")
     verify(left !== null)
     left.dismissRequested()
     wait(260)
@@ -606,6 +675,38 @@ TestCase {
     property string weatherStyle: "scene"
     property string weatherDetail: "standard"
     property string temperatureUnit: "fahrenheit"
+  }
+
+  QtObject {
+    id: launcherFixture
+    property int revision: 0
+    property var entryIds: ["terminal", "browser", "files"]
+    property var catalog: [
+      { id: "terminal", kind: "application", desktopId: "terminal", name: "Terminal", iconText: "T", classes: ["terminal"] },
+      { id: "browser", kind: "application", desktopId: "browser", name: "Browser", iconText: "B", classes: ["browser"] },
+      { id: "files", kind: "application", desktopId: "files", name: "Files", iconText: "F", classes: ["files"] },
+      { id: "lock", kind: "shortcut", action: "lock", name: "Lock", iconText: "L" }
+    ]
+    function reset() { entryIds = ["terminal", "browser", "files"]; revision++ }
+    function entryForId(id) {
+      for (var index = 0; index < catalog.length; index++) if (catalog[index].id === id) return catalog[index]
+      return null
+    }
+    function entries() { return entryIds.map(function(id) { return entryForId(id) }) }
+    function availableEntries() { return catalog.filter(function(entry) { return entryIds.indexOf(entry.id) === -1 }) }
+    function add(id) { if (entryIds.indexOf(id) === -1) entryIds = entryIds.concat([id]); revision++ }
+    function remove(id) { entryIds = entryIds.filter(function(value) { return value !== id }); revision++ }
+    function move(id, delta) {
+      var from = entryIds.indexOf(id)
+      var to = from + delta
+      if (from < 0 || to < 0 || to >= entryIds.length) return
+      var next = entryIds.slice()
+      var temporary = next[from]
+      next[from] = next[to]
+      next[to] = temporary
+      entryIds = next
+      revision++
+    }
   }
 
   QtObject {

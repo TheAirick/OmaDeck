@@ -10,6 +10,7 @@ Item {
   property var deck: null
   property var shell: null
   property var appearanceController: null
+  property var launcherController: null
   property var weatherController: null
   property var timerController: null
   property string primaryMonitor: "DP-1"
@@ -27,7 +28,7 @@ Item {
     : moduleId
   readonly property string moduleSubtitle: moduleId === "clock" ? "DP-3 · edge workspace"
     : moduleId === "workspaces" ? "Tap to focus on " + primaryMonitor
-    : moduleId === "command-center" ? "Swipe from any edge"
+    : moduleId === "command-center" ? "Pages & edge controls"
     : ""
 
   z: moduleDrag.active ? 50 : 1
@@ -140,5 +141,15 @@ Item {
     }
   }
   Component { id: workspaceComponent; WorkspaceModule { compact: true; primaryMonitor: root.primaryMonitor } }
-  Component { id: commandComponent; CommandCenterModule { deck: root.deck; controller: root.controller } }
+  Component {
+    id: commandComponent
+    CommandCenterModule {
+      deck: root.deck
+      controller: root.controller
+      shell: root.shell
+      launcherController: root.launcherController
+      pluginDir: root.deck ? root.deck.pluginDir : ""
+      primaryMonitor: root.primaryMonitor
+    }
+  }
 }

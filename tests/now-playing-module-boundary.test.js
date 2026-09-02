@@ -94,26 +94,25 @@ test("NowPlayingModule owns the compact full-height player presentation", () => 
   }
 })
 
-test("MediaModule places a full-height narrow mixer to the left of Now Playing", () => {
+test("Now Playing is static while Volume owns the left drawer", () => {
   const mediaModule = source("modules/MediaModule.qml")
+  const volumeModule = source("modules/VolumeModule.qml")
   const deckSurface = source("components/DeckSurface.qml")
 
   assert.equal((mediaModule.match(/NowPlayingModule\s*\{/g) || []).length, 1)
-  assert.equal((mediaModule.match(/AudioMixerModule\s*\{/g) || []).length, 1)
-  assert.equal((mediaModule.match(/DeckCard\s*\{/g) || []).length, 2)
-  assert.doesNotMatch(mediaModule, /text:\s*"Media"/)
-  assert.match(mediaModule, /readonly property int panelGap:\s*Style\.spacing\.panelGap/)
-  assert.match(mediaModule, /readonly property bool mixerExpanded:\s*!mixer\.compact/)
-  assert.match(mediaModule, /readonly property real mixerCardWidth:/)
-  assert.match(mediaModule, /readonly property real preferredDrawerWidth:/)
+  assert.equal((mediaModule.match(/AudioMixerModule\s*\{/g) || []).length, 0)
+  assert.equal((mediaModule.match(/DeckCard\s*\{/g) || []).length, 1)
   assert.match(mediaModule, /objectName:\s*"nowPlayingPanelCard"[\s\S]*title:\s*"Now Playing"[\s\S]*NowPlayingModule\s*\{/)
-  assert.match(mediaModule, /objectName:\s*"audioMixerPanelCard"[\s\S]*title:\s*"Volume"[\s\S]*AudioMixerModule\s*\{/)
-  assert.match(mediaModule, /id:\s*mixerCard[\s\S]*height:\s*parent\.height/)
-  assert.match(mediaModule, /id:\s*nowPlayingCard[\s\S]*x:\s*root\.mixerCardWidth \+ root\.panelGap[\s\S]*height:\s*parent\.height/)
-  assert.match(mediaModule, /function setMixerCompact\(compact\) \{ mixer\.compact = compact \}/)
-  assert.match(mediaModule, /function setMixerCategory\(category\)/)
-  assert.match(deckSurface, /expandedLeftDrawerWidth:/)
-  assert.match(deckSurface, /leftDrawerWidth:\s*mediaDrawer\.mixerExpanded \? expandedLeftDrawerWidth : collapsedLeftDrawerWidth/)
+  assert.equal((volumeModule.match(/AudioMixerModule\s*\{/g) || []).length, 1)
+  assert.equal((volumeModule.match(/NowPlayingModule\s*\{/g) || []).length, 0)
+  assert.match(volumeModule, /objectName:\s*"audioMixerPanelCard"[\s\S]*title:\s*"Volume"[\s\S]*AudioMixerModule\s*\{/)
+  assert.match(volumeModule, /readonly property real preferredDrawerWidth:/)
+  assert.match(volumeModule, /function setMixerCompact\(compact\) \{ mixer\.compact = compact \}/)
+  assert.match(volumeModule, /function setMixerCategory\(category\)/)
+  assert.match(deckSurface, /MediaModule\s*\{\s*id:\s*staticMedia/)
+  assert.match(deckSurface, /VolumeModule\s*\{\s*id:\s*volumeDrawer/)
+  assert.match(deckSurface, /readonly property int staticMediaWidth:/)
+  assert.match(deckSurface, /reservedLeft:\s*root\.staticMediaReserve \+ root\.reservedLeft/)
 })
 
 const qmlTestRunner = "/usr/lib/qt6/bin/qmltestrunner"

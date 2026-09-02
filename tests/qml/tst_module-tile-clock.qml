@@ -283,8 +283,8 @@ TestCase {
       { tag: "closed-036", width: 530, height: 380 },
       { tag: "left-036", width: 329, height: 380 },
       { tag: "right-036", width: 329, height: 380 },
-      { tag: "top-036", width: 530, height: 288 },
-      { tag: "bottom-036", width: 530, height: 250 },
+      { tag: "notifications-overlay-036", width: 530, height: 380 },
+      { tag: "overview-overlay-036", width: 530, height: 380 },
       { tag: "closed-044", width: 660, height: 380 }
     ]
   }

@@ -55,9 +55,11 @@ test("a topology revision replaces child component types in both directions", ()
   const loadChild = extractFunction("loadChild", { root, Qt })
   const loader = {
     nodePath: "first",
+    loadedComponent: "",
     setSource: source => loadedSources.push(source),
   }
 
+  loadChild(loader)
   loadChild(loader)
   nodes.first = {
     type: "split",
@@ -83,18 +85,25 @@ test("revision handling is safe before child loaders finish construction", () =>
   assert.doesNotThrow(() => loadChild(null))
 })
 
-test("every revision reloads both child boundaries", () => {
+test("initial construction loads once and later revisions coalesce while children incubate", () => {
   assert.match(
     splitNodeSource,
     /function reloadChildren\(\)[\s\S]*loadChild\(firstLoader\)[\s\S]*loadChild\(secondLoader\)/,
   )
-  assert.match(splitNodeSource, /onObservedRevisionChanged:\s*root\.reloadChildren\(\)/)
+  assert.match(splitNodeSource, /onObservedRevisionChanged:\s*root\.requestReload\(\)/)
+  assert.match(splitNodeSource, /function requestReload\(\)[\s\S]*loadersBusy\(\)[\s\S]*reloadPending = true/)
+  assert.match(splitNodeSource, /function finishPendingReload\(\)[\s\S]*Qt\.callLater\(root\.requestReload\)/)
+  assert.equal((splitNodeSource.match(/onStatusChanged:\s*root\.finishPendingReload\(\)/g) || []).length, 2)
+  assert.match(splitNodeSource, /Component\.onCompleted:\s*\{[\s\S]*childrenInitialized = true[\s\S]*reloadChildren\(\)/)
+  assert.equal((splitNodeSource.match(/Component\.onCompleted:/g) || []).length, 1)
+  assert.match(splitNodeSource, /if \(loader\.loadedComponent === file\) return/)
+  assert.equal((splitNodeSource.match(/property string loadedComponent:\s*""/g) || []).length, 2)
 })
 
 test("the validated split root remains explicit", () => {
   assert.match(
     deckSurfaceSource,
-    /DeckCenter \{[\s\S]*reservedLeft:\s*root\.reservedLeft[\s\S]*reservedRight:\s*root\.reservedRight[\s\S]*reservedTop:\s*root\.reservedTop[\s\S]*reservedBottom:\s*root\.reservedBottom[\s\S]*layoutController:\s*root\.layoutController/,
+    /DeckCenter \{[\s\S]*reservedLeft:\s*root\.staticMediaReserve \+ root\.reservedLeft[\s\S]*reservedRight:\s*root\.reservedRight[\s\S]*reservedTop:\s*root\.reservedTop[\s\S]*reservedBottom:\s*root\.reservedBottom[\s\S]*layoutController:\s*root\.layoutController/,
   )
   assert.match(
     deckCenterSource,

@@ -20,6 +20,7 @@ Item {
     return resolved.replace(/^file:\/\//, "").replace(/\/$/, "")
   }
   readonly property var targetScreens: {
+    if (!layoutStore.loaded) return []
     var screens = Quickshell.screens || []
     var matches = []
     for (var i = 0; i < screens.length; i++) {
@@ -42,6 +43,10 @@ Item {
 
   AppearanceController {
     id: appearanceStore
+  }
+
+  LauncherController {
+    id: launcherStore
   }
 
   TimerController {
@@ -70,8 +75,22 @@ Item {
         root.activeSurface.toggleDrawer(edge)
     }
 
+    function overlay(name: string): void {
+      if (!root.activeSurface) return
+      if (["notifications", "overview"].indexOf(name) !== -1)
+        root.activeSurface.openOverlay(name)
+    }
+
+    function page(name: string): void {
+      if (root.activeSurface) root.activeSurface.setCommandCenterPage(name)
+    }
+
     function closeDrawer(): void {
       if (root.activeSurface) root.activeSurface.closeDrawer()
+    }
+
+    function closeOverlay(): void {
+      if (root.activeSurface) root.activeSurface.closeOverlay()
     }
 
     function drawerState(): string {
@@ -236,6 +255,7 @@ Item {
       touchDeviceNames: root.touchDeviceNames
       layoutController: layoutStore
       appearanceController: appearanceStore
+      launcherController: launcherStore
       weatherController: weatherStore
       timerController: timerStore
     }

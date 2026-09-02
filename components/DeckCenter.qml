@@ -15,6 +15,7 @@ Item {
   property real reservedBottom: 0
   property var layoutController: null
   property var appearanceController: null
+  property var launcherController: null
   property var weatherController: null
   property var timerController: null
   property var deck: null
@@ -43,6 +44,7 @@ Item {
     shell: root.shell
     primaryMonitor: root.primaryMonitor
     appearanceController: root.appearanceController
+    launcherController: root.launcherController
     weatherController: root.weatherController
     timerController: root.timerController
   }

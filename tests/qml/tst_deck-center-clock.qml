@@ -20,8 +20,8 @@ TestCase {
       "": [0, 0, 0, 0],
       left: [682, 0, 0, 0],
       right: [0, 555, 0, 0],
-      top: [0, 0, 92, 0],
-      bottom: [0, 0, 0, 130]
+      notifications: [0, 0, 0, 0],
+      overview: [0, 0, 0, 0]
     }[drawer]
     layoutController.drawerState = drawer
     var center = createTemporaryObject(deckCenterComponent, testCase, {
@@ -86,7 +86,7 @@ TestCase {
   function test_reservationsUseRealSplitNode_data() {
     var rows = []
     for (var drawerIndex = 0; drawerIndex < 5; drawerIndex++) {
-      var drawer = ["", "left", "right", "top", "bottom"][drawerIndex]
+      var drawer = ["", "left", "right", "notifications", "overview"][drawerIndex]
       rows.push({ tag: (drawer || "closed") + "-clock-first-guard", drawer: drawer,
         clockFirst: true, ratio: 0.30, effectiveRatio: 0.5, clockFraction: 0.5 })
       rows.push({ tag: (drawer || "closed") + "-clock-first-saved", drawer: drawer,
@@ -141,8 +141,8 @@ TestCase {
     compare(layoutController.savedRatio, data.savedRatio)
   }
 
-  function test_bottomReservationKeepsTransformedTargetsAtLeast48() {
-    var center = makeCenter("bottom", true, 0.30)
+  function test_verticalOverlayKeepsFullHeightTargetsAtLeast48() {
+    var center = makeCenter("overview", true, 0.30)
     var stateBefore = persistentSnapshot()
     var clock = findChild(center, "compactClock")
     var timer = findChild(center, "timerPresenter")

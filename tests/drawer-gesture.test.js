@@ -14,6 +14,7 @@ const DrawerGesture = vm.runInNewContext(`${gestureSource}\n;({
 const deckSource = fs.readFileSync(path.join(__dirname, "../components/DeckSurface.qml"), "utf8")
 const centerSource = fs.readFileSync(path.join(__dirname, "../components/DeckCenter.qml"), "utf8")
 const drawerSource = fs.readFileSync(path.join(__dirname, "../components/EdgeDrawer.qml"), "utf8")
+const overlaySource = fs.readFileSync(path.join(__dirname, "../components/DeckOverlay.qml"), "utf8")
 
 test("opening another drawer replaces the current drawer", () => {
   assert.equal(DrawerGesture.toggleDrawer("left", "right"), "right")
@@ -49,14 +50,17 @@ test("short and wrong-direction gestures do not trigger", () => {
   assert.equal(DrawerGesture.shouldTrigger("unknown", false, 100, 100, 42), false)
 })
 
-test("drawer integration keeps center taps and drawer content outside dismissal handling", () => {
+test("drawers and overlays keep content outside dismissal handling", () => {
   assert.doesNotMatch(deckSource, /onTapped:\s*if \(root\.openDrawer !== ""\) root\.closeDrawer\(\)/)
-  assert.equal((deckSource.match(/onDismissRequested:\s*root\.dismissDrawer\(edge\)/g) || []).length, 4)
+  assert.equal((deckSource.match(/onDismissRequested:\s*root\.dismissDrawer\(edge\)/g) || []).length, 2)
+  assert.equal((deckSource.match(/onDismissRequested:\s*root\.closeOverlay\(\)/g) || []).length, 2)
   assert.match(drawerSource, /reverse:\s*true/)
   assert.match(drawerSource, /gestureThickness:\s*root\.dismissInset/)
+  assert.match(overlaySource, /reverse:\s*true/)
+  assert.match(overlaySource, /gestureThickness:\s*Style\.space\(30\)/)
 })
 
-test("only the left media drawer opts into a frameless carrier", () => {
+test("only the left Volume drawer opts into a frameless carrier", () => {
   assert.match(drawerSource, /property bool framed:\s*true/)
   assert.match(drawerSource, /color:\s*root\.framed \? Color\.popups\.background : "transparent"/)
   assert.match(drawerSource, /borderSpec:\s*root\.framed[\s\S]*Border\.none\(\)/)
@@ -64,8 +68,9 @@ test("only the left media drawer opts into a frameless carrier", () => {
   assert.match(drawerSource, /rightPadding:\s*root\.framed \? root\.padding : root\.framelessDismissInset/)
 
   const drawers = [...deckSource.matchAll(/EdgeDrawer\s*\{([\s\S]*?)\n  \}/g)].map(match => match[1])
-  assert.equal(drawers.length, 4)
+  assert.equal(drawers.length, 2)
   assert.match(drawers[0], /id:\s*leftDrawer/)
+  assert.match(drawers[0], /objectName:\s*"leftVolumeDrawer"/)
   assert.match(drawers[0], /framed:\s*false/)
   assert.match(drawers[0], /framelessDismissInset:\s*root\.innerGap/)
   assert.match(drawers[0], /width:\s*root\.leftDrawerWidth \+ root\.innerGap/)
@@ -118,9 +123,9 @@ test("drawer close buttons float without reserving content geometry", () => {
   assert.match(drawerSource, /anchors\.rightMargin:\s*root\.contentRightInset\s*$/m)
 })
 
-test("mouse presence anywhere on OmaDeck reveals drawer controls without touch", () => {
+test("mouse presence anywhere on OmaDeck reveals horizontal drawer controls without touch", () => {
   assert.match(deckSource, /readonly property bool deckHovered:\s*backgroundHover\.hovered\s*\|\| centerCanvas\.pointerHovered/)
-  for (const id of ["leftDrawer", "rightDrawer", "topDrawer", "bottomDrawer"])
+  for (const id of ["leftDrawer", "rightDrawer", "notificationOverlay", "overviewOverlay"])
     assert.match(deckSource, new RegExp(`${id}\\.pointerHovered`))
   assert.match(deckSource, /readonly property bool pointerRevealed:\s*deckHovered\s*&& !directTouch\.touchInProgress/)
   assert.match(deckSource, /id:\s*deckBackground[\s\S]*HoverHandler \{\s*id: backgroundHover\s*\}/)
@@ -131,7 +136,7 @@ test("mouse presence anywhere on OmaDeck reveals drawer controls without touch",
   assert.match(drawerSource, /HoverHandler \{\s*id: drawerHover\s*\}/)
   assert.doesNotMatch(deckSource, /acceptedDevices:\s*PointerDevice\.Mouse/)
   assert.doesNotMatch(drawerSource, /acceptedDevices:\s*PointerDevice\.Mouse/)
-  assert.equal((deckSource.match(/pointerRevealed:\s*root\.pointerRevealed/g) || []).length, 4)
+  assert.equal((deckSource.match(/pointerRevealed:\s*root\.pointerRevealed/g) || []).length, 2)
 })
 
 test("drawer diagnostics expose each mouse reveal gate", () => {
@@ -144,11 +149,14 @@ test("drawer diagnostics expose each mouse reveal gate", () => {
 
 test("every drawer state transition is routed through an observable boundary", () => {
   const assignments = deckSource.match(/(?:root\.)?openDrawer\s*=(?!=)/g) || []
+  const overlayAssignments = deckSource.match(/(?:root\.)?openOverlayName\s*=(?!=)/g) || []
   const diagnosticLogs = deckSource.match(/console\.(?:info|warn)\("\[OmaDeckDrawer\]/g) || []
 
   assert.equal(assignments.length, 1)
+  assert.equal(overlayAssignments.length, 1)
   assert.equal(diagnosticLogs.length, 1)
   assert.match(deckSource, /function setOpenDrawer\(nextDrawer, reason\)/)
+  assert.match(deckSource, /function setOpenOverlay\(nextOverlay, reason\)/)
   assert.match(deckSource, /function drawerState\(\): string/)
   assert.match(deckSource, /\[OmaDeckDrawer\] loaded/)
   assert.match(deckSource, /componentUrl/)

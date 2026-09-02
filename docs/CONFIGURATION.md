@@ -132,12 +132,46 @@ controls. This path does not require the deck touchscreen.
 The tray is built by `scripts/build-native`. If the tray is missing, rebuild and
 restart the shell.
 
+## Media and Volume
+
+Now Playing is a permanent dashboard card beside Clock/Weather and Command
+Center. Pull right from the left edge to reveal the separate Volume drawer;
+reverse-swipe its inner edge to hide it. Expanding Volume changes only the
+drawer width and never removes or recreates the Now Playing presenter.
+
 ## Application launcher
 
-Entries live in `modules/AppLauncherModule.qml`. Each defines a desktop ID,
-label, monochrome glyph, and matching Hyprland classes. Class aliases let
-OmaDeck focus a running window before launching a new instance. Touch-based
-launcher editing is on the roadmap.
+Tap **Applications** in Command Center to replace its home controls with the
+launcher page. **Add** opens Omarchy's installed application library followed
+by OmaDeck's curated shortcut catalog.
+**Arrange** lets a selected tile move left, move right, or be removed; a long
+press on a launcher tile enters the same mode. These choices are stored
+atomically in `~/.config/omadeck/launcher.json` as stable catalog IDs. Removing
+that file restores the six default applications.
+
+Application entries define a desktop ID, label, monochrome glyph, and matching
+Hyprland classes. Class aliases let OmaDeck focus a running window before
+launching a new instance. Shortcut entries call only built-in OmaDeck actions;
+the persisted file cannot add arbitrary executable commands.
+
+## Vertical overlays
+
+Pull down from the top edge to open Notification Center. It combines live
+notifications from Omarchy's existing notification service with that service's
+bounded recent history. Live entries retain their normal click action; archived
+entries focus their sending application. **Clear all** clears live popups and
+recorded history. The left control rail exposes native **Focus**, **Wi-Fi**,
+**Bluetooth**, and **Night Light** toggles plus routes to OmaDeck's Network and
+Audio panels. A missing Wi-Fi or Bluetooth adapter is shown as unavailable
+rather than presenting a control that cannot work.
+
+Pull up from the bottom edge to open OmaDeck Overview. The left side focuses
+workspaces on `primaryMonitor`; the right side toggles Omarchy's native
+`special:scratchpad`, parks the last focused window there, or opens clipboard
+controls. Neither overlay changes the dimensions or layout of the dashboard
+underneath it. If the Volume or System drawer was open before the vertical
+gesture, it remains open behind the overlay and is restored unchanged when the
+overlay closes.
 
 ## Monitor input commands
 
@@ -160,6 +194,10 @@ ratios.
 Clock and weather preferences are stored separately in
 `~/.config/omadeck/appearance.json`, so rearranging the layout never resets
 appearance choices.
+
+Command Center launcher choices are stored independently in
+`~/.config/omadeck/launcher.json`. Invalid or unknown catalog entries are
+dropped; invalid files recover to the default launcher set.
 
 The Clock's single countdown is stored atomically in
 `~/.config/omadeck/timer.json`. Active, paused, and completed countdowns recover

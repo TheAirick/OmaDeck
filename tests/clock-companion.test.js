@@ -203,8 +203,8 @@ test("Weather yields vertical space to Clock while Timer retains its touch-safe 
     closed: [0, 0, 0, 0],
     left: [682, 0, 0, 0],
     right: [0, 555, 0, 0],
-    top: [0, 0, 92, 0],
-    bottom: [0, 0, 0, 130],
+    notifications: [0, 0, 0, 0],
+    overview: [0, 0, 0, 0],
   }
   for (const ratio of [0.5, 0.56]) {
     for (const [drawer, [left, right, top, bottom]] of Object.entries(drawers)) {

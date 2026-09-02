@@ -10,9 +10,12 @@ Item {
   property var deck: null
   property var shell: null
   property var appearanceController: null
+  property var launcherController: null
   property var weatherController: null
   property var timerController: null
   property string primaryMonitor: "DP-1"
+  property bool childrenInitialized: false
+  property bool reloadPending: false
 
   readonly property int observedRevision: controller ? controller.revision : 0
   readonly property var node: {
@@ -37,6 +40,8 @@ Item {
     if (!root.controller || !loader) return
     var child = root.controller.nodeAt(loader.nodePath)
     var file = child && child.type === "split" ? "SplitNode.qml" : "ModuleTile.qml"
+    if (loader.loadedComponent === file) return
+    loader.loadedComponent = file
     loader.setSource(Qt.resolvedUrl(file), {
       controller: root.controller,
       path: loader.nodePath,
@@ -44,6 +49,7 @@ Item {
       shell: root.shell,
       primaryMonitor: root.primaryMonitor,
       appearanceController: root.appearanceController,
+      launcherController: root.launcherController,
       weatherController: root.weatherController,
       timerController: root.timerController
     })
@@ -54,26 +60,51 @@ Item {
     loadChild(secondLoader)
   }
 
-  onObservedRevisionChanged: root.reloadChildren()
+  function loadersBusy() {
+    return firstLoader.status === Loader.Loading || secondLoader.status === Loader.Loading
+  }
+
+  function requestReload() {
+    if (!childrenInitialized) return
+    if (loadersBusy()) {
+      reloadPending = true
+      return
+    }
+    reloadPending = false
+    reloadChildren()
+  }
+
+  function finishPendingReload() {
+    if (reloadPending && !loadersBusy()) Qt.callLater(root.requestReload)
+  }
+
+  onObservedRevisionChanged: root.requestReload()
+
+  Component.onCompleted: {
+    childrenInitialized = true
+    reloadChildren()
+  }
 
   Loader {
     id: firstLoader
     property string nodePath: root.firstPath
+    property string loadedComponent: ""
     x: 0
     y: 0
     width: root.horizontal ? root.firstLength : root.width
     height: root.horizontal ? root.height : root.firstLength
-    Component.onCompleted: root.loadChild(firstLoader)
+    onStatusChanged: root.finishPendingReload()
   }
 
   Loader {
     id: secondLoader
     property string nodePath: root.secondPath
+    property string loadedComponent: ""
     x: root.horizontal ? root.firstLength + root.gap : 0
     y: root.horizontal ? 0 : root.firstLength + root.gap
     width: root.horizontal ? root.width - x : root.width
     height: root.horizontal ? root.height : root.height - y
-    Component.onCompleted: root.loadChild(secondLoader)
+    onStatusChanged: root.finishPendingReload()
   }
 
   Rectangle {

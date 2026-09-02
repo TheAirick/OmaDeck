@@ -16,49 +16,48 @@ PanelWindow {
   property string pluginDir: ""
   property var layoutController: null
   property var appearanceController: null
+  property var launcherController: null
   property var weatherController: null
   property var timerController: null
   property string targetScreen: "DP-3"
   property string primaryMonitor: "DP-1"
   property var touchDeviceNames: []
   property string openDrawer: ""
+  property string openOverlayName: ""
+  property string commandCenterPage: "home"
   property string lastDrawerTransition: "initial"
   property int drawerTransitionSequence: 0
 
-  readonly property string drawerBuild: "persistent-drawers-v2"
+  readonly property string drawerBuild: "static-media-layered-overlays-v2"
   readonly property string componentUrl: String(Qt.resolvedUrl("DeckSurface.qml"))
   readonly property string sourceDir: pluginDir
 
   readonly property bool isTarget: screen && screen.name === targetScreen
   readonly property bool deckHovered: backgroundHover.hovered || centerCanvas.pointerHovered
+    || nowPlayingHover.hovered
     || leftDrawer.pointerHovered || rightDrawer.pointerHovered
-    || topDrawer.pointerHovered || bottomDrawer.pointerHovered
+    || notificationOverlay.pointerHovered || overviewOverlay.pointerHovered
   readonly property bool pointerRevealed: deckHovered
     && !directTouch.touchInProgress
   readonly property int outerGap: Math.max(1, Style.gapsOut)
   readonly property int innerGap: Style.spacing.panelGap
   readonly property int usableWidth: Math.max(0, width - outerGap * 2)
   readonly property int usableHeight: Math.max(0, height - outerGap * 2)
-  readonly property int collapsedLeftDrawerWidth: Math.round(usableWidth * 0.34)
-  readonly property int expandedLeftDrawerWidth: Math.min(Math.round(usableWidth * 0.62),
-    Math.max(Math.round(usableWidth * 0.48), Math.ceil(mediaDrawer.preferredDrawerWidth)))
-  readonly property int leftDrawerWidth: mediaDrawer.mixerExpanded ? expandedLeftDrawerWidth : collapsedLeftDrawerWidth
+  readonly property int staticMediaWidth: Math.round(usableWidth * 0.27)
+  readonly property int staticMediaReserve: staticMediaWidth + innerGap
+  readonly property int leftDrawerWidth: Math.min(Math.round(usableWidth * 0.46),
+    Math.ceil(volumeDrawer.preferredDrawerWidth))
   readonly property int rightDrawerWidth: Math.round(usableWidth * 0.34)
-  readonly property int topDrawerHeight: Style.space(78)
-  readonly property int bottomDrawerHeight: Style.space(116)
 
-  // Revealed modules reserve space in the same geometry as the center layout.
-  // Animating these four boundaries makes the split tree re-tile instead of
-  // translating intact panels beyond the physical display.
+  // Horizontal drawers remain part of the tiling geometry. Vertical gestures
+  // own full-surface overlays and therefore never steal height from the center.
   property real reservedLeft: openDrawer === "left" ? leftDrawerWidth + innerGap : 0
   property real reservedRight: openDrawer === "right" ? rightDrawerWidth + innerGap : 0
-  property real reservedTop: openDrawer === "top" ? topDrawerHeight + innerGap : 0
-  property real reservedBottom: openDrawer === "bottom" ? bottomDrawerHeight + innerGap : 0
+  readonly property real reservedTop: 0
+  readonly property real reservedBottom: 0
 
   Behavior on reservedLeft { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
   Behavior on reservedRight { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
-  Behavior on reservedTop { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
-  Behavior on reservedBottom { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
 
   visible: isTarget
   anchors { top: true; right: true; bottom: true; left: true }
@@ -89,6 +88,8 @@ PanelWindow {
   function drawerDiagnostics() {
     return {
       openDrawer: openDrawer,
+      openOverlay: openOverlayName,
+      commandCenterPage: commandCenterPage,
       lastTransition: lastDrawerTransition,
       sequence: drawerTransitionSequence,
       componentUrl: componentUrl,
@@ -103,7 +104,7 @@ PanelWindow {
   }
 
   function setOpenDrawer(nextDrawer, reason) {
-    if (["", "left", "right", "top", "bottom"].indexOf(nextDrawer) === -1) return
+    if (["", "left", "right"].indexOf(nextDrawer) === -1) return
 
     lastDrawerTransition = String(reason || "unspecified")
     drawerTransitionSequence++
@@ -111,6 +112,14 @@ PanelWindow {
   }
 
   function toggleDrawer(edge) {
+    if (edge === "top") {
+      toggleOverlay("notifications")
+      return
+    }
+    if (edge === "bottom") {
+      toggleOverlay("overview")
+      return
+    }
     setOpenDrawer(DrawerGesture.toggleDrawer(openDrawer, edge), "toggle:" + edge)
   }
 
@@ -120,6 +129,31 @@ PanelWindow {
 
   function closeDrawer() {
     setOpenDrawer("", "ipc:close")
+    setOpenOverlay("", "ipc:close")
+  }
+
+  function setOpenOverlay(nextOverlay, reason) {
+    if (["", "notifications", "overview"].indexOf(nextOverlay) === -1) return
+    lastDrawerTransition = String(reason || "unspecified")
+    drawerTransitionSequence++
+    openOverlayName = nextOverlay
+  }
+
+  function openOverlay(name) {
+    setOpenOverlay(name, "open-overlay:" + name)
+  }
+
+  function toggleOverlay(name) {
+    setOpenOverlay(openOverlayName === name ? "" : name, "toggle-overlay:" + name)
+  }
+
+  function closeOverlay() {
+    setOpenOverlay("", "close-overlay")
+  }
+
+  function setCommandCenterPage(page) {
+    if (["home", "applications"].indexOf(page) === -1) return
+    commandCenterPage = page
   }
 
   function drawerState(): string {
@@ -177,12 +211,12 @@ PanelWindow {
 
   function setMediaCompact(compact) {
     setOpenDrawer("left", "ipc:mediaCompact")
-    mediaDrawer.setMixerCompact(compact)
+    volumeDrawer.setMixerCompact(compact)
   }
 
   function setMediaCategory(category) {
     setOpenDrawer("left", "ipc:mediaCategory")
-    mediaDrawer.setMixerCategory(category)
+    volumeDrawer.setMixerCategory(category)
   }
 
   Rectangle {
@@ -195,10 +229,11 @@ PanelWindow {
     }
   }
 
-  // Edge modules and the center split tree share one bounded tiling region.
+  // Volume and System reserve horizontal geometry. Vertical overlays retain
+  // that exact underlying state and reveal it again when dismissed.
   EdgeDrawer {
     id: leftDrawer
-    objectName: "leftMediaDrawer"
+    objectName: "leftVolumeDrawer"
     edge: "left"
     framed: false
     framelessDismissInset: root.innerGap
@@ -210,10 +245,9 @@ PanelWindow {
     width: root.leftDrawerWidth + root.innerGap
     height: root.usableHeight
 
-    MediaModule {
-      id: mediaDrawer
+    VolumeModule {
+      id: volumeDrawer
       anchors.fill: parent
-      shell: root.shell
     }
   }
 
@@ -237,44 +271,15 @@ PanelWindow {
     }
   }
 
-  EdgeDrawer {
-    id: topDrawer
-    objectName: "topWorkspaceDrawer"
-    edge: "top"
-    open: root.openDrawer === edge
-    pointerRevealed: root.pointerRevealed
-    onDismissRequested: root.dismissDrawer(edge)
-    x: root.outerGap
-    y: root.outerGap - root.topDrawerHeight - root.innerGap + root.reservedTop
-    width: root.usableWidth
-    height: root.topDrawerHeight
+  MediaModule {
+    id: staticMedia
+    x: root.outerGap + root.reservedLeft
+    y: root.outerGap
+    width: root.staticMediaWidth
+    height: root.usableHeight
+    shell: root.shell
 
-    WorkspaceModule {
-      anchors.fill: parent
-      compact: true
-      singleRow: true
-      primaryMonitor: root.primaryMonitor
-    }
-  }
-
-  EdgeDrawer {
-    id: bottomDrawer
-    objectName: "bottomLauncherDrawer"
-    edge: "bottom"
-    open: root.openDrawer === edge
-    pointerRevealed: root.pointerRevealed
-    onDismissRequested: root.dismissDrawer(edge)
-    x: root.outerGap
-    y: parent.height - root.outerGap + root.innerGap - root.reservedBottom
-    width: root.usableWidth
-    height: root.bottomDrawerHeight
-
-    AppLauncherModule {
-      anchors.fill: parent
-      shell: root.shell
-      pluginDir: root.pluginDir
-      primaryMonitor: root.primaryMonitor
-    }
+    HoverHandler { id: nowPlayingHover }
   }
 
   DeckCenter {
@@ -284,7 +289,7 @@ PanelWindow {
     outerGap: root.outerGap
     usableWidth: root.usableWidth
     usableHeight: root.usableHeight
-    reservedLeft: root.reservedLeft
+    reservedLeft: root.staticMediaReserve + root.reservedLeft
     reservedRight: root.reservedRight
     reservedTop: root.reservedTop
     reservedBottom: root.reservedBottom
@@ -293,17 +298,61 @@ PanelWindow {
     shell: root.shell
     primaryMonitor: root.primaryMonitor
     appearanceController: root.appearanceController
+    launcherController: root.launcherController
     weatherController: root.weatherController
     timerController: root.timerController
+  }
+
+  DeckOverlay {
+    id: notificationOverlay
+    objectName: "notificationCenterOverlay"
+    x: 0
+    width: parent.width
+    height: parent.height
+    z: 180
+    origin: "top"
+    title: "Notifications"
+    subtitle: ""
+    outerGap: root.outerGap
+    open: root.openOverlayName === "notifications"
+    onDismissRequested: root.closeOverlay()
+
+    NotificationCenterModule {
+      anchors.fill: parent
+      shell: root.shell
+      deck: root
+      active: notificationOverlay.open
+    }
+  }
+
+  DeckOverlay {
+    id: overviewOverlay
+    objectName: "omadeckOverviewOverlay"
+    x: 0
+    width: parent.width
+    height: parent.height
+    z: 180
+    origin: "bottom"
+    title: "OmaDeck overview"
+    subtitle: ""
+    outerGap: root.outerGap
+    open: root.openOverlayName === "overview"
+    onDismissRequested: root.closeOverlay()
+
+    OverviewModule {
+      anchors.fill: parent
+      deck: root
+      primaryMonitor: root.primaryMonitor
+    }
   }
 
   // Generous touch zones begin the drawer gesture. The first foundation uses
   // single-point drags; multi-touch resize/edit handlers come with the layout
   // tree so gesture ownership remains unambiguous.
-  EdgeSwipeArea { edge: "left"; anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom; onTriggered: root.toggleDrawer(edge) }
-  EdgeSwipeArea { edge: "right"; anchors.right: parent.right; anchors.top: parent.top; anchors.bottom: parent.bottom; onTriggered: root.toggleDrawer(edge) }
-  EdgeSwipeArea { edge: "top"; anchors.top: parent.top; anchors.left: parent.left; anchors.right: parent.right; onTriggered: root.toggleDrawer(edge) }
-  EdgeSwipeArea { edge: "bottom"; anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.right: parent.right; onTriggered: root.toggleDrawer(edge) }
+  EdgeSwipeArea { enabled: root.openOverlayName === ""; edge: "left"; anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom; onTriggered: root.toggleDrawer(edge) }
+  EdgeSwipeArea { enabled: root.openOverlayName === ""; edge: "right"; anchors.right: parent.right; anchors.top: parent.top; anchors.bottom: parent.bottom; onTriggered: root.toggleDrawer(edge) }
+  EdgeSwipeArea { enabled: root.openOverlayName === ""; edge: "top"; anchors.top: parent.top; anchors.left: parent.left; anchors.right: parent.right; onTriggered: root.toggleOverlay("notifications") }
+  EdgeSwipeArea { enabled: root.openOverlayName === ""; edge: "bottom"; anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.right: parent.right; onTriggered: root.toggleOverlay("overview") }
 
   Button {
     visible: root.layoutController && root.layoutController.editMode

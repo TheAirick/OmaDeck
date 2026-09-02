@@ -21,12 +21,12 @@ const moduleTile = fs.readFileSync(
   "utf8",
 )
 
-test("all four drawer actions exist in the permanent control grid", () => {
+test("Command Center keeps horizontal drawers and promotes vertical surfaces", () => {
   for (const [edge, label] of [
-    ["left", "Media"],
+    ["left", "Volume"],
     ["right", "System"],
-    ["top", "Workspaces"],
-    ["bottom", "Applications"],
+    ["bottom", "Overview"],
+    ["page", "Applications"],
   ]) {
     assert.match(commandCenter, new RegExp(`DrawerButton \\{[^}]*edge: "${edge}"[^}]*label: "${label}"`))
   }
@@ -46,7 +46,7 @@ test("primary drawer navigation stays visible without pointer hover", () => {
   assert.doesNotMatch(commandCenter, /id: drawerControls[\s\S]*enabled:/)
   assert.doesNotMatch(commandCenter, /id: interactionHint[\s\S]*opacity:/)
   assert.doesNotMatch(moduleTile, /commandControlsRevealed|pointerRevealed/)
-  assert.match(moduleTile, /moduleId === "command-center" \? "Swipe from any edge"/)
+  assert.match(moduleTile, /moduleId === "command-center" \? "Pages & edge controls"/)
 })
 
 test("drawer controls do not persist a highlight for the open edge", () => {
@@ -54,7 +54,9 @@ test("drawer controls do not persist a highlight for the open edge", () => {
   assert.doesNotMatch(commandCenter, /selected: root\.deck && root\.deck\.openDrawer === edge/)
 })
 
-test("touch edge gestures remain available for every drawer", () => {
+test("touch edge gestures remain available for drawers and overlays", () => {
   for (const edge of ["left", "right", "top", "bottom"])
-    assert.match(deckSurface, new RegExp(`EdgeSwipeArea \\{ edge: "${edge}"`))
+    assert.match(deckSurface, new RegExp(`EdgeSwipeArea \\{ enabled: root\\.openOverlayName === ""; edge: "${edge}"`))
+  assert.match(deckSurface, /edge: "top"[^\n]*onTriggered: root\.toggleOverlay\("notifications"\)/)
+  assert.match(deckSurface, /edge: "bottom"[^\n]*onTriggered: root\.toggleOverlay\("overview"\)/)
 })

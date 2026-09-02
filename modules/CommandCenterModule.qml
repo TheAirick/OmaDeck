@@ -8,6 +8,11 @@ Item {
 
   property var deck: null
   property var controller: null
+  property var shell: null
+  property var launcherController: null
+  property string pluginDir: ""
+  property string primaryMonitor: "DP-1"
+  readonly property string page: deck ? deck.commandCenterPage : "home"
   readonly property real standardLayoutHeight: Style.space(92 * 3) + Style.spacing.panelGap * 4
   readonly property real wideLayoutWidth: Style.space(190 * 4) + Style.spacing.panelGap * 5
   readonly property bool useWideLayout: ResponsiveLayout.useShortWide(
@@ -18,6 +23,7 @@ Item {
 
   Column {
     id: controlStack
+    visible: root.page === "home"
     anchors.centerIn: parent
     spacing: Style.spacing.panelGap
     scale: root.contentScale
@@ -35,7 +41,7 @@ Item {
       }
 
       DrawerButton {
-        edge: "left"; label: "Media"; iconText: "󰝚"
+        edge: "left"; label: "Volume"; iconText: "󰕾"
         onTriggered: if (root.deck) root.deck.toggleDrawer(edge)
       }
       DrawerButton {
@@ -43,12 +49,12 @@ Item {
         onTriggered: if (root.deck) root.deck.toggleDrawer(edge)
       }
       DrawerButton {
-        edge: "top"; label: "Workspaces"; iconText: "󰍹"
-        onTriggered: if (root.deck) root.deck.toggleDrawer(edge)
+        edge: "bottom"; label: "Overview"; iconText: "󰖲"
+        onTriggered: if (root.deck) root.deck.openOverlay("overview")
       }
       DrawerButton {
-        edge: "bottom"; label: "Applications"; iconText: "󰀻"
-        onTriggered: if (root.deck) root.deck.toggleDrawer(edge)
+        edge: "page"; label: "Applications"; iconText: "󰀻"
+        onTriggered: if (root.deck) root.deck.setCommandCenterPage("applications")
       }
     }
 
@@ -57,15 +63,28 @@ Item {
     }
   }
 
+  AppLauncherModule {
+    id: applicationsPage
+    objectName: "commandCenterApplicationsPage"
+    anchors.fill: parent
+    visible: root.page === "applications"
+    shell: root.shell
+    deck: root.deck
+    controller: root.launcherController
+    pluginDir: root.pluginDir
+    primaryMonitor: root.primaryMonitor
+    onBackRequested: if (root.deck) root.deck.setCommandCenterPage("home")
+  }
+
   Text {
     id: interactionHint
-    visible: root.height > Style.space(300)
+    visible: root.page === "home" && root.height > Style.space(300)
     anchors.horizontalCenter: parent.horizontalCenter
     anchors.bottom: parent.bottom
     anchors.bottomMargin: Style.spacing.panelGap
     text: root.controller && root.controller.editMode
       ? "Edit mode · drag modules or dividers · tap Done when finished"
-      : "Swipe down for workspaces · swipe up for applications"
+      : "Pull down notifications · pull up overview"
     color: Color.muted
     font.family: Style.font.family
     font.pixelSize: Style.font.caption

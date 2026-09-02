@@ -13,6 +13,10 @@ const appLauncher = fs.readFileSync(
   path.join(repositoryRoot, "modules/AppLauncherModule.qml"),
   "utf8",
 )
+const deckCenter = fs.readFileSync(path.join(repositoryRoot, "components/DeckCenter.qml"), "utf8")
+const splitNode = fs.readFileSync(path.join(repositoryRoot, "components/SplitNode.qml"), "utf8")
+const moduleTile = fs.readFileSync(path.join(repositoryRoot, "components/ModuleTile.qml"), "utf8")
+const commandCenter = fs.readFileSync(path.join(repositoryRoot, "modules/CommandCenterModule.qml"), "utf8")
 const systemModule = fs.readFileSync(
   path.join(repositoryRoot, "modules/SystemModule.qml"),
   "utf8",
@@ -41,7 +45,11 @@ test("Service resolves one canonical plugin directory and passes it to DeckSurfa
 test("DeckSurface forwards the canonical plugin directory to helper-owning modules", () => {
   assert.match(deckSurface, /property string pluginDir:\s*""/)
   assert.match(componentBlock(deckSurface, "SystemModule"), /pluginDir:\s*root\.pluginDir/)
-  assert.match(componentBlock(deckSurface, "AppLauncherModule"), /pluginDir:\s*root\.pluginDir/)
+  assert.match(componentBlock(deckSurface, "DeckCenter"), /deck:\s*root/)
+  assert.match(deckCenter, /deck:\s*root\.deck/)
+  assert.match(splitNode, /deck:\s*root\.deck/)
+  assert.match(moduleTile, /pluginDir:\s*root\.deck \? root\.deck\.pluginDir : ""/)
+  assert.match(componentBlock(commandCenter, "AppLauncherModule"), /pluginDir:\s*root\.pluginDir/)
 })
 
 test("plugin helpers are derived from the canonical plugin directory", () => {

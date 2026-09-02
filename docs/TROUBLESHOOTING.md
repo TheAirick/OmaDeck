@@ -65,6 +65,20 @@ omarchy restart shell
 Confirm `primaryMonitor` names a connected output. OmaDeck launches through a
 workspace-bound Hyprland rule so placement does not depend on cursor position.
 
+## Notification Center is empty
+
+OmaDeck uses the installed `omarchy.notifications` service and its bounded
+history rather than running a second notification daemon. Confirm the service
+responds with `omarchy-shell notifications ping`. Notifications marked
+transient by an application may not remain in history after their popup closes.
+
+## Scratchpad controls do nothing
+
+OmaDeck delegates to Omarchy's native Hyprland scratchpad. Confirm the standard
+scratchpad shortcut works with `Super + S`, then inspect `hyprctl configerrors`.
+**Park focused window** acts on the last focused application because the deck
+layer surface intentionally never requests keyboard focus.
+
 ## A launcher opens another copy
 
 Inspect the live class with `hyprctl clients`, then add it to the launcher's

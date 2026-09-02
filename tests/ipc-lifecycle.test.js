@@ -23,6 +23,7 @@ test("DeckSurface registers and unregisters as the available IPC surface", () =>
   assert.match(deckSurface, /property var serviceHost:\s*null/)
   assert.match(deckSurface, /serviceHost\.registerSurface\(root\)/)
   assert.match(deckSurface, /serviceHost\.unregisterSurface\(root\)/)
+  assert.match(service, /if \(!layoutStore\.loaded\) return \[\]/)
 })
 
 test("touch IPC reports honest state without a target monitor and forwards after hotplug", () => {
@@ -43,4 +44,10 @@ test("drawer state identifies when no target surface exists", () => {
   assert.match(service, /function drawerState\(\): string/)
   assert.match(service, /available:\s*false/)
   assert.match(service, /root\.activeSurface\.drawerState\(\)/)
+})
+
+test("overlay IPC can dismiss the vertical layer without closing a horizontal drawer", () => {
+  assert.match(service, /function closeOverlay\(\): void/)
+  assert.match(service, /root\.activeSurface\.closeOverlay\(\)/)
+  assert.match(deckSurface, /function closeOverlay\(\)/)
 })

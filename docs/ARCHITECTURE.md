@@ -14,6 +14,10 @@ a web server, Electron process, or separate system daemon.
   reserved center geometry and actual root `SplitNode` tiling region.
 - `services/AppearanceController.qml` validates and atomically persists the
   Clock/Weather presentation model.
+- `services/LauncherController.qml` validates and atomically persists the
+  ordered Command Center launcher selection. `LauncherPolicy.js` restricts
+  touch editing to installed desktop-entry IDs and the built-in action catalog,
+  so persisted data cannot introduce an arbitrary command vector.
 - `services/TimerController.qml` owns the Clock's single deadline-based
   countdown, separate atomic sound preference, and claimed notification/
   three-chime completion effects. Static allowlisted Canberra commands share
@@ -60,14 +64,15 @@ countdown state, deadlines, persistence, notification or audio scheduling,
 processes, files, IPC, layout mutation, or settings; those remain with the single
 service-owned `TimerController` and existing service IPC.
 
-Media presentation uses a frameless left-drawer carrier with two persistent
-sibling full-height `DeckCard` boundaries separated by the panel-gap token. The
-collapsed carrier reserves 34% of the usable deck width. A narrow Volume card
-owns the far-left edge and `NowPlayingModule` fills the remainder beside it.
-This horizontal allocation is presentation-only and creates no persisted layout
+Media presentation has two independent owners. A permanent full-height
+`MediaModule` reserves 27% of the usable dashboard width for one Now Playing
+`DeckCard`; it remains mounted beside Clock/Weather and Command Center in every
+drawer and overlay state. A frameless left drawer owns only `VolumeModule` and
+reserves exactly the mixer's current preferred width while open. This
+horizontal allocation is presentation-only and creates no persisted layout
 node, schema, setting, or resizable divider. The mixer starts with one
 almost-full-height vertical Output control and a bottom expansion chevron.
-Expanded mode widens the carrier just enough to add a vertical Mic control and
+Expanded mode widens the Volume drawer just enough to add a vertical Mic control and
 the active Media, Games, Voice, and Other aggregate categories. Tapping the
 slim edge chevron again restores the narrow strip without reserving a full
 button column. The stable PipeWire snapshot remains
@@ -96,10 +101,35 @@ remain full-size in the other half.
 The saved ratio, topology, revision, selected edit path, and drawer state remain
 unchanged; other nested or vertical topologies retain their saved geometry.
 
-Edge drawers participate in the same geometry. Four animated reserved-space
-values alter both the drawer positions and center boundaries, creating one
-synchronized retiling motion rather than an overlay. Cards clip their content
-to their live bounds. Finite action panels follow a shared responsive contract:
+The left Volume and right System drawers participate in the dashboard geometry.
+Their two animated reserved-space values alter both drawer positions and center
+boundaries, creating one synchronized horizontal retiling motion. Top and
+bottom gestures deliberately do not reserve geometry: they reveal full-surface
+`DeckOverlay` instances above an unchanged dashboard. Pulling down opens recent
+notifications; pulling up opens the workspace and scratchpad overview. Overlay
+state is independent of horizontal drawer state: dismissing an overlay reveals
+the same Volume or System drawer and the same underlying geometry that was
+present before the vertical gesture. The two horizontal drawers remain mutually
+exclusive, as do the two vertical overlays.
+
+The notification overlay borrows the single installed
+`omarchy.notifications` service for live notification actions, DND, clearing,
+and application focus. It reads that service's bounded on-disk history for
+presentation only and never creates another `NotificationServer`. Its compact
+control rail delegates DND and Night Light to the corresponding first-party
+services, Wi-Fi to Quickshell's NetworkManager model, and Bluetooth power to
+Omarchy's persistent rfkill helper. The notification feed is width-capped so
+messages remain scannable on the ultra-wide deck. The overview
+delegates workspace focus and `special:scratchpad` actions to Hyprland's native
+dispatch language.
+
+The Command Center is a small page host. Its Applications button replaces the
+home controls in place with `AppLauncherModule`; Home returns without changing
+the center layout. Launcher entries may be added from Omarchy's filtered live
+application library or a curated shortcut catalog, removed, and moved left or
+right. The service-owned launcher controller saves only stable IDs.
+
+Cards clip their content to their live bounds. Finite action panels follow a shared responsive contract:
 use geometry-driven `Grid`/`Flow` reflow first, then wrap the complete control
 stack in `components/ResponsivePanel.qml` for centered, two-axis bounded
 scaling. Primary controls must not depend on undiscoverable scrolling;
@@ -108,10 +138,11 @@ clipboard, or audio-stream lists. `components/ResponsiveLayout.js` owns the
 fit and short-wide breakpoint math so future panels use the same policy rather
 than copying size formulas.
 
-Each open drawer owns a contextual directional button back to the center. It
+Each open horizontal drawer owns a contextual directional button back to the center. It
 floats above drawer content without changing its geometry and appears only
 while a mouse is over OmaDeck; touch interaction keeps the control hidden and
-uses reverse-swipe dismissal instead.
+uses reverse-swipe dismissal instead. Full-surface overlays retain an explicit
+48-unit close target and a reverse gesture on the edge opposite their reveal.
 
 ## Native integrations
 
@@ -160,6 +191,8 @@ automation and deterministic captures:
 
 ```bash
 omarchy-shell pretty.omadeck drawer left
+omarchy-shell pretty.omadeck overlay notifications
+omarchy-shell pretty.omadeck overlay overview
 omarchy-shell pretty.omadeck system performance
 omarchy-shell pretty.omadeck closeDrawer
 omarchy-shell pretty.omadeck reconnectTouch
