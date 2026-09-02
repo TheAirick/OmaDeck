@@ -1,7 +1,10 @@
-#!/usr/bin/env bash
+#!/usr/bin/bash
 set -euo pipefail
 
 umask 077
+
+# This build entry point is intentionally user-invoked during local setup. The
+# keep-loaded shell and tray never execute compilers or package build tools.
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 project_dir=$(cd -- "$script_dir/.." && pwd)

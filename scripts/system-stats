@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 
 """Emit one bounded OmaDeck system snapshot.
 
@@ -31,6 +31,28 @@ FILE_FLAGS = os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW
 MAX_CLIENTS = 64
 MAX_CLIPBOARD_ITEMS = 20
 MAX_OUTPUT_BYTES = 256 * 1024
+os.environ["PATH"] = "/usr/bin:/usr/share/omarchy/bin"
+SENSORS = "/usr/bin/sensors"
+NVIDIA_SMI = "/usr/bin/nvidia-smi"
+IP = "/usr/bin/ip"
+HYPRCTL = "/usr/bin/hyprctl"
+PS = "/usr/bin/ps"
+
+
+def trusted_executable(path: str) -> bool:
+    """Accept only root-owned, non-writable executables at fixed paths."""
+    if not os.path.isabs(path):
+        return False
+    try:
+        metadata = os.stat(path)
+        return (
+            stat.S_ISREG(metadata.st_mode)
+            and metadata.st_uid == 0
+            and not stat.S_IMODE(metadata.st_mode) & 0o022
+            and os.access(path, os.X_OK)
+        )
+    except OSError:
+        return False
 
 
 def checked_directory(path: str) -> int:
@@ -153,6 +175,8 @@ def terminate_group(process: subprocess.Popen[bytes]) -> None:
 
 def run_bounded(arguments: list[str], max_bytes: int, timeout: float) -> bytes:
     """Read a producer incrementally and kill its whole group on limit/deadline."""
+    if not arguments or not trusted_executable(arguments[0]):
+        return b""
     try:
         process = subprocess.Popen(
             arguments,
@@ -296,7 +320,7 @@ def memory_snapshot() -> tuple[int, int, int]:
 
 
 def temperature_snapshot() -> str:
-    output = run_bounded(["sensors", "-u"], 64 * 1024, 1.5).decode("utf-8", "replace")
+    output = run_bounded([SENSORS, "-u"], 64 * 1024, 1.5).decode("utf-8", "replace")
     match = re.search(r"(?:Tctl|temp1)_input:\s*([+-]?[0-9]+(?:\.[0-9]+)?)", output)
     return str(round(float(match.group(1)))) if match else ""
 
@@ -304,7 +328,7 @@ def temperature_snapshot() -> str:
 def gpu_snapshot() -> tuple[str, str, str, str]:
     output = run_bounded(
         [
-            "nvidia-smi",
+            NVIDIA_SMI,
             "--query-gpu=utilization.gpu,temperature.gpu,memory.used,memory.total",
             "--format=csv,noheader,nounits",
         ],
@@ -319,7 +343,7 @@ def gpu_snapshot() -> tuple[str, str, str, str]:
 
 
 def network_snapshot(state_directory: int) -> tuple[str, int, int]:
-    output = run_bounded(["ip", "route", "show", "default"], 16 * 1024, 1.0)
+    output = run_bounded([IP, "route", "show", "default"], 16 * 1024, 1.0)
     interface = ""
     fields = output.decode("utf-8", "replace").split()
     if "dev" in fields and fields.index("dev") + 1 < len(fields):
@@ -359,7 +383,7 @@ def storage_snapshot() -> dict[str, int]:
 
 
 def client_snapshot() -> list[dict[str, Any]]:
-    raw = run_bounded(["hyprctl", "clients", "-j"], 1024 * 1024, 2.0)
+    raw = run_bounded([HYPRCTL, "clients", "-j"], 1024 * 1024, 2.0)
     try:
         decoded = json.loads(raw) if raw else []
     except json.JSONDecodeError:
@@ -399,7 +423,7 @@ def client_snapshot() -> list[dict[str, Any]]:
 
     if pids:
         process_output = run_bounded(
-            ["ps", "-p", ",".join(map(str, pids)), "-o", "pid=,%cpu=,%mem=,rss=,stat=,etimes="],
+            [PS, "-p", ",".join(map(str, pids)), "-o", "pid=,%cpu=,%mem=,rss=,stat=,etimes="],
             64 * 1024,
             2.0,
         ).decode("ascii", "ignore")

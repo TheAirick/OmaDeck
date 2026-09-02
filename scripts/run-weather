@@ -1,0 +1,22 @@
+#!/usr/bin/bash
+set -euo pipefail
+export PATH=/usr/bin:/usr/share/omarchy/bin
+
+# Enforce the advertised total lifecycle outside Python's blocking DNS,
+# connect, TLS, and body-read operations. GNU timeout supervises the complete
+# helper process group; WeatherController retains a later QML kill backstop.
+readonly TIMEOUT=/usr/bin/timeout
+readonly script_path=${BASH_SOURCE[0]}
+readonly script_dir=${script_path%/*}
+readonly weather_helper="$script_dir/weather-json"
+
+if [[ ! -f $TIMEOUT || ! -x $TIMEOUT ]]; then
+  printf 'OmaDeck weather requires trusted executable %s\n' "$TIMEOUT" >&2
+  exit 1
+fi
+if [[ ! -f $weather_helper || -L $weather_helper || ! -x $weather_helper ]]; then
+  printf 'OmaDeck weather helper is missing or unsafe: %s\n' "$weather_helper" >&2
+  exit 1
+fi
+
+exec "$TIMEOUT" --signal=TERM --kill-after=1s 10s "$weather_helper"

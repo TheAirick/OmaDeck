@@ -1,5 +1,12 @@
-#!/usr/bin/env bash
+#!/usr/bin/bash
 set -euo pipefail
+export PATH=/usr/bin:/usr/share/omarchy/bin
+
+readonly SHA256SUM=/usr/bin/sha256sum
+readonly STAT=/usr/bin/stat
+readonly SETPRIV=/usr/bin/setpriv
+readonly AWK=/usr/bin/awk
+readonly ID=/usr/bin/id
 
 project_dir=${1:?OmaDeck project directory is required}
 target_screen=${2:-DP-3}
@@ -14,9 +21,9 @@ if [[ ! -x $tray_binary ]]; then
   exit 0
 fi
 
-for command_name in sha256sum stat setpriv; do
-  if ! command -v "$command_name" >/dev/null 2>&1; then
-    printf 'OmaDeck tray verification requires %s\n' "$command_name" >&2
+for command_path in "$SHA256SUM" "$STAT" "$SETPRIV" "$AWK" "$ID"; do
+  if [[ ! -f $command_path || ! -x $command_path ]]; then
+    printf 'OmaDeck tray verification requires trusted executable %s\n' "$command_path" >&2
     exit 1
   fi
 done
@@ -26,20 +33,20 @@ if [[ -L $tray_binary || ! -f $tray_binary || -L $artifact_record || ! -f $artif
   exit 1
 fi
 
-read -r binary_owner binary_mode < <(stat -Lc '%u %a' -- "$tray_binary")
-if [[ $binary_owner != "$(id -u)" ]] || (( (8#$binary_mode & 0022) != 0 )); then
+read -r binary_owner binary_mode < <("$STAT" -Lc '%u %a' -- "$tray_binary")
+if [[ $binary_owner != "$("$ID" -u)" ]] || (( (8#$binary_mode & 0022) != 0 )); then
   printf 'OmaDeck tray artifact has unsafe ownership or permissions; rebuild it\n' >&2
   exit 1
 fi
 
-read -r record_owner record_mode record_size < <(stat -Lc '%u %a %s' -- "$artifact_record")
-if [[ $record_owner != "$(id -u)" ]] || (( (8#$record_mode & 0022) != 0 )) || (( record_size > 4096 )); then
+read -r record_owner record_mode record_size < <("$STAT" -Lc '%u %a %s' -- "$artifact_record")
+if [[ $record_owner != "$("$ID" -u)" ]] || (( (8#$record_mode & 0022) != 0 )) || (( record_size > 4096 )); then
   printf 'OmaDeck tray artifact record has unsafe ownership, permissions, or size\n' >&2
   exit 1
 fi
 
 exec 8< "$artifact_record"
-expected_digest=$(awk '$2 == "bin/omadeck-tray" { print $1; exit }' /proc/self/fd/8)
+expected_digest=$("$AWK" '$2 == "bin/omadeck-tray" { print $1; exit }' /proc/self/fd/8)
 if [[ ! $expected_digest =~ ^[0-9a-f]{64}$ ]]; then
   printf 'OmaDeck tray artifact record is invalid; rebuild it\n' >&2
   exit 1
@@ -48,7 +55,7 @@ fi
 # Keep the validated inode open through exec so a checkout update cannot swap
 # the executable between verification and launch.
 exec 9< "$tray_binary"
-actual_digest=$(sha256sum /proc/self/fd/9 | awk '{print $1}')
+actual_digest=$("$SHA256SUM" /proc/self/fd/9 | "$AWK" '{print $1}')
 if [[ $actual_digest != "$expected_digest" ]]; then
   printf 'OmaDeck tray artifact verification failed; rebuild it\n' >&2
   exit 1
@@ -66,4 +73,4 @@ for touch_device_name in "${touch_device_names[@]}"; do
   arguments+=(--touch-device-name "$touch_device_name")
 done
 
-exec setpriv --pdeathsig TERM /proc/self/fd/9 "${arguments[@]}"
+exec "$SETPRIV" --pdeathsig TERM /proc/self/fd/9 "${arguments[@]}"

@@ -59,7 +59,7 @@ test("plugin helpers are derived from the canonical plugin directory", () => {
   assert.match(appLauncher, /launcherScript:\s*root\.pluginDir\s*\+\s*"\/scripts\/focus-or-launch"/)
   assert.match(systemModule, /property string pluginDir:\s*""/)
   assert.match(systemModule, /command:\s*\[root\.pluginDir\s*\+\s*"\/scripts\/system-stats"\]/)
-  assert.match(weatherController, /command:\s*\[root\.pluginDir\s*\+\s*"\/scripts\/weather-json"\]/)
+  assert.match(weatherController, /command:\s*\[root\.pluginDir\s*\+\s*"\/scripts\/run-weather"\]/)
 
   for (const source of qmlSources) {
     assert.doesNotMatch(source, /Projects\/Omadeck/)

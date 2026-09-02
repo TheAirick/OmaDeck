@@ -144,7 +144,7 @@ private:
         QProcess process;
         QStringList commandArguments{QStringLiteral("pretty.omadeck")};
         commandArguments.append(arguments);
-        process.start(QStringLiteral("omarchy-shell"), commandArguments);
+        process.start(QStringLiteral("/usr/share/omarchy/bin/omarchy-shell"), commandArguments);
         if (!process.waitForStarted(1000)) {
             if (ok)
                 *ok = false;
@@ -365,7 +365,7 @@ private:
                 QMessageBox::warning(m_settingsDialog, QStringLiteral("OmaDeck settings"), error);
         });
         connect(weatherLocation, &QPushButton::clicked, this, [] {
-            QProcess::startDetached(QStringLiteral("omarchy-shell"),
+            QProcess::startDetached(QStringLiteral("/usr/share/omarchy/bin/omarchy-shell"),
                                     {QStringLiteral("omarchy.weather"), QStringLiteral("edit")});
         });
         const auto updateWeatherControls = [weatherVisual, weatherDetails, temperatureUnit,
@@ -471,7 +471,7 @@ private:
 
     void reconnectTouchscreen()
     {
-        QProcess::startDetached(QStringLiteral("omarchy-shell"),
+        QProcess::startDetached(QStringLiteral("/usr/share/omarchy/bin/omarchy-shell"),
                                 {QStringLiteral("pretty.omadeck"), QStringLiteral("reconnectTouch")});
         m_healthAction.setText(QStringLiteral("Touchscreen reconnect requested…"));
         QTimer::singleShot(1500, this, [this] { refreshHealth(); });
@@ -484,7 +484,7 @@ private:
             QStringLiteral("Restart the Omarchy shell now? The bar and OmaDeck will briefly disappear."));
         if (answer != QMessageBox::Yes)
             return;
-        QProcess::startDetached(QStringLiteral("omarchy"),
+        QProcess::startDetached(QStringLiteral("/usr/share/omarchy/bin/omarchy"),
                                 {QStringLiteral("restart"), QStringLiteral("shell")});
         QApplication::quit();
     }
@@ -533,7 +533,9 @@ int main(int argc, char **argv)
 
     const QString doctorPath = parser.value(doctorOption);
     const QString pluginDir = parser.value(pluginOption);
-    if (!QFileInfo(doctorPath).isExecutable() || pluginDir.isEmpty())
+    if (!QFileInfo(doctorPath).isExecutable() || pluginDir.isEmpty()
+        || !QFileInfo(QStringLiteral("/usr/share/omarchy/bin/omarchy-shell")).isExecutable()
+        || !QFileInfo(QStringLiteral("/usr/share/omarchy/bin/omarchy")).isExecutable())
         return 2;
 
     QStringList touchDeviceNames = parser.values(touchDeviceOption);

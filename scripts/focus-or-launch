@@ -1,6 +1,20 @@
-#!/usr/bin/env bash
+#!/usr/bin/bash
 
 set -u
+export PATH=/usr/bin:/usr/share/omarchy/bin
+
+readonly HYPRCTL=/usr/bin/hyprctl
+readonly JQ=/usr/bin/jq
+readonly SLEEP=/usr/bin/sleep
+readonly UWSM_APP=/usr/bin/uwsm-app
+readonly GTK_LAUNCH=/usr/bin/gtk-launch
+
+for command_path in "$HYPRCTL" "$JQ" "$SLEEP" "$UWSM_APP" "$GTK_LAUNCH"; do
+  if [[ ! -f $command_path || ! -x $command_path ]]; then
+    printf 'OmaDeck launcher requires trusted executable %s\n' "$command_path" >&2
+    exit 1
+  fi
+done
 
 desktop_id=${1:?desktop id required}
 primary_monitor=${2:?primary monitor required}
@@ -8,10 +22,10 @@ aliases_csv=${3:-$desktop_id}
 
 # A layer-surface tap is still finishing when this process starts. Waiting for
 # its release prevents the Edge from immediately reclaiming compositor focus.
-sleep 0.15
+"$SLEEP" 0.15
 
 find_client_address() {
-  hyprctl clients -j | jq -r --arg aliases "$aliases_csv" '
+  "$HYPRCTL" clients -j | "$JQ" -r --arg aliases "$aliases_csv" '
     ($aliases | split(",") | map(ascii_downcase | sub("\\.desktop$"; ""))) as $wanted
     | [ .[]
         | select(.mapped != false)
@@ -32,13 +46,13 @@ find_client_address() {
 client_address=$(find_client_address)
 
 if [[ -n $client_address ]]; then
-  address_json=$(jq -n --arg value "address:$client_address" '$value')
-  hyprctl dispatch "hl.dsp.focus({ window = $address_json })" >/dev/null
+  address_json=$("$JQ" -n --arg value "address:$client_address" '$value')
+  "$HYPRCTL" dispatch "hl.dsp.focus({ window = $address_json })" >/dev/null
   exit 0
 fi
 
 workspace=$(
-  hyprctl monitors -j | jq -r --arg monitor "$primary_monitor" '
+  "$HYPRCTL" monitors -j | "$JQ" -r --arg monitor "$primary_monitor" '
     .[] | select(.name == $monitor) | .activeWorkspace.name
   '
 )
@@ -47,28 +61,28 @@ if [[ -z $workspace ]]; then
   exit 1
 fi
 
-launch_command="uwsm-app -- gtk-launch $(printf '%q' "$desktop_id.desktop")"
-command_json=$(jq -n --arg value "$launch_command" '$value')
-workspace_json=$(jq -n --arg value "$workspace" '$value')
+launch_command="$UWSM_APP -- $GTK_LAUNCH $(printf '%q' "$desktop_id.desktop")"
+command_json=$("$JQ" -n --arg value "$launch_command" '$value')
+workspace_json=$("$JQ" -n --arg value "$workspace" '$value')
 
 # The workspace rule is bound to the spawned process, so window placement does
 # not depend on where touch temporarily moved Hyprland's software cursor.
-hyprctl dispatch "hl.dsp.exec_cmd($command_json, { workspace = $workspace_json })" >/dev/null
+"$HYPRCTL" dispatch "hl.dsp.exec_cmd($command_json, { workspace = $workspace_json })" >/dev/null
 
 # Some desktop applications (notably Nautilus) hand the request to an existing
 # background daemon. In that case Hyprland cannot associate the launch rule
 # with the window's real PID. Catch the resulting toplevel and move that exact
 # window after it maps, independent of the cursor and process ancestry.
 for _attempt in {1..50}; do
-  sleep 0.1
+  "$SLEEP" 0.1
   client_address=$(find_client_address)
   if [[ -n $client_address ]]; then
-    address_json=$(jq -n --arg value "address:$client_address" '$value')
-    hyprctl dispatch \
+    address_json=$("$JQ" -n --arg value "address:$client_address" '$value')
+    "$HYPRCTL" dispatch \
       "hl.dsp.window.move({ workspace = $workspace_json, follow = true, window = $address_json })" \
       >/dev/null
-    sleep 0.1
-    hyprctl dispatch "hl.dsp.focus({ window = $address_json })" >/dev/null
+    "$SLEEP" 0.1
+    "$HYPRCTL" dispatch "hl.dsp.focus({ window = $address_json })" >/dev/null
     exit 0
   fi
 done

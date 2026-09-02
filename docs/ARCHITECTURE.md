@@ -157,22 +157,26 @@ awkward to express safely in QML.
 
 `scripts/weather-location` reads Omarchy's location through a bounded,
 descriptor-relative, no-follow path and exposes only normalized coordinates,
-an 80-character name, and a digest. `scripts/weather-json` streams at most 256
-KiB from each HTTPS provider under one ten-second lifecycle deadline, strictly
-validates coordinate, scalar, string, and forecast bounds, and emits at most 16
-KiB. The QML controller consumes both helpers through incremental bounded
-parsers rather than retaining arbitrary process output. It uses `wttr.in` for
-automatic or name-only location resolution and Open-Meteo for structured
-current and daily conditions. The controller preserves the last good result
-across transient failures; the renderer maps provider codes to Omarchy's clear,
-cloud, fog, drizzle, rain, snow, hail, and thunderstorm glyph language.
+an 80-character name, and a digest. `scripts/run-weather` supervises the worker
+under an absolute ten-second process-group deadline that includes DNS, connect,
+TLS, and body reads. `scripts/weather-json` streams at most 256 KiB from each
+HTTPS provider, strictly validates coordinate, scalar, string, and forecast
+bounds, and emits at most 16 KiB. The QML controller consumes both helpers
+through incremental bounded parsers rather than retaining arbitrary process
+output and retains a later termination/kill timer as a supervisor backstop. The
+worker uses `wttr.in` for automatic or name-only location resolution and
+Open-Meteo for structured current and daily conditions. The controller
+preserves the last good result across transient failures; the renderer maps
+provider codes to Omarchy's clear, cloud, fog, drizzle, rain, snow, hail, and
+thunderstorm glyph language.
 
-`scripts/system-stats` is a bounded Python probe. CPU and network counters live
-in a private `0700` runtime directory and are opened relative to validated
-directory descriptors with no symlink following and atomic replacement. Every
-external producer has a byte limit, deadline, cardinality cap, and process-group
-kill path. Clipboard and Hyprland values are projected into a capped schema
-before the helper emits its 256 KiB maximum snapshot.
+`scripts/system-stats` is a bounded Python probe that invokes only explicitly
+checked, root-owned executables at fixed `/usr/bin` paths. CPU and network
+counters live in a private `0700` runtime directory and are opened relative to
+validated directory descriptors with no symlink following and atomic
+replacement. Every external producer has a byte limit, deadline, cardinality
+cap, and process-group kill path. Clipboard and Hyprland values are projected
+into a capped schema before the helper emits its 256 KiB maximum snapshot.
 
 OmaDeck also contains two native Qt components:
 

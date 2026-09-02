@@ -1,7 +1,20 @@
-#!/usr/bin/env bash
+#!/usr/bin/bash
 set -uo pipefail
+export PATH=/usr/bin:/usr/share/omarchy/bin
 
-script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+readonly PGREP=/usr/bin/pgrep
+readonly HYPRCTL=/usr/bin/hyprctl
+readonly JQ=/usr/bin/jq
+readonly UDEVADM=/usr/bin/udevadm
+readonly READLINK=/usr/bin/readlink
+readonly SLEEP=/usr/bin/sleep
+readonly SHA256SUM=/usr/bin/sha256sum
+readonly WPCTL=/usr/bin/wpctl
+readonly OMARCHY=/usr/share/omarchy/bin/omarchy
+readonly OMARCHY_SHELL=/usr/share/omarchy/bin/omarchy-shell
+
+script_path=${BASH_SOURCE[0]}
+script_dir=$(cd -- "${script_path%/*}" && pwd)
 plugin_dir=$(cd -- "$script_dir/.." && pwd)
 target_screen=DP-3
 primary_monitor=DP-1
@@ -88,20 +101,20 @@ warn() {
   ((advisories += 1))
 }
 
-if pgrep -x quickshell >/dev/null 2>&1; then
+if [[ -x $PGREP ]] && "$PGREP" -x quickshell >/dev/null 2>&1; then
   ok "Omarchy shell is running"
 else
   fail "Omarchy shell is not running"
 fi
 
-monitor_json=$(hyprctl -j monitors 2>/dev/null || true)
-if [[ -n $monitor_json ]] && command -v jq >/dev/null 2>&1; then
-  if jq -e --arg name "$target_screen" 'any(.[]; .name == $name)' <<<"$monitor_json" >/dev/null 2>&1; then
+monitor_json=$([[ -x $HYPRCTL ]] && "$HYPRCTL" -j monitors 2>/dev/null || true)
+if [[ -n $monitor_json && -x $JQ ]]; then
+  if "$JQ" -e --arg name "$target_screen" 'any(.[]; .name == $name)' <<<"$monitor_json" >/dev/null 2>&1; then
     ok "Deck monitor $target_screen is connected"
   else
     fail "Deck monitor $target_screen is not connected"
   fi
-  if jq -e --arg name "$primary_monitor" 'any(.[]; .name == $name)' <<<"$monitor_json" >/dev/null 2>&1; then
+  if "$JQ" -e --arg name "$primary_monitor" 'any(.[]; .name == $name)' <<<"$monitor_json" >/dev/null 2>&1; then
     ok "Primary monitor $primary_monitor is connected"
   else
     fail "Primary monitor $primary_monitor is not connected"
@@ -112,7 +125,7 @@ fi
 
 for event_path in "$input_root"/event*; do
   [[ -e $event_path ]] || continue
-  properties=$(udevadm info -q property -n "$event_path" 2>/dev/null || true)
+  properties=$([[ -x $UDEVADM ]] && "$UDEVADM" info -q property -n "$event_path" 2>/dev/null || true)
   [[ $properties == *"ID_INPUT_TOUCHSCREEN=1"* ]] || continue
   event_name=${event_path##*/}
   device_name=""
@@ -152,27 +165,27 @@ if [[ -n $touch_device ]]; then
   while IFS= read -r shell_pid; do
     for fd_path in "$proc_root/$shell_pid/fd/"*; do
       [[ -e $fd_path ]] || continue
-      if [[ $(readlink "$fd_path" 2>/dev/null || true) == "$touch_device" ]]; then
+      if [[ $("$READLINK" "$fd_path" 2>/dev/null || true) == "$touch_device" ]]; then
         touch_open=true
         break 2
       fi
     done
-  done < <(pgrep -x quickshell 2>/dev/null || true)
+  done < <([[ -x $PGREP ]] && "$PGREP" -x quickshell 2>/dev/null || true)
 fi
 
-if command -v omarchy-shell >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+if [[ -x $OMARCHY_SHELL && -x $JQ ]]; then
   for ((attempt = 1; attempt <= touch_state_attempts; attempt++)); do
-    touch_state=$(omarchy-shell pretty.omadeck touchState 2>/dev/null || true)
-    if jq -e 'type == "object" and .active == true and .exclusiveGrab == true' \
+    touch_state=$("$OMARCHY_SHELL" pretty.omadeck touchState 2>/dev/null || true)
+    if "$JQ" -e 'type == "object" and .active == true and .exclusiveGrab == true' \
         <<<"$touch_state" >/dev/null 2>&1; then
       break
     fi
-    ((attempt == touch_state_attempts)) || sleep "$touch_state_retry_delay"
+    ((attempt == touch_state_attempts)) || "$SLEEP" "$touch_state_retry_delay"
   done
-  if jq -e 'type == "object"' <<<"$touch_state" >/dev/null 2>&1; then
-    touch_state_device=$(jq -r '.devicePath // ""' <<<"$touch_state")
-    [[ $(jq -r '.active // false' <<<"$touch_state") == true ]] && touch_state_active=true
-    [[ $(jq -r '.exclusiveGrab // false' <<<"$touch_state") == true ]] && touch_state_exclusive=true
+  if "$JQ" -e 'type == "object"' <<<"$touch_state" >/dev/null 2>&1; then
+    touch_state_device=$("$JQ" -r '.devicePath // ""' <<<"$touch_state")
+    [[ $("$JQ" -r '.active // false' <<<"$touch_state") == true ]] && touch_state_active=true
+    [[ $("$JQ" -r '.exclusiveGrab // false' <<<"$touch_state") == true ]] && touch_state_exclusive=true
   fi
 fi
 
@@ -199,7 +212,8 @@ fi
 if [[ -x $plugin_dir/native/bin/omadeck-tray ]]; then
   ok "System-tray controller is built"
   if [[ -f $plugin_dir/native/artifacts.sha256 && ! -L $plugin_dir/native/artifacts.sha256 ]] \
-    && (cd "$plugin_dir/native" && sha256sum -c artifacts.sha256 --status); then
+    && [[ -x $SHA256SUM ]] \
+    && (cd "$plugin_dir/native" && "$SHA256SUM" -c artifacts.sha256 --status); then
     ok "Native artifact integrity record matches the installed binaries"
   else
     warn "Native artifact integrity record is missing or stale; run scripts/build-native"
@@ -218,11 +232,13 @@ for command_path in \
   fi
 done
 
-for command_name in hyprctl jq omarchy omarchy-shell wpctl; do
-  if command -v "$command_name" >/dev/null 2>&1; then
-    ok "Required command is available: $command_name"
+required_names=(hyprctl jq omarchy omarchy-shell wpctl)
+required_paths=("$HYPRCTL" "$JQ" "$OMARCHY" "$OMARCHY_SHELL" "$WPCTL")
+for index in "${!required_names[@]}"; do
+  if [[ -f ${required_paths[$index]} && -x ${required_paths[$index]} ]]; then
+    ok "Required command is available: ${required_names[$index]}"
   else
-    fail "Required command is missing: $command_name"
+    fail "Required command is missing: ${required_names[$index]}"
   fi
 done
 

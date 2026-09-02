@@ -64,6 +64,27 @@ function createFixture({
   for (const name of ["omarchy", "wpctl"])
     executable(path.join(binDir, name), "#!/usr/bin/env bash\nexit 0\n")
 
+  const fixtureDoctor = path.join(root, "omadeck-doctor")
+  const commandOverrides = {
+    PGREP: path.join(binDir, "pgrep"),
+    HYPRCTL: path.join(binDir, "hyprctl"),
+    JQ: "/usr/bin/jq",
+    UDEVADM: path.join(binDir, "udevadm"),
+    READLINK: "/usr/bin/readlink",
+    SLEEP: path.join(binDir, "sleep"),
+    SHA256SUM: "/usr/bin/sha256sum",
+    WPCTL: path.join(binDir, "wpctl"),
+    OMARCHY: path.join(binDir, "omarchy"),
+    OMARCHY_SHELL: path.join(binDir, "omarchy-shell"),
+  }
+  let fixtureDoctorSource = fs.readFileSync(doctorPath, "utf8")
+  for (const [name, commandPath] of Object.entries(commandOverrides))
+    fixtureDoctorSource = fixtureDoctorSource.replace(
+      new RegExp(`^readonly ${name}=.*$`, "m"),
+      `readonly ${name}=${commandPath}`,
+    )
+  executable(fixtureDoctor, fixtureDoctorSource)
+
   if (shellHasOpenFd)
     fs.symlinkSync(touchDevice, path.join(procRoot, "4242/fd/79"))
 
@@ -79,6 +100,7 @@ function createFixture({
       OMADECK_TOUCH_STATE_RETRY_DELAY: "0",
       PATH: `${binDir}:/usr/bin:/bin`,
     },
+    doctorPath: fixtureDoctor,
     pluginDir,
     sleepLog,
     touchDevice,
@@ -87,7 +109,7 @@ function createFixture({
 }
 
 function runDoctor(fixture, ...args) {
-  return spawnSync("bash", [doctorPath, ...args, "--plugin-dir", fixture.pluginDir], {
+  return spawnSync("bash", [fixture.doctorPath, ...args, "--plugin-dir", fixture.pluginDir], {
     encoding: "utf8",
     env: fixture.env,
   })

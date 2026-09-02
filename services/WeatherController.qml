@@ -151,23 +151,42 @@ Item {
 
   Process {
     id: weatherProcess
-    command: [root.pluginDir + "/scripts/weather-json"]
+    command: [root.pluginDir + "/scripts/run-weather"]
     property int requestGeneration: -1
     stdout: BoundedOutputParser {
       id: weatherOutput
       maxBytes: 16 * 1024
     }
-    onStarted: weatherOutput.reset()
-    onExited: function(exitCode) { root.finishRequest(exitCode) }
+    onStarted: {
+      weatherOutput.reset()
+      weatherLifecycleBackstop.restart()
+    }
+    onExited: function(exitCode) {
+      weatherLifecycleBackstop.stop()
+      forceStopDelay.stop()
+      root.finishRequest(exitCode)
+    }
   }
 
-  // Process.running = false sends SIGTERM. Escalate if an in-flight helper
-  // fails to cooperate so hiding weather does not leave it running.
+  // The external supervisor owns the strict ten-second deadline. This later
+  // QML deadline protects the keep-loaded shell if the supervisor itself ever
+  // fails; Process.running = false sends SIGTERM before escalation.
+  Timer {
+    id: weatherLifecycleBackstop
+    interval: 12 * 1000
+    repeat: false
+    onTriggered: {
+      if (!weatherProcess.running) return
+      weatherProcess.running = false
+      forceStopDelay.restart()
+    }
+  }
+
   Timer {
     id: forceStopDelay
     interval: 500
     repeat: false
-    onTriggered: if (!root.enabled && weatherProcess.running) weatherProcess.signal(9)
+    onTriggered: if (weatherProcess.running) weatherProcess.signal(9)
   }
 
   Process {
