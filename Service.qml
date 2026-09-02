@@ -14,6 +14,8 @@ Item {
   property string primaryMonitor: "DP-1"
   property var touchDeviceNames: ["WCH.CN", "XENEON"]
   property var activeSurface: null
+  property bool unloading: false
+  property int trayRestartFailures: 0
   readonly property string pluginDir: {
     if (manifest && manifest.__sourceDir) return String(manifest.__sourceDir)
     var resolved = String(Qt.resolvedUrl("."))
@@ -35,6 +37,29 @@ Item {
 
   function unregisterSurface(surface) {
     if (activeSurface === surface) activeSurface = null
+  }
+
+  function startTray() {
+    if (unloading || pluginDir === "" || trayController.running) return
+    trayController.running = true
+  }
+
+  function stopTray() {
+    trayRestartDelay.stop()
+    trayStableDelay.stop()
+    if (!trayController.running) return
+    trayController.running = false
+    if (!unloading) trayForceStopDelay.restart()
+  }
+
+  Component.onCompleted: Qt.callLater(root.startTray)
+  Component.onDestruction: {
+    unloading = true
+    stopTray()
+  }
+  onPluginDirChanged: {
+    if (pluginDir === "") stopTray()
+    else Qt.callLater(root.startTray)
   }
 
   LayoutController {
@@ -63,7 +88,37 @@ Item {
     id: trayController
     command: [root.pluginDir + "/scripts/run-tray", root.pluginDir,
               root.targetScreen, root.primaryMonitor].concat(root.touchDeviceNames)
-    running: root.pluginDir !== ""
+    onStarted: trayStableDelay.restart()
+    onExited: function(exitCode, exitStatus) {
+      trayStableDelay.stop()
+      trayForceStopDelay.stop()
+      if (root.unloading || root.pluginDir === "") return
+      root.trayRestartFailures = Math.min(root.trayRestartFailures + 1, 6)
+      trayRestartDelay.interval = Math.min(30000,
+                                           1000 * Math.pow(2, root.trayRestartFailures - 1))
+      trayRestartDelay.restart()
+    }
+  }
+
+  Timer {
+    id: trayStableDelay
+    interval: 30 * 1000
+    repeat: false
+    onTriggered: root.trayRestartFailures = 0
+  }
+
+  Timer {
+    id: trayRestartDelay
+    interval: 1000
+    repeat: false
+    onTriggered: root.startTray()
+  }
+
+  Timer {
+    id: trayForceStopDelay
+    interval: 750
+    repeat: false
+    onTriggered: if (trayController.running) trayController.signal(9)
   }
 
   IpcHandler {

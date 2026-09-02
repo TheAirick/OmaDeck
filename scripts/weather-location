@@ -1,0 +1,17 @@
+#!/usr/bin/env python3
+
+import json
+import os
+import sys
+
+from weather_location import read_location
+
+
+default_path = os.path.join(
+    os.environ.get("XDG_STATE_HOME") or os.path.join(os.path.expanduser("~"), ".local", "state"),
+    "omarchy",
+    "settings",
+    "weather.json",
+)
+location = read_location(sys.argv[1] if len(sys.argv) > 1 else default_path)
+print(json.dumps(location, ensure_ascii=True, separators=(",", ":")))

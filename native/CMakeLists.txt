@@ -8,6 +8,9 @@ set(CMAKE_AUTOMOC ON)
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Widgets)
 include(CTest)
 
+set(OMADECK_ARTIFACT_ROOT "${CMAKE_BINARY_DIR}/artifacts" CACHE PATH
+  "Private staging root for OmaDeck runtime artifacts")
+
 add_library(omadecktouchplugin SHARED
   EvdevTouchState.cpp
   EvdevTouchState.h
@@ -24,7 +27,7 @@ target_link_libraries(omadecktouchplugin PRIVATE
 )
 
 set_target_properties(omadecktouchplugin PROPERTIES
-  LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/OmaDeck/Touch"
+  LIBRARY_OUTPUT_DIRECTORY "${OMADECK_ARTIFACT_ROOT}/OmaDeck/Touch"
 )
 
 add_executable(omadeck-tray
@@ -39,7 +42,7 @@ target_link_libraries(omadeck-tray PRIVATE
 )
 
 set_target_properties(omadeck-tray PROPERTIES
-  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bin"
+  RUNTIME_OUTPUT_DIRECTORY "${OMADECK_ARTIFACT_ROOT}/bin"
 )
 
 if(BUILD_TESTING)

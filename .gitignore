@@ -1,7 +1,10 @@
 build/
+__pycache__/
+*.pyc
 *.qmlc
 *.jsc
 *.log
 native/build/
 native/bin/
 native/OmaDeck/Touch/libomadecktouchplugin.so
+native/artifacts.sha256

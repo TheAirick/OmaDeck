@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict")
+const crypto = require("node:crypto")
 const fs = require("node:fs")
 const os = require("node:os")
 const path = require("node:path")
@@ -43,6 +44,15 @@ function createFixture({
   fs.writeFileSync(path.join(sysInputRoot, "event13/device/name"), `${touchName}\n`)
   fs.writeFileSync(path.join(pluginDir, "native/OmaDeck/Touch/libomadecktouchplugin.so"), "")
   executable(path.join(pluginDir, "native/bin/omadeck-tray"), "#!/usr/bin/env bash\nexit 0\n")
+  const nativeRoot = path.join(pluginDir, "native")
+  const artifactPaths = ["OmaDeck/Touch/libomadecktouchplugin.so", "bin/omadeck-tray"]
+  const artifactRecord = artifactPaths.map(relativePath => {
+    const digest = crypto.createHash("sha256")
+      .update(fs.readFileSync(path.join(nativeRoot, relativePath)))
+      .digest("hex")
+    return `${digest}  ${relativePath}`
+  }).join("\n") + "\n"
+  fs.writeFileSync(path.join(nativeRoot, "artifacts.sha256"), artifactRecord, { mode: 0o600 })
   executable(path.join(homeDir, ".local/bin/alienware-to-omarchy"), "#!/usr/bin/env bash\nexit 0\n")
   executable(path.join(homeDir, ".local/bin/alienware-to-mac"), "#!/usr/bin/env bash\nexit 0\n")
 

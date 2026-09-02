@@ -1,21 +1,121 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+umask 077
+
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 project_dir=$(cd -- "$script_dir/.." && pwd)
 source_dir="$project_dir/native"
-build_dir="$source_dir/build"
+runtime_base=${XDG_RUNTIME_DIR:-/tmp}
+build_root=""
 
-for command_name in cmake c++; do
+cleanup() {
+  [[ -z $build_root ]] || rm -rf -- "$build_root"
+}
+trap cleanup EXIT INT TERM
+
+for command_name in cmake ctest c++ sha256sum stat install mktemp; do
   if ! command -v "$command_name" >/dev/null 2>&1; then
     printf 'Missing required build command: %s\n' "$command_name" >&2
     exit 1
   fi
 done
 
-cmake -S "$source_dir" -B "$build_dir" -DCMAKE_BUILD_TYPE=Release
+if [[ ! -d $runtime_base || -L $runtime_base ]]; then
+  printf 'Unsafe runtime directory: %s\n' "$runtime_base" >&2
+  exit 1
+fi
+
+build_root=$(mktemp -d --tmpdir="$runtime_base" omadeck-build.XXXXXXXX)
+chmod 700 "$build_root"
+build_dir="$build_root/cmake"
+artifact_root="$build_root/artifacts"
+
+cmake \
+  -S "$source_dir" \
+  -B "$build_dir" \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DOMADECK_ARTIFACT_ROOT="$artifact_root"
 cmake --build "$build_dir" --parallel
+ctest --test-dir "$build_dir" --output-on-failure
+
+verify_parent() {
+  local directory=$1
+  local owner mode
+
+  [[ -d $directory && ! -L $directory ]] || {
+    printf 'Unsafe artifact directory: %s\n' "$directory" >&2
+    return 1
+  }
+  read -r owner mode < <(stat -Lc '%u %a' -- "$directory")
+  [[ $owner == "$(id -u)" ]] || {
+    printf 'Artifact directory is not owned by the current user: %s\n' "$directory" >&2
+    return 1
+  }
+  (( (8#$mode & 0022) == 0 )) || {
+    printf 'Artifact directory is group/world writable: %s\n' "$directory" >&2
+    return 1
+  }
+}
+
+atomic_install() {
+  local staged=$1
+  local destination=$2
+  local destination_dir destination_name temporary expected actual owner mode
+
+  [[ -f $staged && ! -L $staged ]] || {
+    printf 'Missing or unsafe staged artifact: %s\n' "$staged" >&2
+    return 1
+  }
+
+  destination_dir=$(dirname -- "$destination")
+  destination_name=$(basename -- "$destination")
+  verify_parent "$destination_dir"
+
+  if [[ -e $destination || -L $destination ]]; then
+    [[ -f $destination && ! -L $destination ]] || {
+      printf 'Refusing to replace unexpected artifact target: %s\n' "$destination" >&2
+      return 1
+    }
+    read -r owner mode < <(stat -Lc '%u %a' -- "$destination")
+    [[ $owner == "$(id -u)" ]] || {
+      printf 'Refusing to replace an artifact owned by another user: %s\n' "$destination" >&2
+      return 1
+    }
+    (( (8#$mode & 0022) == 0 )) || {
+      printf 'Refusing to replace a group/world-writable artifact: %s\n' "$destination" >&2
+      return 1
+    }
+  fi
+
+  temporary=$(mktemp --tmpdir="$destination_dir" ".${destination_name}.new.XXXXXXXX")
+  install -m 0755 -- "$staged" "$temporary"
+  expected=$(sha256sum -- "$staged" | awk '{print $1}')
+  actual=$(sha256sum -- "$temporary" | awk '{print $1}')
+  [[ $expected == "$actual" ]] || {
+    rm -f -- "$temporary"
+    printf 'Artifact verification failed: %s\n' "$destination" >&2
+    return 1
+  }
+  mv -T -- "$temporary" "$destination"
+}
+
+plugin_artifact="$artifact_root/OmaDeck/Touch/libomadecktouchplugin.so"
+tray_artifact="$artifact_root/bin/omadeck-tray"
+plugin_destination="$source_dir/OmaDeck/Touch/libomadecktouchplugin.so"
+tray_destination="$source_dir/bin/omadeck-tray"
+
+atomic_install "$plugin_artifact" "$plugin_destination"
+atomic_install "$tray_artifact" "$tray_destination"
+
+artifact_record=$(mktemp --tmpdir="$source_dir" .artifacts.sha256.new.XXXXXXXX)
+{
+  sha256sum -- "$plugin_destination" "$tray_destination" \
+    | sed "s#  $source_dir/#  #"
+} > "$artifact_record"
+chmod 600 "$artifact_record"
+mv -T -- "$artifact_record" "$source_dir/artifacts.sha256"
 
 printf 'Built OmaDeck native components:\n'
-printf '  %s\n' "$source_dir/OmaDeck/Touch/libomadecktouchplugin.so"
-printf '  %s\n' "$source_dir/bin/omadeck-tray"
+printf '  %s\n' "$plugin_destination"
+printf '  %s\n' "$tray_destination"

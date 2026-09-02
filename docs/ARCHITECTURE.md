@@ -155,11 +155,24 @@ uses reverse-swipe dismissal instead. Full-surface overlays retain an explicit
 Small shell helpers under `scripts/` bridge system data or actions that are
 awkward to express safely in QML.
 
-`scripts/weather-json` reads Omarchy's location state, uses `wttr.in` for
-automatic or name-only location resolution, and fetches structured current and
-daily conditions from Open-Meteo. The controller preserves the last good result
+`scripts/weather-location` reads Omarchy's location through a bounded,
+descriptor-relative, no-follow path and exposes only normalized coordinates,
+an 80-character name, and a digest. `scripts/weather-json` streams at most 256
+KiB from each HTTPS provider under one ten-second lifecycle deadline, strictly
+validates coordinate, scalar, string, and forecast bounds, and emits at most 16
+KiB. The QML controller consumes both helpers through incremental bounded
+parsers rather than retaining arbitrary process output. It uses `wttr.in` for
+automatic or name-only location resolution and Open-Meteo for structured
+current and daily conditions. The controller preserves the last good result
 across transient failures; the renderer maps provider codes to Omarchy's clear,
 cloud, fog, drizzle, rain, snow, hail, and thunderstorm glyph language.
+
+`scripts/system-stats` is a bounded Python probe. CPU and network counters live
+in a private `0700` runtime directory and are opened relative to validated
+directory descriptors with no symlink following and atomic replacement. Every
+external producer has a byte limit, deadline, cardinality cap, and process-group
+kill path. Clipboard and Hyprland values are projected into a capped schema
+before the helper emits its 256 KiB maximum snapshot.
 
 OmaDeck also contains two native Qt components:
 
@@ -174,10 +187,17 @@ OmaDeck also contains two native Qt components:
   mouse when deck touch is unavailable and runs the same health checks exposed
   by `scripts/omadeck-doctor`. It also owns the single Clock/Weather settings
   panel and updates the validated QML appearance controller through bounded IPC;
-  it never writes the appearance file directly.
+  it never writes the appearance file directly. `scripts/run-tray` verifies the
+  build record, owner, mode, size, and digest, keeps the validated executable
+  inode open through launch, and applies a parent-death signal. The service uses
+  exponential restart backoff, a stable-run reset, graceful stop, and bounded
+  kill escalation.
 
-`scripts/build-native` configures and builds both components. Generated build
-artifacts are deliberately not stored in Git because they are tied to the
+`scripts/build-native` configures and tests both components in a newly-created
+private build directory. It refuses unexpected destination types or unsafe
+ownership/modes, verifies staged bytes, atomically installs the two runtime
+artifacts, and writes a local integrity record. Generated build artifacts and
+that record are deliberately not stored in Git because they are tied to the
 local Qt and Quickshell ABI.
 
 The audio mixer snapshots live PipeWire streams before presenting them. Its
@@ -218,4 +238,6 @@ configured. Force Kill has an expiring two-tap confirmation.
 
 Weather is optional, but enabled by default. As with Omarchy's built-in weather
 panel, enabling it sends a configured location—or the public-IP-derived
-location when automatic—to `wttr.in` and Open-Meteo.
+location when automatic—to `wttr.in` and Open-Meteo. Provider responses,
+location input, process metadata, and clipboard history are all bounded before
+they reach the long-running QML engine.

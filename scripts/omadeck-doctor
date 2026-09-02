@@ -198,6 +198,12 @@ fi
 
 if [[ -x $plugin_dir/native/bin/omadeck-tray ]]; then
   ok "System-tray controller is built"
+  if [[ -f $plugin_dir/native/artifacts.sha256 && ! -L $plugin_dir/native/artifacts.sha256 ]] \
+    && (cd "$plugin_dir/native" && sha256sum -c artifacts.sha256 --status); then
+    ok "Native artifact integrity record matches the installed binaries"
+  else
+    warn "Native artifact integrity record is missing or stale; run scripts/build-native"
+  fi
 else
   warn "System-tray controller is not built; run scripts/build-native"
 fi

@@ -1,103 +1,249 @@
-#!/usr/bin/env bash
+#!/usr/bin/env python3
 
-set -u
+"""Fetch one strictly bounded, normalized weather snapshot."""
 
-weather_curl_pid=""
-weather_output_file=""
-weather_response=""
+from __future__ import annotations
 
-terminate_weather_request() {
-  if [[ -n "$weather_curl_pid" ]]; then
-    kill "$weather_curl_pid" 2>/dev/null || true
-    wait "$weather_curl_pid" 2>/dev/null || true
-  fi
-  [[ -z "$weather_output_file" ]] || rm -f "$weather_output_file"
-  exit 143
-}
+import json
+import math
+import os
+import socket
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from typing import Any
 
-fetch_json() {
-  weather_output_file=$(mktemp)
-  curl -fsS --max-time 8 "$@" >"$weather_output_file" &
-  weather_curl_pid=$!
-  wait "$weather_curl_pid"
-  local status=$?
-  weather_curl_pid=""
-  weather_response=$(<"$weather_output_file")
-  rm -f "$weather_output_file"
-  weather_output_file=""
-  return "$status"
-}
+from weather_location import read_location
 
-trap terminate_weather_request TERM INT
 
-location_file="${OMADECK_WEATHER_LOCATION_FILE:-${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/settings/weather.json}"
-location_name=""
-latitude=""
-longitude=""
+MAX_BODY_BYTES = 256 * 1024
+MAX_OUTPUT_BYTES = 16 * 1024
+TOTAL_TIMEOUT_SECONDS = 10.0
+REQUEST_TIMEOUT_SECONDS = 5.0
+DEADLINE = time.monotonic() + TOTAL_TIMEOUT_SECONDS
 
-if [[ -r "$location_file" ]]; then
-  location_name=$(jq -r '.name // ""' "$location_file" 2>/dev/null || true)
-  latitude=$(jq -r '.latitude // ""' "$location_file" 2>/dev/null || true)
-  longitude=$(jq -r '.longitude // ""' "$location_file" 2>/dev/null || true)
-fi
 
-number_pattern='^-?[0-9]+([.][0-9]+)?$'
-if [[ ! "$latitude" =~ $number_pattern || ! "$longitude" =~ $number_pattern ]]; then
-  latitude=""
-  longitude=""
-fi
+def remaining_timeout() -> float:
+    remaining = DEADLINE - time.monotonic()
+    if remaining <= 0:
+        raise TimeoutError("weather lifecycle deadline exceeded")
+    return min(REQUEST_TIMEOUT_SECONDS, remaining)
 
-wttr=""
-if [[ -z "$latitude" || -z "$longitude" ]]; then
-  query=$(jq -rn --arg place "$location_name" '$place | @uri')
-  fetch_json "https://wttr.in/${query}?format=j1" 2>/dev/null || true
-  wttr="$weather_response"
-  if [[ -n "$wttr" ]]; then
-    latitude=$(jq -r '.nearest_area[0].latitude // ""' <<< "$wttr")
-    longitude=$(jq -r '.nearest_area[0].longitude // ""' <<< "$wttr")
-    if [[ -z "$location_name" ]]; then
-      location_name=$(jq -r '.nearest_area[0].areaName[0].value // "Current location"' <<< "$wttr")
-    fi
-  fi
-fi
 
-if [[ -n "$latitude" && -n "$longitude" ]]; then
-  fetch_json \
-    "https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=4&timezone=auto" \
-    2>/dev/null || true
-  forecast="$weather_response"
-  if [[ -n "$forecast" ]]; then
-    jq -c --arg location "${location_name:-Current location}" \
-      '{ok:true,provider:"Open-Meteo",location:$location,latitude:.latitude,longitude:.longitude,
-        temperatureC:.current.temperature_2m,feelsLikeC:.current.apparent_temperature,
-        humidity:.current.relative_humidity_2m,windKph:.current.wind_speed_10m,
-        code:.current.weather_code,isDay:(.current.is_day == 1),
-        highC:.daily.temperature_2m_max[0],lowC:.daily.temperature_2m_min[0],
-        forecast:[range(1; (.daily.time | length)) as $i | {
-          date:.daily.time[$i],code:.daily.weather_code[$i],
-          highC:.daily.temperature_2m_max[$i],lowC:.daily.temperature_2m_min[$i]
-        }]}' \
-      <<< "$forecast"
-    exit 0
-  fi
-fi
+def fetch_json(url: str) -> dict[str, Any]:
+    parsed_url = urllib.parse.urlparse(url)
+    if parsed_url.scheme != "https":
+        raise ValueError("weather providers must use HTTPS")
+    request = urllib.request.Request(
+        url,
+        headers={"Accept": "application/json", "User-Agent": "OmaDeck/0.7"},
+        method="GET",
+    )
+    with urllib.request.urlopen(request, timeout=remaining_timeout()) as response:
+        content_length = response.headers.get("Content-Length")
+        if content_length and int(content_length) > MAX_BODY_BYTES:
+            raise ValueError("weather response exceeds size limit")
+        output = bytearray()
+        while len(output) <= MAX_BODY_BYTES:
+            if time.monotonic() >= DEADLINE:
+                raise TimeoutError("weather lifecycle deadline exceeded")
+            chunk = response.read(min(16384, MAX_BODY_BYTES - len(output) + 1))
+            if not chunk:
+                break
+            output.extend(chunk)
+        if len(output) > MAX_BODY_BYTES:
+            raise ValueError("weather response exceeds size limit")
+    parsed = json.loads(output)
+    if not isinstance(parsed, dict):
+        raise ValueError("weather response must be an object")
+    return parsed
 
-if [[ -n "$wttr" ]]; then
-  jq -c --arg location "${location_name:-Current location}" \
-    '{ok:true,provider:"wttr.in",location:$location,
-      temperatureC:(.current_condition[0].temp_C | tonumber),
-      feelsLikeC:(.current_condition[0].FeelsLikeC | tonumber),
-      humidity:(.current_condition[0].humidity | tonumber),
-      windKph:(.current_condition[0].windspeedKmph | tonumber),
-      code:(.current_condition[0].weatherCode | tonumber),isDay:true,
-      highC:(.weather[0].maxtempC | tonumber),lowC:(.weather[0].mintempC | tonumber),
-      forecast:[.weather[1:4][] | {
-        date:.date,code:(.hourly[4].weatherCode | tonumber),
-        highC:(.maxtempC | tonumber),lowC:(.mintempC | tonumber)
-      }]}' \
-    <<< "$wttr"
-  exit 0
-fi
 
-jq -nc '{ok:false,error:"Weather unavailable"}'
-exit 1
+def number(value: Any, minimum: float, maximum: float) -> float:
+    if isinstance(value, bool):
+        raise ValueError("boolean is not a weather number")
+    parsed = float(value)
+    if not math.isfinite(parsed) or parsed < minimum or parsed > maximum:
+        raise ValueError("weather number outside accepted range")
+    return parsed
+
+
+def integer(value: Any, minimum: int, maximum: int) -> int:
+    parsed = number(value, minimum, maximum)
+    if not parsed.is_integer():
+        raise ValueError("weather value must be an integer")
+    return int(parsed)
+
+
+def text(value: Any, limit: int) -> str:
+    if not isinstance(value, str):
+        raise ValueError("weather value must be text")
+    return value.strip()[:limit]
+
+
+def array(value: Any, minimum: int = 1, maximum: int = 4) -> list[Any]:
+    if not isinstance(value, list) or len(value) < minimum or len(value) > maximum:
+        raise ValueError("weather array outside accepted size")
+    return value
+
+
+def normalized_open_meteo(payload: dict[str, Any], location_name: str) -> dict[str, Any]:
+    current = payload.get("current")
+    daily = payload.get("daily")
+    if not isinstance(current, dict) or not isinstance(daily, dict):
+        raise ValueError("Open-Meteo response is missing required objects")
+
+    dates = array(daily.get("time"))
+    codes = array(daily.get("weather_code"))
+    highs = array(daily.get("temperature_2m_max"))
+    lows = array(daily.get("temperature_2m_min"))
+    length = min(len(dates), len(codes), len(highs), len(lows), 4)
+    if length < 1:
+        raise ValueError("Open-Meteo forecast is empty")
+
+    forecast = []
+    for index in range(1, length):
+        forecast.append(
+            {
+                "date": text(dates[index], 16),
+                "code": integer(codes[index], 0, 999),
+                "highC": number(highs[index], -100, 100),
+                "lowC": number(lows[index], -100, 100),
+            }
+        )
+
+    return {
+        "ok": True,
+        "provider": "Open-Meteo",
+        "location": (location_name or "Current location")[:80],
+        "latitude": number(payload.get("latitude"), -90, 90),
+        "longitude": number(payload.get("longitude"), -180, 180),
+        "temperatureC": number(current.get("temperature_2m"), -100, 100),
+        "feelsLikeC": number(current.get("apparent_temperature"), -100, 100),
+        "humidity": number(current.get("relative_humidity_2m"), 0, 100),
+        "windKph": number(current.get("wind_speed_10m"), 0, 500),
+        "code": integer(current.get("weather_code"), 0, 999),
+        "isDay": integer(current.get("is_day"), 0, 1) == 1,
+        "highC": number(highs[0], -100, 100),
+        "lowC": number(lows[0], -100, 100),
+        "forecast": forecast[:3],
+    }
+
+
+def first_value(parent: dict[str, Any], key: str) -> Any:
+    values = parent.get(key)
+    if not isinstance(values, list) or not values:
+        raise ValueError(f"wttr.in field {key} is missing")
+    return values[0]
+
+
+def wttr_location(payload: dict[str, Any], existing_name: str) -> tuple[str, float, float]:
+    nearest = first_value(payload, "nearest_area")
+    if not isinstance(nearest, dict):
+        raise ValueError("wttr.in nearest area is invalid")
+    name = existing_name
+    if not name:
+        area = first_value(nearest, "areaName")
+        if isinstance(area, dict):
+            name = text(area.get("value", "Current location"), 80)
+    return (
+        name or "Current location",
+        number(nearest.get("latitude"), -90, 90),
+        number(nearest.get("longitude"), -180, 180),
+    )
+
+
+def normalized_wttr(payload: dict[str, Any], location_name: str) -> dict[str, Any]:
+    current = first_value(payload, "current_condition")
+    weather = payload.get("weather")
+    if not isinstance(current, dict) or not isinstance(weather, list) or not weather:
+        raise ValueError("wttr.in response is missing required weather data")
+    today = weather[0]
+    if not isinstance(today, dict):
+        raise ValueError("wttr.in current day is invalid")
+
+    forecast = []
+    for day in weather[1:4]:
+        if not isinstance(day, dict):
+            continue
+        hourly = day.get("hourly")
+        if not isinstance(hourly, list) or not hourly:
+            continue
+        sample = hourly[min(4, len(hourly) - 1)]
+        if not isinstance(sample, dict):
+            continue
+        forecast.append(
+            {
+                "date": text(day.get("date"), 16),
+                "code": integer(sample.get("weatherCode"), 0, 999),
+                "highC": number(day.get("maxtempC"), -100, 100),
+                "lowC": number(day.get("mintempC"), -100, 100),
+            }
+        )
+
+    return {
+        "ok": True,
+        "provider": "wttr.in",
+        "location": (location_name or "Current location")[:80],
+        "temperatureC": number(current.get("temp_C"), -100, 100),
+        "feelsLikeC": number(current.get("FeelsLikeC"), -100, 100),
+        "humidity": number(current.get("humidity"), 0, 100),
+        "windKph": number(current.get("windspeedKmph"), 0, 500),
+        "code": integer(current.get("weatherCode"), 0, 999),
+        "isDay": True,
+        "highC": number(today.get("maxtempC"), -100, 100),
+        "lowC": number(today.get("mintempC"), -100, 100),
+        "forecast": forecast[:3],
+    }
+
+
+def emit(payload: dict[str, Any], exit_code: int = 0) -> int:
+    encoded = json.dumps(payload, ensure_ascii=True, separators=(",", ":")).encode("utf-8")
+    if len(encoded) > MAX_OUTPUT_BYTES:
+        raise ValueError("normalized weather output exceeds size limit")
+    sys.stdout.buffer.write(encoded + b"\n")
+    return exit_code
+
+
+def main() -> int:
+    state_home = os.environ.get("XDG_STATE_HOME") or os.path.join(os.path.expanduser("~"), ".local", "state")
+    location_path = os.environ.get("OMADECK_WEATHER_LOCATION_FILE") or os.path.join(
+        state_home, "omarchy", "settings", "weather.json"
+    )
+    location = read_location(location_path)
+    location_name = str(location.get("name") or "")[:80]
+    latitude = location.get("latitude")
+    longitude = location.get("longitude")
+    wttr: dict[str, Any] | None = None
+
+    if latitude is None or longitude is None:
+        query = urllib.parse.quote(location_name, safe="")
+        wttr = fetch_json(f"https://wttr.in/{query}?format=j1")
+        location_name, latitude, longitude = wttr_location(wttr, location_name)
+
+    try:
+        query = urllib.parse.urlencode(
+            {
+                "latitude": number(latitude, -90, 90),
+                "longitude": number(longitude, -180, 180),
+                "current": "temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,is_day",
+                "daily": "weather_code,temperature_2m_max,temperature_2m_min",
+                "forecast_days": 4,
+                "timezone": "auto",
+            }
+        )
+        open_meteo = fetch_json(f"https://api.open-meteo.com/v1/forecast?{query}")
+        return emit(normalized_open_meteo(open_meteo, location_name))
+    except (OSError, ValueError, TimeoutError, urllib.error.URLError, socket.timeout, json.JSONDecodeError):
+        if wttr is not None:
+            return emit(normalized_wttr(wttr, location_name))
+        raise
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except Exception:
+        raise SystemExit(emit({"ok": False, "error": "Weather unavailable"}, 1))

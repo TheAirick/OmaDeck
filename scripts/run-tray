@@ -7,10 +7,51 @@ primary_monitor=${3:-DP-1}
 shift $(( $# < 3 ? $# : 3 ))
 touch_device_names=("$@")
 tray_binary="$project_dir/native/bin/omadeck-tray"
+artifact_record="$project_dir/native/artifacts.sha256"
 
 if [[ ! -x $tray_binary ]]; then
   printf 'OmaDeck tray is not built. Run %s/scripts/build-native\n' "$project_dir" >&2
   exit 0
+fi
+
+for command_name in sha256sum stat setpriv; do
+  if ! command -v "$command_name" >/dev/null 2>&1; then
+    printf 'OmaDeck tray verification requires %s\n' "$command_name" >&2
+    exit 1
+  fi
+done
+
+if [[ -L $tray_binary || ! -f $tray_binary || -L $artifact_record || ! -f $artifact_record ]]; then
+  printf 'OmaDeck tray artifact is missing or unsafe; rebuild it with %s/scripts/build-native\n' "$project_dir" >&2
+  exit 1
+fi
+
+read -r binary_owner binary_mode < <(stat -Lc '%u %a' -- "$tray_binary")
+if [[ $binary_owner != "$(id -u)" ]] || (( (8#$binary_mode & 0022) != 0 )); then
+  printf 'OmaDeck tray artifact has unsafe ownership or permissions; rebuild it\n' >&2
+  exit 1
+fi
+
+read -r record_owner record_mode record_size < <(stat -Lc '%u %a %s' -- "$artifact_record")
+if [[ $record_owner != "$(id -u)" ]] || (( (8#$record_mode & 0022) != 0 )) || (( record_size > 4096 )); then
+  printf 'OmaDeck tray artifact record has unsafe ownership, permissions, or size\n' >&2
+  exit 1
+fi
+
+exec 8< "$artifact_record"
+expected_digest=$(awk '$2 == "bin/omadeck-tray" { print $1; exit }' /proc/self/fd/8)
+if [[ ! $expected_digest =~ ^[0-9a-f]{64}$ ]]; then
+  printf 'OmaDeck tray artifact record is invalid; rebuild it\n' >&2
+  exit 1
+fi
+
+# Keep the validated inode open through exec so a checkout update cannot swap
+# the executable between verification and launch.
+exec 9< "$tray_binary"
+actual_digest=$(sha256sum /proc/self/fd/9 | awk '{print $1}')
+if [[ $actual_digest != "$expected_digest" ]]; then
+  printf 'OmaDeck tray artifact verification failed; rebuild it\n' >&2
+  exit 1
 fi
 
 arguments=(
@@ -25,4 +66,4 @@ for touch_device_name in "${touch_device_names[@]}"; do
   arguments+=(--touch-device-name "$touch_device_name")
 done
 
-exec "$tray_binary" "${arguments[@]}"
+exec setpriv --pdeathsig TERM /proc/self/fd/9 "${arguments[@]}"

@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 import qs.Ui
+import "../components"
 import "ClipboardDeletePolicy.js" as ClipboardDeletePolicy
 
 Item {
@@ -193,18 +194,23 @@ Item {
   Process {
     id: statsProcess
     command: [root.pluginDir + "/scripts/system-stats"]
-    stdout: StdioCollector {
-      onStreamFinished: {
-        try {
-          var next = JSON.parse(text)
-          root.stats = next
-          root.cpuHistory = root.appendSample(root.cpuHistory, next.performance.cpu)
-          root.gpuHistory = root.appendSample(root.gpuHistory, next.performance.gpu)
-          root.memoryHistory = root.appendSample(root.memoryHistory, next.performance.memory)
-          root.downloadHistory = root.appendSample(root.downloadHistory, next.network.down)
-          root.uploadHistory = root.appendSample(root.uploadHistory, next.network.up)
-        } catch (error) { console.warn("OmaDeck system stats:", error) }
-      }
+    stdout: BoundedOutputParser {
+      id: statsOutput
+      maxBytes: 256 * 1024
+    }
+    onStarted: statsOutput.reset()
+    onExited: function(exitCode) {
+      try {
+        if (exitCode !== 0 || statsOutput.truncated)
+          throw new Error("system helper failed or exceeded its output limit")
+        var next = JSON.parse(statsOutput.text)
+        root.stats = next
+        root.cpuHistory = root.appendSample(root.cpuHistory, next.performance.cpu)
+        root.gpuHistory = root.appendSample(root.gpuHistory, next.performance.gpu)
+        root.memoryHistory = root.appendSample(root.memoryHistory, next.performance.memory)
+        root.downloadHistory = root.appendSample(root.downloadHistory, next.network.down)
+        root.uploadHistory = root.appendSample(root.uploadHistory, next.network.up)
+      } catch (error) { console.warn("OmaDeck system stats:", error) }
     }
   }
 

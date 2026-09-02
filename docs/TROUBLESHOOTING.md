@@ -42,6 +42,11 @@ protection is active:
 omarchy restart shell
 ```
 
+The build uses a fresh private directory, runs the native tests, and atomically
+installs verified outputs. If the tray reports an invalid artifact record, do
+not copy an old binary into place; rerun `scripts/build-native` so the executable
+and its local integrity record are regenerated together.
+
 The dedicated touch endpoints must also be disabled in Hyprland as described in
 [Configuration](CONFIGURATION.md#touch-mapping). Otherwise Hyprland can claim
 the device during the brief gap between bridge instances. A healthy restart
@@ -110,9 +115,12 @@ omarchy-weather-location --set "Seattle" "47.6062,-122.3321"
 ```
 
 OmaDeck keeps the clock operational when `wttr.in` or Open-Meteo is offline and
-refreshes normally every 15 minutes. If Omarchy's built-in weather panel is also
-unavailable, the issue is upstream connectivity or location resolution rather
-than the OmaDeck card.
+refreshes normally every 15 minutes. Each request has a strict body cap and the
+whole provider sequence has a ten-second deadline. Location files that are
+symlinks, oversized, malformed, outside latitude/longitude ranges, owned by
+another user, or group/world writable are ignored. If Omarchy's built-in
+weather panel is also unavailable, the issue is upstream connectivity or
+location resolution rather than the OmaDeck card.
 
 When a location is saved for the first time after OmaDeck starts, the card
 detects the new Omarchy location file within ten seconds and refreshes. A

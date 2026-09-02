@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "../components"
 import "WeatherPolicy.js" as WeatherPolicy
 
 Item {
@@ -8,7 +9,12 @@ Item {
 
   property string pluginDir: ""
   property bool enabled: false
-  readonly property string locationPath: Quickshell.env("HOME") + "/.local/state/omarchy/settings/weather.json"
+  readonly property string stateHome: Quickshell.env("XDG_STATE_HOME") !== ""
+                                      ? Quickshell.env("XDG_STATE_HOME")
+                                      : Quickshell.env("HOME") + "/.local/state"
+  readonly property string locationPath: Quickshell.env("OMADECK_WEATHER_LOCATION_FILE") !== ""
+                                         ? Quickshell.env("OMADECK_WEATHER_LOCATION_FILE")
+                                         : stateHome + "/omarchy/settings/weather.json"
   property bool loading: false
   property string error: ""
   property var current: ({ ok: false })
@@ -17,8 +23,6 @@ Item {
   property int generation: 0
   property bool refreshQueued: false
   property bool requestActive: false
-  property bool processExited: true
-  property bool streamFinished: true
 
   function refresh(trigger) {
     var source = String(trigger || "manual")
@@ -30,14 +34,33 @@ Item {
     loading = true
     refreshQueued = false
     requestActive = true
-    processExited = false
-    streamFinished = false
     weatherProcess.requestGeneration = generation
     weatherProcess.running = true
   }
 
-  function finishRequest() {
-    if (!processExited || !streamFinished) return
+  function finishRequest(exitCode) {
+    if (WeatherPolicy.acceptsResult(enabled, weatherProcess.requestGeneration, generation)) {
+      try {
+        if (exitCode !== 0 || weatherOutput.truncated)
+          throw new Error("weather helper failed or exceeded its output limit")
+        var next = JSON.parse(weatherOutput.text)
+        if (!next.ok) throw new Error(next.error || "weather unavailable")
+        next.condition = normalizeCode(next.code)
+        next.conditionLabel = conditionLabel(next.condition)
+        var forecast = next.forecast || []
+        for (var i = 0; i < forecast.length; i++) {
+          forecast[i].condition = normalizeCode(forecast[i].code)
+          forecast[i].conditionLabel = conditionLabel(forecast[i].condition)
+        }
+        next.forecast = forecast
+        current = next
+        error = ""
+        updatedAt = new Date()
+      } catch (exception) {
+        error = "Weather unavailable"
+        console.warn("OmaDeck weather:", exception)
+      }
+    }
     loading = false
     requestActive = false
     if (enabled && refreshQueued) refresh("periodic")
@@ -46,9 +69,18 @@ Item {
   function observeLocation(raw) {
     var next = String(raw || "")
     if (next === locationState) return
+    if (locationState === "") {
+      locationState = next
+      return
+    }
     locationState = next
     if (!enabled) return
     refreshDelay.restart()
+  }
+
+  function probeLocation() {
+    if (!enabled || pluginDir === "" || locationProbe.running) return
+    locationProbe.running = true
   }
 
   onEnabledChanged: {
@@ -63,7 +95,7 @@ Item {
       }
       return
     }
-    locationFile.reload()
+    probeLocation()
     refresh("startup")
   }
 
@@ -121,36 +153,12 @@ Item {
     id: weatherProcess
     command: [root.pluginDir + "/scripts/weather-json"]
     property int requestGeneration: -1
-    stdout: StdioCollector {
-      onStreamFinished: {
-        if (WeatherPolicy.acceptsResult(root.enabled, weatherProcess.requestGeneration, root.generation)) {
-          try {
-            var next = JSON.parse(text)
-            if (!next.ok) throw new Error(next.error || "weather unavailable")
-            next.condition = root.normalizeCode(next.code)
-            next.conditionLabel = root.conditionLabel(next.condition)
-            var forecast = next.forecast || []
-            for (var i = 0; i < forecast.length; i++) {
-              forecast[i].condition = root.normalizeCode(forecast[i].code)
-              forecast[i].conditionLabel = root.conditionLabel(forecast[i].condition)
-            }
-            next.forecast = forecast
-            root.current = next
-            root.error = ""
-            root.updatedAt = new Date()
-          } catch (exception) {
-            root.error = "Weather unavailable"
-            console.warn("OmaDeck weather:", exception)
-          }
-        }
-        root.streamFinished = true
-        root.finishRequest()
-      }
+    stdout: BoundedOutputParser {
+      id: weatherOutput
+      maxBytes: 16 * 1024
     }
-    onExited: {
-      root.processExited = true
-      root.finishRequest()
-    }
+    onStarted: weatherOutput.reset()
+    onExited: function(exitCode) { root.finishRequest(exitCode) }
   }
 
   // Process.running = false sends SIGTERM. Escalate if an in-flight helper
@@ -162,30 +170,29 @@ Item {
     onTriggered: if (!root.enabled && weatherProcess.running) weatherProcess.signal(9)
   }
 
-  FileView {
-    id: locationFile
-    path: root.locationPath
-    watchChanges: root.enabled
-    printErrors: false
-    onLoaded: root.observeLocation(text())
-    onLoadFailed: {
-      if (root.locationState === "") return
-      root.locationState = ""
-      if (!root.enabled) return
-      refreshDelay.restart()
+  Process {
+    id: locationProbe
+    command: [root.pluginDir + "/scripts/weather-location", root.locationPath]
+    stdout: BoundedOutputParser {
+      id: locationOutput
+      maxBytes: 2048
     }
-    onFileChanged: reload()
+    onStarted: locationOutput.reset()
+    onExited: function(exitCode) {
+      if (exitCode === 0 && !locationOutput.truncated)
+        root.observeLocation(locationOutput.text)
+    }
   }
 
   Timer { id: refreshDelay; interval: 300; repeat: false; onTriggered: root.refresh("location") }
 
-  // FileView cannot watch a location file that did not exist at startup. A
-  // cheap periodic reload detects its first creation without polling weather.
+  // Probe only a bounded fingerprint, so location changes never load an
+  // arbitrary file into the long-running QML engine.
   Timer {
     interval: 10 * 1000
     running: root.enabled
     repeat: true
-    onTriggered: locationFile.reload()
+    onTriggered: root.probeLocation()
   }
 
   // Transient provider failures recover promptly instead of waiting for the
