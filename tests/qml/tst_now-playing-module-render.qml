@@ -118,7 +118,8 @@ TestCase {
 
     compare(JSON.stringify(fixture.player.seeks), JSON.stringify([-10, 10]))
     module.seekTo(95)
-    compare(fixture.player.position, 95)
+    compare(fixture.player.position, 42)
+    compare(JSON.stringify(fixture.player.seeks), JSON.stringify([-10, 10, 53]))
     compare(module.displayedPosition, 95)
   }
 

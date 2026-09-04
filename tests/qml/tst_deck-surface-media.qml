@@ -598,7 +598,9 @@ TestCase {
     compare(JSON.stringify(mediaFixture.actions), JSON.stringify(["playPause", "previous", "next"]))
     compare(JSON.stringify(playerFixture.seeks), JSON.stringify([-10, 10]))
     presenter.seekTo(95)
-    compare(playerFixture.position, 95)
+    compare(playerFixture.position, 42)
+    compare(JSON.stringify(playerFixture.seeks), JSON.stringify([-10, 10, 53]))
+    compare(presenter.displayedPosition, 95)
   }
 
   function test_mixerWrappersRevealOnlyUsefulVerticalControlsInsideCard() {

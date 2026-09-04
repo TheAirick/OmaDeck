@@ -11,7 +11,7 @@ Item {
   readonly property var player: media ? media.activePlayer : null
   readonly property bool hasPlayer: !!player
   readonly property bool canSkip: hasPlayer && player.canSeek && player.positionSupported
-  readonly property string trackKey: player ? [player.trackTitle || "", player.trackArtist || ""].join("|") : ""
+  readonly property string trackKey: player ? [player.uniqueId, player.trackTitle || "", player.trackArtist || ""].join("|") : ""
   readonly property real effectiveLength: player && player.lengthSupported && player.length > 0 ? player.length : cachedLength
   readonly property bool canSeek: canSkip && effectiveLength > 0
   readonly property bool showSecondarySeek: true
@@ -29,6 +29,7 @@ Item {
   property real cachedLength: 0
   property bool seeking: false
   property bool optimisticPosition: false
+  property real optimisticUntil: 0
 
   // Quickshell deliberately returns the current position from `length` when
   // MPRIS duration metadata disappears. Always clamp against our last real
@@ -37,11 +38,11 @@ Item {
   function refreshPosition() { if (!seeking) displayedPosition = player && player.positionSupported ? player.position : 0 }
   function tickPosition() {
     if (seeking) return
-    if (optimisticPosition) {
-      if (player && player.isPlaying) displayedPosition = clampPosition(displayedPosition + 0.5)
-    } else {
-      refreshPosition()
-    }
+    // Hold for at most one second plus the 500ms sampling interval. Never
+    // integrate a second clock: Quickshell's getter accounts for pause/rate.
+    if (optimisticPosition && Date.now() < optimisticUntil) return
+    optimisticPosition = false
+    refreshPosition()
   }
   function captureDuration() {
     if (player && player.lengthSupported && player.length > 0) cachedLength = player.length
@@ -53,15 +54,19 @@ Item {
   }
   function seekTo(value) {
     if (!canSeek) return
-    player.position = clampPosition(value)
+    // 0.3.1's position setter caches even rejected requests. Seek leaves the
+    // getter intact until the player reports Seeked, including without duration.
+    player.seek(clampPosition(value) - player.position)
     displayedPosition = clampPosition(value)
     optimisticPosition = true
+    optimisticUntil = Date.now() + 1000
   }
   function skip(seconds) {
     if (!canSkip) return
     player.seek(seconds)
     displayedPosition = clampPosition(displayedPosition + seconds)
     optimisticPosition = true
+    optimisticUntil = Date.now() + 1000
   }
   function formatTime(seconds) {
     if (!isFinite(seconds) || seconds < 0) return "0:00"
@@ -73,7 +78,7 @@ Item {
     return minutes + ":" + String(secs).padStart(2, "0")
   }
 
-  onPlayerChanged: { refreshPosition(); captureDuration(); captureArtwork() }
+  onPlayerChanged: { seeking = false; cachedLength = 0; optimisticPosition = false; refreshPosition(); captureDuration(); captureArtwork() }
   onTrackKeyChanged: { cachedLength = 0; optimisticPosition = false; captureDuration(); refreshPosition() }
   onArtworkKeyChanged: captureArtwork()
   onPublishedArtworkUrlChanged: captureArtwork()
@@ -88,6 +93,7 @@ Item {
   }
   Connections {
     target: root.player
+    function onPositionChanged() { root.optimisticPosition = false; root.refreshPosition() }
     function onLengthChanged() { root.captureDuration() }
     function onLengthSupportedChanged() { root.captureDuration() }
   }
