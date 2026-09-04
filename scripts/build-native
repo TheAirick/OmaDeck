@@ -108,6 +108,14 @@ tray_artifact="$artifact_root/bin/omadeck-tray"
 plugin_destination="$source_dir/OmaDeck/Touch/libomadecktouchplugin.so"
 tray_destination="$source_dir/bin/omadeck-tray"
 
+# Git does not retain empty artifact directories in a fresh checkout.
+# Create only the missing directory; existing unsafe targets still fail closed.
+verify_parent "$source_dir"
+if [[ ! -e $source_dir/bin && ! -L $source_dir/bin ]]; then
+  mkdir -m 0755 -- "$source_dir/bin"
+fi
+verify_parent "$source_dir/bin"
+
 atomic_install "$plugin_artifact" "$plugin_destination"
 atomic_install "$tray_artifact" "$tray_destination"
 
