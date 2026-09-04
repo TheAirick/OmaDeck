@@ -15,11 +15,12 @@ test('installed Quickshell retries real failed writes and failed starts in a pri
   try {
     fs.mkdirSync(path.join(dir, 'services'))
     fs.mkdirSync(path.join(dir, 'components'))
-    for (const name of ['Layout', 'Launcher', 'Timer', 'Weather']) {
+    for (const name of ['Layout', 'Launcher', 'Timer', 'Weather', 'Hardware']) {
       for (const suffix of ['Controller.qml', 'Policy.js'])
         fs.copyFileSync(path.join(root, 'services', name + suffix), path.join(dir, 'services', name + suffix))
     }
     fs.copyFileSync(path.join(root, 'components/BoundedOutputParser.qml'), path.join(dir, 'components/BoundedOutputParser.qml'))
+    fs.copyFileSync(path.join(root, 'services/AppearanceController.qml'), path.join(dir, 'services/AppearanceController.qml'))
     // The controller is unchanged except its effect executables. Never send a
     // desktop notification or play audio, even if sound restoration regresses.
     const timerPath = path.join(dir, 'services/TimerController.qml')
@@ -34,7 +35,9 @@ test('installed Quickshell retries real failed writes and failed starts in a pri
       'launcher.json': {version: 1, entries: ['terminal', 'browser']},
       'timer.json': {version: 1, status: 'active', originalDurationMs: 60000,
         currentDurationMs: 60000, deadlineMs: Date.now() - 1000, pausedRemainingMs: 0, notificationSent: false},
-      'timer-settings.json': {version: 1, eventId: ''}
+      'timer-settings.json': {version: 1, eventId: ''},
+      'appearance.json': {version: 1, use24Hour: false},
+      'hardware.json': {version: 1, targetScreen: 'fixture-old', primaryMonitor: 'fixture-old', touchDeviceNames: ['Fixture Touch']}
     }
     for (const [name, value] of Object.entries(values))
       fs.writeFileSync(path.join(config, name), JSON.stringify(value), { mode: 0o400 })
@@ -68,6 +71,8 @@ test('installed Quickshell retries real failed writes and failed starts in a pri
     assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'timer.json'))).notificationSent, true)
     assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'layout.json'))).root.ratio, 0.6)
     assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'launcher.json'))).entries.length, 1)
+    assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'appearance.json'))).use24Hour, true)
+    assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'hardware.json'))).targetScreen, 'fixture-new')
   } finally {
     if (child && child.exitCode === null) child.kill('SIGKILL')
     fs.rmSync(dir, { recursive: true, force: true })
