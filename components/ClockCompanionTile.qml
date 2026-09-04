@@ -13,7 +13,7 @@ Item {
 
   readonly property int panelGap: Style.spacing.panelGap
   readonly property real splitHeight: Math.max(0, height - panelGap)
-  readonly property real clockShare: root.occupant === "weather" ? 0.48 : 0.37
+  readonly property real clockShare: 0.48
   readonly property real clockHeight: Math.round(splitHeight * clockShare)
   readonly property real companionHeight: Math.max(0, splitHeight - clockHeight)
   readonly property string occupant: companionModule.occupant
@@ -34,8 +34,8 @@ Item {
       anchors.fill: parent
       controller: root.controller
       timer: root.timer
-      interactionEnabled: root.interactionEnabled && !companionModule.timerSetupOpen
-      onSetupRequested: companionModule.openSetup()
+      interactionEnabled: root.interactionEnabled && !companionModule.timerPanelOpen
+      onSetupRequested: companionModule.openTimer()
     }
   }
 
@@ -46,7 +46,8 @@ Item {
     width: parent.width
     height: root.companionHeight
     title: root.occupant === "timer" ? "Timer" : "Weather"
-    padding: root.occupant === "timer" ? Style.spacing.labelGap : Style.spacing.panelPadding
+    padding: root.occupant === "timer" && width < Style.space(360)
+      ? Style.spacing.controlGap : Style.spacing.panelPadding
     active: root.active
 
     ClockCompanionModule {

@@ -51,6 +51,7 @@ TestCase {
       layoutController: layoutFixture,
       appearanceController: appearanceFixture,
       launcherController: launcherFixture,
+      hardwareController: hardwareFixture,
       weatherController: weatherFixture,
       timerController: timerFixture
     })
@@ -110,6 +111,7 @@ TestCase {
     var right = findChild(deck, "rightSystemDrawer")
     var notifications = findChild(deck, "notificationCenterOverlay")
     var overview = findChild(deck, "omadeckOverviewOverlay")
+    var preferences = findChild(deck, "preferencesOverlay")
     var center = findChild(deck, "deckCenterCanvas")
     var media = findChild(deck, "staticMediaPanel")
     var nowPlayingCard = findChild(deck, "nowPlayingPanelCard")
@@ -118,6 +120,7 @@ TestCase {
     verify(right !== null)
     verify(notifications !== null)
     verify(overview !== null)
+    verify(preferences !== null)
     verify(center !== null)
     verify(media !== null)
     verify(nowPlayingCard !== null)
@@ -131,6 +134,7 @@ TestCase {
     verify(right.border.width > 0)
     compare(notifications.open, false)
     compare(overview.open, false)
+    compare(preferences.open, false)
 
     verify(nowPlayingCard.parent !== mixerCard.parent)
     verify(nowPlayingCard.parent !== left)
@@ -150,12 +154,25 @@ TestCase {
     compare(center.width, deck.usableWidth - deck.staticMediaReserve - deck.reservedLeft)
   }
 
+  function test_standardInstallReportsCompositorTouchWithoutNativeArtifact() {
+    var deck = createDeck()
+    var state = JSON.parse(deck.touchState())
+
+    compare(state.active, false)
+    compare(state.exclusiveGrab, false)
+    compare(state.nativeAvailable, false)
+    compare(state.mode, "compositor")
+    compare(state.devicePath, "")
+    verify(state.status.indexOf("compositor-managed input") !== -1)
+  }
+
   function test_verticalOverlaysPreserveCenterGeometryAndHorizontalDrawers() {
     var deck = createDeck()
     var center = findChild(deck, "deckCenterCanvas")
     var notifications = findChild(deck, "notificationCenterOverlay")
     var overview = findChild(deck, "omadeckOverviewOverlay")
-    verify(center !== null && notifications !== null && overview !== null)
+    var preferences = findChild(deck, "preferencesOverlay")
+    verify(center !== null && notifications !== null && overview !== null && preferences !== null)
     deck.setOpenDrawer("left", "test:before-overlay")
     wait(260)
     verify(deck.reservedLeft > 0)
@@ -178,11 +195,220 @@ TestCase {
     compare(JSON.stringify(rectIn(center, deck)), JSON.stringify(underlyingCenter))
     compare(overview.y, 0)
 
+    deck.openOverlay("preferences")
+    wait(280)
+    compare(deck.openDrawer, "left")
+    compare(deck.openOverlayName, "preferences")
+    compare(JSON.stringify(rectIn(center, deck)), JSON.stringify(underlyingCenter))
+    compare(preferences.y, 0)
+
     deck.closeOverlay()
     wait(280)
     compare(deck.openDrawer, "left")
     compare(deck.openOverlayName, "")
     compare(JSON.stringify(rectIn(center, deck)), JSON.stringify(underlyingCenter))
+  }
+
+  function test_preferencesOverlayEditsOmaDeckThroughSharedControllers() {
+    appearanceFixture.reset()
+    timerFixture.resetPreferences()
+    var deck = createDeck()
+    wait(100)
+    var preferencesButton = findByProperty(deck, "label", "Preferences")
+    verify(preferencesButton !== null)
+
+    clickItem(deck, preferencesButton)
+    wait(280)
+    compare(deck.openOverlayName, "preferences")
+    var preferences = findChild(deck, "preferencesOverlay")
+    var use24Hour = findChild(preferences, "preferencesUse24Hour")
+    var timerSound = findChild(preferences, "preferencesTimerSound")
+    var previewTimerSound = findChild(preferences, "preferencesPreviewTimerSound")
+    var editDashboard = findChild(preferences, "preferencesEditDashboard")
+    verify(use24Hour !== null && timerSound !== null
+      && previewTimerSound !== null && editDashboard !== null)
+
+    clickItem(deck, use24Hour)
+    compare(appearanceFixture.use24Hour, true)
+    compare(appearanceFixture.lastKey, "use24Hour")
+    compare(appearanceFixture.lastValue, true)
+
+    var omaDeckList = findChild(preferences, "omaDeckPreferencesList")
+    verify(omaDeckList !== null)
+    omaDeckList.contentY = Math.max(0, omaDeckList.contentHeight - omaDeckList.height)
+    wait(0)
+    var bellOption = findByProperty(timerSound, "text", "Bell")
+    verify(bellOption !== null)
+    clickItem(deck, bellOption)
+    compare(timerFixture.selectedSoundId, "bell")
+    clickItem(deck, previewTimerSound)
+    compare(timerFixture.previewCalls, 1)
+
+    omaDeckList.contentY = 0
+    wait(0)
+    clickItem(deck, editDashboard)
+    wait(280)
+    compare(layoutFixture.editMode, true)
+    compare(layoutFixture.selectedPath, "")
+    compare(deck.openOverlayName, "")
+  }
+
+  function test_preferencesShellPageUsesLiveOmarchyServices() {
+    notificationFixture.doNotDisturb = false
+    nightlightFixture.enabled = false
+    nightlightFixture.applyCalls = 0
+    idleFixture.idleEnabled = true
+    idleFixture.applyCalls = 0
+
+    var deck = createDeck()
+    deck.openOverlay("preferences")
+    wait(280)
+    var overlay = findChild(deck, "preferencesOverlay")
+    var preferences = findChild(overlay, "preferencesPresenter")
+    verify(preferences !== null)
+    preferences.selectedCategory = "shell"
+    wait(0)
+
+    var dnd = findChild(preferences, "preferencesDoNotDisturb")
+    var nightlight = findChild(preferences, "preferencesNightlight")
+    var keepAwake = findChild(preferences, "preferencesKeepAwake")
+    verify(dnd !== null && nightlight !== null && keepAwake !== null)
+    verify(dnd.visible && nightlight.visible && keepAwake.visible)
+
+    clickItem(deck, dnd)
+    compare(notificationFixture.doNotDisturb, true)
+    clickItem(deck, nightlight)
+    compare(nightlightFixture.enabled, true)
+    compare(nightlightFixture.applyCalls, 1)
+    clickItem(deck, keepAwake)
+    compare(idleFixture.idleEnabled, false)
+    compare(idleFixture.applyCalls, 1)
+    grabImage(overlay).save("/tmp/omadeck-preferences-shell.png")
+  }
+
+  function test_preferencesNativeCategoriesUseHostSettingsAndPanels() {
+    shellFixture.resetPreferencesState()
+    var deck = createDeck()
+    deck.openOverlay("preferences")
+    wait(280)
+
+    var overlay = findChild(deck, "preferencesOverlay")
+    var preferences = findChild(overlay, "preferencesPresenter")
+    verify(preferences !== null)
+    preferences.selectedCategory = "appearance"
+    wait(0)
+
+    var barPosition = findChild(preferences, "preferencesBarPosition")
+    var barTransparency = findChild(preferences, "preferencesBarTransparency")
+    var theme = findChild(preferences, "preferencesTheme")
+    verify(barPosition !== null && barTransparency !== null && theme !== null)
+    verify(barPosition.visible && barTransparency.visible && theme.visible)
+
+    barPosition.changed("bottom")
+    compare(shellFixture.shellConfig.bar.position, "bottom")
+    compare(barFixture.position, "bottom")
+    compare(shellFixture.shellMutationCalls, 1)
+
+    barTransparency.clicked()
+    compare(shellFixture.shellConfig.bar.transparent, true)
+    compare(barFixture.requestedTransparent, true)
+    compare(shellFixture.shellMutationCalls, 2)
+
+    theme.clicked()
+    wait(280)
+    compare(shellFixture.lastSummonedId, "omarchy.menu")
+    compare(shellFixture.lastSummonedPayload, '{"menu":"style.theme"}')
+    compare(deck.openOverlayName, "")
+  }
+
+  function test_preferencesDesktopTimeoutsPersistThroughHostConfig() {
+    shellFixture.resetPreferencesState()
+    var deck = createDeck()
+    deck.openOverlay("preferences")
+    wait(280)
+
+    var preferences = findChild(deck, "preferencesPresenter")
+    verify(preferences !== null)
+    preferences.selectedCategory = "desktop"
+    wait(0)
+
+    var screensaver = findChild(preferences, "preferencesScreensaverTimeout")
+    var lock = findChild(preferences, "preferencesLockTimeout")
+    verify(screensaver !== null && lock !== null)
+    screensaver.changed("300")
+    compare(shellFixture.shellConfig.idle.screensaver, 300)
+    compare(idleFixture.screensaverTimeoutSeconds, 300)
+    lock.changed("1800")
+    compare(shellFixture.shellConfig.idle.lock, 1800)
+    compare(idleFixture.lockTimeoutSeconds, 1800)
+    compare(shellFixture.shellMutationCalls, 2)
+  }
+
+  function test_preferencesHardwareSelectorsUseDetectedControllerChoices() {
+    hardwareFixture.reset()
+    var deck = createDeck()
+    deck.openOverlay("preferences")
+    wait(280)
+
+    var preferences = findChild(deck, "preferencesPresenter")
+    verify(preferences !== null)
+    preferences.selectedCategory = "displays"
+    wait(0)
+
+    var target = findChild(preferences, "preferencesTargetScreen")
+    var primary = findChild(preferences, "preferencesPrimaryMonitor")
+    verify(target !== null && primary !== null)
+    compare(target.value, "DP-3")
+    compare(primary.value, "DP-1")
+    grabImage(findChild(deck, "preferencesOverlay")).save("/tmp/omadeck-preferences-displays.png")
+    primary.changed("DP-3")
+    compare(hardwareFixture.primaryMonitor, "DP-3")
+    compare(hardwareFixture.applyCalls, 1)
+
+    preferences.selectedCategory = "input"
+    wait(0)
+    var touch = findChild(preferences, "preferencesTouchDevice")
+    verify(touch !== null)
+    compare(touch.value, "wch.cn TouchScreen")
+    grabImage(findChild(deck, "preferencesOverlay")).save("/tmp/omadeck-preferences-input.png")
+    touch.changed("XENEON Edge Touch")
+    compare(hardwareFixture.touchDeviceNames.length, 1)
+    compare(hardwareFixture.touchDeviceNames[0], "XENEON Edge Touch")
+    compare(hardwareFixture.applyCalls, 2)
+  }
+
+  function test_preferencesCanScrollBackFromBottomAcrossInteractiveRows() {
+    var deck = createDeck()
+    deck.openOverlay("preferences")
+    wait(280)
+
+    var preferences = findChild(deck, "preferencesOverlay")
+    var settingsList = findChild(preferences, "omaDeckPreferencesList")
+    verify(settingsList !== null)
+    var bottom = Math.max(0, settingsList.contentHeight - settingsList.height)
+    verify(bottom > 0)
+    settingsList.contentY = bottom
+    wait(0)
+
+    var timerSound = findChild(settingsList, "preferencesTimerSound")
+    var completeLabel = findByProperty(timerSound, "text", "Complete")
+    verify(completeLabel !== null)
+    var completeOption = completeLabel.parent
+    var pointer = completeOption.mapToItem(settingsList,
+      completeOption.width / 2, completeOption.height / 2)
+    var pointerX = pointer.x
+    var pointerY = pointer.y
+    var gesture = touchEvent(settingsList)
+    gesture.press(0, settingsList, pointerX, pointerY).commit()
+    gesture.move(0, settingsList, pointerX, pointerY + 36).commit()
+    wait(30)
+    gesture.move(0, settingsList, pointerX, pointerY + 128).commit()
+    wait(80)
+    gesture.release(0, settingsList, pointerX, pointerY + 128).commit()
+    wait(120)
+
+    verify(settingsList.contentY < bottom - 20,
+      "a downward drag over a setting must scroll away from the bottom")
   }
 
   function test_commandCenterApplicationsPageEditsPersistentOrder() {
@@ -272,7 +498,7 @@ TestCase {
     var clockCard = findChild(deck, "clockPanelCard")
     var commandCard = findChild(deck, "moduleCard")
     var command = findWhere(commandCard, function(item) {
-      return item.useWideLayout !== undefined && item.contentScale !== undefined
+      return item.useThreeColumns !== undefined && item.contentScale !== undefined
     })
     var weather = findWhere(deck, function(item) {
       return item.effectiveDetail !== undefined && item.showDetailedMetrics !== undefined
@@ -611,7 +837,107 @@ TestCase {
 
   QtObject {
     id: shellFixture
+    property var shellConfig: ({
+      bar: { position: "top", transparent: false },
+      idle: { screensaver: 150, lock: 300 }
+    })
+    property var bar: barFixture
+    property int shellMutationCalls: 0
+    property string lastSummonedId: ""
+    property string lastSummonedPayload: ""
+
     function serviceFor(serviceId) { return serviceId === "omarchy.media" ? mediaFixture : null }
+    function firstPartyServiceFor(serviceId) {
+      if (serviceId === "omarchy.notifications") return notificationFixture
+      if (serviceId === "omarchy.nightlight") return nightlightFixture
+      if (serviceId === "omarchy.idle") return idleFixture
+      return null
+    }
+    function mutateShellConfig(mutator) {
+      var copy = JSON.parse(JSON.stringify(shellConfig))
+      mutator(copy)
+      shellConfig = copy
+      barFixture.position = copy.bar.position
+      barFixture.requestedTransparent = copy.bar.transparent
+      idleFixture.screensaverTimeoutSeconds = copy.idle.screensaver
+      idleFixture.lockTimeoutSeconds = copy.idle.lock
+      shellMutationCalls++
+    }
+    function summon(pluginId, payload) {
+      lastSummonedId = pluginId
+      lastSummonedPayload = payload
+      return true
+    }
+    function resetPreferencesState() {
+      shellConfig = {
+        bar: { position: "top", transparent: false },
+        idle: { screensaver: 150, lock: 300 }
+      }
+      barFixture.position = "top"
+      barFixture.requestedTransparent = false
+      idleFixture.screensaverTimeoutSeconds = 150
+      idleFixture.lockTimeoutSeconds = 300
+      shellMutationCalls = 0
+      lastSummonedId = ""
+      lastSummonedPayload = ""
+    }
+  }
+
+  QtObject {
+    id: barFixture
+    property string position: "top"
+    property bool requestedTransparent: false
+  }
+
+  QtObject {
+    id: notificationFixture
+    property bool doNotDisturb: false
+    function setDoNotDisturb(value) { doNotDisturb = value }
+  }
+
+  QtObject {
+    id: nightlightFixture
+    property bool stateLoaded: true
+    property bool enabled: false
+    property int applyCalls: 0
+    function setNightlight(value) { enabled = value; applyCalls++ }
+  }
+
+  QtObject {
+    id: idleFixture
+    property bool stayAwakeStateLoaded: true
+    property bool idleEnabled: true
+    property int screensaverTimeoutSeconds: 150
+    property int lockTimeoutSeconds: 300
+    property int applyCalls: 0
+    function setIdleEnabled(value) { idleEnabled = value; applyCalls++ }
+  }
+
+  QtObject {
+    id: hardwareFixture
+    property bool loaded: true
+    property string targetScreen: "DP-3"
+    property string primaryMonitor: "DP-1"
+    property var touchDeviceNames: ["WCH.CN", "XENEON"]
+    property var availableScreenNames: ["DP-1", "DP-3"]
+    property var availableTouchDeviceNames: ["wch.cn TouchScreen", "XENEON Edge Touch"]
+    property string selectedTouchDeviceName: "wch.cn TouchScreen"
+    property int applyCalls: 0
+    function setTargetScreen(value) { targetScreen = value; applyCalls++; return true }
+    function setPrimaryMonitor(value) { primaryMonitor = value; applyCalls++; return true }
+    function setTouchDevice(value) {
+      touchDeviceNames = [value]
+      selectedTouchDeviceName = value
+      applyCalls++
+      return true
+    }
+    function reset() {
+      targetScreen = "DP-3"
+      primaryMonitor = "DP-1"
+      touchDeviceNames = ["WCH.CN", "XENEON"]
+      selectedTouchDeviceName = "wch.cn TouchScreen"
+      applyCalls = 0
+    }
   }
 
   QtObject {
@@ -669,12 +995,32 @@ TestCase {
 
   QtObject {
     id: appearanceFixture
+    property string clockStyle: "hero"
     property bool use24Hour: false
     property bool showSeconds: false
     property bool showWeather: true
     property string weatherStyle: "scene"
     property string weatherDetail: "standard"
     property string temperatureUnit: "fahrenheit"
+    property string lastKey: ""
+    property var lastValue: null
+    function reset() {
+      clockStyle = "hero"
+      use24Hour = false
+      showSeconds = false
+      showWeather = true
+      weatherStyle = "scene"
+      weatherDetail = "standard"
+      temperatureUnit = "fahrenheit"
+      lastKey = ""
+      lastValue = null
+    }
+    function setOption(key, value) {
+      lastKey = key
+      lastValue = value
+      appearanceFixture[key] = value
+      return true
+    }
   }
 
   QtObject {
@@ -711,11 +1057,13 @@ TestCase {
 
   QtObject {
     id: weatherFixture
+    property int refreshCount: 0
     property bool loading: false
     property string error: ""
     property var current: ({ ok: true, condition: "clear", conditionLabel: "Clear", isDay: true,
       temperatureC: 18, feelsLikeC: 18, windKph: 5, humidity: 40, highC: 20, lowC: 12,
       location: "Portland", forecast: [] })
+    function refresh(trigger) { refreshCount++ }
   }
 
   QtObject {
@@ -727,11 +1075,14 @@ TestCase {
     property string selectedSoundName: "Complete"
     property bool soundSettingsLoaded: true
     property string selectedSoundId: "complete"
+    property int previewCalls: 0
+    function resetPreferences() { selectedSoundId = "complete"; previewCalls = 0 }
+    function selectSoundId(value) { selectedSoundId = value; return true }
     function start(hours, minutes) { status = "active"; return { ok: true } }
     function stopPreview() {}
     function selectPreviousSound() {}
     function selectNextSound() {}
-    function previewSelectedSound() {}
+    function previewSelectedSound() { previewCalls++; return true }
     function pause() { status = "paused" }
     function resume() { status = "active" }
     function add(minutes) {}

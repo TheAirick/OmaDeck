@@ -6,7 +6,6 @@ import qs.Commons
 import qs.Ui
 import "../modules"
 import "DrawerGesture.js" as DrawerGesture
-import "../native/OmaDeck/Touch" as NativeTouch
 
 PanelWindow {
   id: root
@@ -17,6 +16,7 @@ PanelWindow {
   property var layoutController: null
   property var appearanceController: null
   property var launcherController: null
+  property var hardwareController: null
   property var weatherController: null
   property var timerController: null
   property string targetScreen: "DP-3"
@@ -27,16 +27,20 @@ PanelWindow {
   property string commandCenterPage: "home"
   property string lastDrawerTransition: "initial"
   property int drawerTransitionSequence: 0
+  property url nativeTouchSource: Qt.resolvedUrl("NativeTouchBridge.qml")
 
-  readonly property string drawerBuild: "static-media-layered-overlays-v2"
+  readonly property string drawerBuild: "preferences-overlay-v1"
   readonly property string componentUrl: String(Qt.resolvedUrl("DeckSurface.qml"))
   readonly property string sourceDir: pluginDir
 
   readonly property bool isTarget: screen && screen.name === targetScreen
+  readonly property var availableTouchDeviceNames: directTouch.availableDeviceNames
+  readonly property string activeTouchDeviceName: directTouch.activeDeviceName
   readonly property bool deckHovered: backgroundHover.hovered || centerCanvas.pointerHovered
     || nowPlayingHover.hovered
     || leftDrawer.pointerHovered || rightDrawer.pointerHovered
     || notificationOverlay.pointerHovered || overviewOverlay.pointerHovered
+    || preferencesOverlay.pointerHovered
   readonly property bool pointerRevealed: deckHovered
     && !directTouch.touchInProgress
   readonly property int outerGap: Math.max(1, Style.gapsOut)
@@ -69,8 +73,10 @@ PanelWindow {
   // owns the Xeneon evdev node and injects events only into this backing window.
   WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
-  NativeTouch.TouchBridge {
+  OptionalTouchBridge {
     id: directTouch
+    pluginDir: root.pluginDir
+    nativeSource: root.nativeTouchSource
     deviceNames: root.touchDeviceNames
   }
 
@@ -133,7 +139,7 @@ PanelWindow {
   }
 
   function setOpenOverlay(nextOverlay, reason) {
-    if (["", "notifications", "overview"].indexOf(nextOverlay) === -1) return
+    if (["", "notifications", "overview", "preferences"].indexOf(nextOverlay) === -1) return
     lastDrawerTransition = String(reason || "unspecified")
     drawerTransitionSequence++
     openOverlayName = nextOverlay
@@ -164,10 +170,18 @@ PanelWindow {
     return JSON.stringify({
       active: directTouch.active,
       exclusiveGrab: directTouch.active,
+      nativeAvailable: directTouch.nativeAvailable,
+      mode: directTouch.mode,
       devicePath: directTouch.devicePath,
+      activeDeviceName: directTouch.activeDeviceName,
+      availableDeviceNames: directTouch.availableDeviceNames,
       configuredDeviceNames: directTouch.deviceNames,
       status: directTouch.status
     })
+  }
+
+  function refreshTouchDevices() {
+    directTouch.refreshDevices()
   }
 
   function reconnectTouch() {
@@ -311,6 +325,7 @@ PanelWindow {
     height: parent.height
     z: 180
     origin: "top"
+    overlayId: "notification"
     title: "Notifications"
     subtitle: ""
     outerGap: root.outerGap
@@ -333,6 +348,7 @@ PanelWindow {
     height: parent.height
     z: 180
     origin: "bottom"
+    overlayId: "overview"
     title: "OmaDeck overview"
     subtitle: ""
     outerGap: root.outerGap
@@ -343,6 +359,33 @@ PanelWindow {
       anchors.fill: parent
       deck: root
       primaryMonitor: root.primaryMonitor
+    }
+  }
+
+  DeckOverlay {
+    id: preferencesOverlay
+    objectName: "preferencesOverlay"
+    x: 0
+    width: parent.width
+    height: parent.height
+    z: 190
+    origin: "top"
+    overlayId: "preferences"
+    title: "Preferences"
+    subtitle: ""
+    outerGap: root.outerGap
+    open: root.openOverlayName === "preferences"
+    onDismissRequested: root.closeOverlay()
+
+    PreferencesModule {
+      anchors.fill: parent
+      shell: root.shell
+      deck: root
+      appearanceController: root.appearanceController
+      layoutController: root.layoutController
+      hardwareController: root.hardwareController
+      weatherController: root.weatherController
+      timerController: root.timerController
     }
   }
 

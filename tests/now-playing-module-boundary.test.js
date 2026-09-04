@@ -154,15 +154,13 @@ test("offscreen actual DeckSurface path renders separate media panels", {
     }
     fs.symlinkSync(path.join(repositoryRoot, "modules"), path.join(testRoot, "modules"))
 
-    const touchFixture = `  QtObject {\n    id: directTouch\n    property bool touchInProgress: false\n    property bool active: false\n    property string devicePath: ""\n    property var deviceNames: []\n    property string status: "test"\n    property var window: null\n    function start() {}\n    function stop() {}\n  }`
     const deckSurface = source("components/DeckSurface.qml")
       .replace(/^import Quickshell.*\n/gm, "")
-      .replace(/^import "\.\.\/native\/OmaDeck\/Touch".*\n/m, "")
       .replace("PanelWindow {", "Rectangle {\n  property var screen: ({ name: \"DP-3\" })")
+      .replace(/property url nativeTouchSource:.*$/m, 'property url nativeTouchSource: ""')
       .replace(/^  anchors \{ top: true; right: true; bottom: true; left: true \}\n/m, "")
       .replace(/^  exclusionMode:.*\n/m, "")
       .replace(/^  WlrLayershell\..*\n/gm, "")
-      .replace(/  NativeTouch\.TouchBridge \{[\s\S]*?\n  \}/, touchFixture)
     fs.writeFileSync(path.join(generatedComponents, "DeckSurface.qml"), deckSurface, { flag: "wx" })
 
     const generatedTestPath = path.join(testRoot, "tst_deck-surface-media.qml")

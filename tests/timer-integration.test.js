@@ -69,6 +69,8 @@ test("timer sound settings use separate bounded atomic persistence", () => {
   assert.match(controller, /TimerPolicy\.restoreSoundSettings\(raw\)/)
   assert.match(controller, /TimerPolicy\.soundSettings\(selectedSoundId\)/)
   assert.match(controller, /if \(restored\.needsRepair\)[\s\S]*persistSoundSettings\(root\.selectedSoundId\)/)
+  assert.match(controller, /function selectSoundId\(candidate\)/)
+  assert.match(controller, /TimerPolicy\.normalizeSoundId\(candidate\) !== candidate/)
   const timerFile = controller.match(/FileView\s*\{\s*id:\s*timerFile[\s\S]*?\n  }/)
   assert.ok(timerFile)
   assert.doesNotMatch(timerFile[0], /sound|eventId|timer-settings/)
@@ -153,48 +155,45 @@ test("Clock timer UI is hidden while idle and preserves long-press editing", () 
     + source("components/ClockCompanionTile.qml")
     + source("modules/ClockCompanionModule.qml")
   const timerModule = source("modules/TimerModule.qml")
+  const timerSetup = source("modules/TimerSetupPanel.qml")
 
   assert.match(tile, /longPressThreshold:\s*0\.5/)
   assert.match(tile, /onLongPressed:\s*root\.controller\.beginEdit\(root\.path\)/)
   assert.match(clock, /TapHandler\s*\{[\s\S]*onTapped:\s*root\.setupRequested\(\)/)
-  assert.match(clock, /onSetupRequested:\s*companionModule\.openSetup\(\)/)
+  assert.match(clock, /onSetupRequested:\s*companionModule\.openTimer\(\)/)
   assert.match(clock, /TimerModule\s*\{[\s\S]*id:\s*timerPresenter/)
-  assert.match(timerModule, /visible:\s*root\.setupOpen/)
+  assert.match(timerModule, /visible:\s*root\.open/)
   assert.match(timerModule, /setupOpen && timerStatus !== "idle"/)
   assert.match(clock, /root\.timerStatus !== "idle"/)
-  assert.match(timerModule, /text:\s*"Start"/)
-  assert.match(timerModule, /enabled:\s*root\.selectedDurationValid/)
-  for (const preset of [5, 15, 30, 60]) {
-    assert.match(timerModule, new RegExp(`setPreset\\(${preset}\\)`), String(preset))
-  }
+  assert.match(timerSetup, /text:\s*"Start"/)
+  assert.match(timerSetup, /enabled:\s*root\.presenter\.selectedDurationValid/)
+  assert.match(timerModule, /function adjustSelectedPart\(delta\)/)
+  assert.match(timerSetup, /root\.presenter\.adjustSelectedPart\(-1\)/)
+  assert.match(timerSetup, /root\.presenter\.adjustSelectedPart\(1\)/)
 })
 
-test("timer setup alone exposes the compact persisted sound selector", () => {
+test("timer setup exposes one compact persisted sound selector", () => {
   const timerModule = source("modules/TimerModule.qml")
+  const timerSetup = source("modules/TimerSetupPanel.qml")
   const clock = source("modules/ClockModule.qml")
 
   assert.match(timerModule, /id:\s*pickerContent/)
-  assert.match(timerModule, /text:\s*"Sound"/)
-  assert.match(timerModule, /text:\s*root\.timer \? root\.timer\.selectedSoundName : "Complete"/)
-  assert.match(timerModule, /text:\s*"‹"/)
-  assert.match(timerModule, /text:\s*"›"/)
-  assert.match(timerModule, /text:\s*"Preview"/)
+  assert.match(timerSetup, /iconText:\s*"󰎆"/)
+  assert.match(timerSetup, /onClicked:\s*root\.presenter\.timer\.selectNextSound\(\)/)
+  assert.doesNotMatch(timerSetup, /text:\s*"Preview"|Select previous timer sound/)
   assert.doesNotMatch(clock, /selectedSound|Preview|Select previous timer sound|Select next timer sound/)
 })
 
-test("sound selector controls are semantic 48 pixel targets and Silent disables Preview", () => {
-  const timerModule = source("modules/TimerModule.qml")
-
-  for (const name of ["Select previous timer sound", "Select next timer sound", "Preview timer sound"]) {
-    const marker = `Accessible.name: "${name}"`
-    const markerIndex = timerModule.indexOf(marker)
-    const buttonStart = timerModule.lastIndexOf("Button {", markerIndex)
-    const buttonEnd = timerModule.indexOf("\n          }", markerIndex)
-    assert.ok(markerIndex !== -1 && buttonStart !== -1 && buttonEnd !== -1, name)
-    assert.match(timerModule.slice(buttonStart, buttonEnd), /height:\s*root\.touchTarget/, name)
-    assert.match(timerModule.slice(buttonStart, buttonEnd), /Accessible\.role:\s*Accessible\.Button/, name)
-  }
-  assert.match(timerModule, /text:\s*"Preview"[\s\S]{0,220}enabled:\s*root\.timer && root\.timer\.soundSettingsLoaded && root\.timer\.selectedSoundId !== ""/)
+test("the single sound selector remains a semantic 48 pixel target", () => {
+  const timerSetup = source("modules/TimerSetupPanel.qml")
+  const markerIndex = timerSetup.indexOf('Accessible.name: "Choose next timer sound"')
+  const buttonStart = timerSetup.lastIndexOf("Button {", markerIndex)
+  const buttonEnd = timerSetup.indexOf("\n    }", markerIndex)
+  assert.ok(markerIndex !== -1 && buttonStart !== -1 && buttonEnd !== -1)
+  const button = timerSetup.slice(buttonStart, buttonEnd)
+  assert.match(button, /height:\s*root\.touchTarget/)
+  assert.match(button, /Accessible\.role:\s*Accessible\.Button/)
+  assert.match(button, /root\.presenter\.timer\.soundSettingsLoaded/)
 })
 
 test("the compact Clock exposes ambient timer state without duplicating countdown text", () => {
@@ -219,13 +218,16 @@ test("active timer progress starts promptly and moves smoothly", () => {
 test("primary timer controls are semantic 48 pixel touch targets", () => {
   const clock = source("modules/ClockModule.qml")
   const timerPresentation = clock + source("modules/TimerModule.qml")
+    + source("modules/TimerSetupPanel.qml")
 
   assert.match(timerPresentation, /readonly property int touchTarget:\s*48/)
-  assert.ok((timerPresentation.match(/height:\s*root\.touchTarget/g) || []).length >= 10)
-  assert.ok((timerPresentation.match(/Accessible\.role:\s*Accessible\.Button/g) || []).length >= 10)
-  for (const name of ["Pause timer", "Resume timer", "Add 5 minutes", "Restart timer", "Cancel timer", "Dismiss timer"]) {
+  assert.ok((timerPresentation.match(/height:\s*root\.touchTarget/g) || []).length >= 8)
+  assert.ok((timerPresentation.match(/Accessible\.role:\s*Accessible\.Button/g) || []).length >= 8)
+  for (const name of ["Add 5 minutes", "Cancel timer", "Dismiss timer"]) {
     assert.match(timerPresentation, new RegExp(`Accessible\\.name:\\s*"${name}"`), name)
   }
+  assert.match(timerPresentation, /Accessible\.name:\s*root\.timerStatus === "paused" \? "Resume timer" : "Pause timer"/)
+  assert.doesNotMatch(timerPresentation, /Accessible\.name:\s*"Restart timer"/)
 })
 
 test("timer controls remain reachable when a Clock tile is constrained", () => {

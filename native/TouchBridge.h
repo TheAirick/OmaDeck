@@ -19,7 +19,9 @@ class TouchBridge : public QObject
     Q_PROPERTY(bool active READ active NOTIFY activeChanged)
     Q_PROPERTY(bool touchInProgress READ touchInProgress NOTIFY touchInProgressChanged)
     Q_PROPERTY(QString devicePath READ devicePath NOTIFY devicePathChanged)
+    Q_PROPERTY(QString activeDeviceName READ activeDeviceName NOTIFY activeDeviceNameChanged)
     Q_PROPERTY(QStringList deviceNames READ deviceNames WRITE setDeviceNames NOTIFY deviceNamesChanged)
+    Q_PROPERTY(QStringList availableDeviceNames READ availableDeviceNames NOTIFY availableDeviceNamesChanged)
     Q_PROPERTY(QString status READ status NOTIFY statusChanged)
 
 public:
@@ -31,24 +33,29 @@ public:
     bool active() const { return m_fd >= 0; }
     bool touchInProgress() const { return m_touchInProgress; }
     QString devicePath() const { return m_devicePath; }
+    QString activeDeviceName() const { return m_activeDeviceName; }
     QStringList deviceNames() const { return m_deviceNames; }
     void setDeviceNames(const QStringList &deviceNames);
+    QStringList availableDeviceNames() const { return m_availableDeviceNames; }
     QString status() const { return m_status; }
 
     Q_INVOKABLE bool start();
     Q_INVOKABLE void stop();
+    Q_INVOKABLE void refreshDevices();
 
 signals:
     void windowChanged();
     void activeChanged();
     void touchInProgressChanged();
     void devicePathChanged();
+    void activeDeviceNameChanged();
     void deviceNamesChanged();
+    void availableDeviceNamesChanged();
     void statusChanged();
 
 private:
     static int selectDeviceIndex(const QStringList &detectedNames, const QStringList &configuredNames);
-    QString findTouchscreen(QStringList *detectedNames) const;
+    QString findTouchscreen(QStringList *detectedNames);
     bool openDevice(const QString &path);
     void closeDevice(const QString &status);
     void scheduleReconnect();
@@ -64,7 +71,9 @@ private:
     QTimer *m_retryTimer = nullptr;
     int m_fd = -1;
     QString m_devicePath;
+    QString m_activeDeviceName;
     QStringList m_deviceNames;
+    QStringList m_availableDeviceNames;
     QString m_status = QStringLiteral("Direct touch not started");
     int m_xMin = 0;
     int m_xMax = 1;

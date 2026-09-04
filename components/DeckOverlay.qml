@@ -6,6 +6,7 @@ Item {
   id: root
 
   property string origin: "top"
+  property string overlayId: origin === "top" ? "notification" : "overview"
   property string title: ""
   property string subtitle: ""
   property bool open: false
@@ -30,7 +31,7 @@ Item {
 
   DeckCard {
     id: overlayCard
-    objectName: root.origin === "top" ? "notificationOverlayCard" : "overviewOverlayCard"
+    objectName: root.overlayId + "OverlayCard"
     anchors.fill: parent
     anchors.margins: root.outerGap
     title: root.title
@@ -45,7 +46,7 @@ Item {
 
   Button {
     id: closeButton
-    objectName: root.origin === "top" ? "closeNotificationOverlay" : "closeOverviewOverlay"
+    objectName: "close" + root.overlayId.charAt(0).toUpperCase() + root.overlayId.slice(1) + "Overlay"
     anchors.top: parent.top
     anchors.right: parent.right
     anchors.margins: root.outerGap + Style.spacing.panelPadding

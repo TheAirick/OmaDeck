@@ -82,7 +82,9 @@ Item {
     sourceComponent: root.visualStyle === "minimal" ? minimalWeather
       : root.visualStyle === "glyph" ? glyphWeather
       : root.effectiveDetail !== "compact" && root.width >= Style.space(350)
-        && root.height >= Style.space(110) ? omarchyWeather : detailedWeather
+        && root.height >= Style.space(110) ? omarchyWeather
+      : root.visualStyle === "scene" && root.width >= Style.space(180)
+        && root.height >= Style.space(100) ? constrainedWeather : detailedWeather
   }
 
   Component {
@@ -186,7 +188,7 @@ Item {
         }
       }
 
-      Item {
+Item {
         id: locationArea
         visible: height > 0 || opacity > 0
         width: parent.width
@@ -282,6 +284,154 @@ Item {
                     font.family: Style.font.family
                     font.pixelSize: Style.font.caption
                     font.letterSpacing: 0.8
+                  }
+                  Text {
+                    text: root.temp(modelData.highC, false) + "  " + root.temp(modelData.lowC, false)
+                    color: Color.foreground
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.caption
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  Component {
+    id: constrainedWeather
+
+    Column {
+      id: constrainedColumn
+      objectName: "constrainedWeatherColumn"
+      anchors.fill: parent
+      spacing: Style.spacing.controlGap
+
+      Item {
+        id: constrainedHero
+        objectName: "constrainedWeatherHero"
+        width: parent.width
+        height: Math.max(Style.space(72), parent.height - constrainedForecast.height
+          - constrainedDivider.height - parent.spacing * 2)
+
+        Item {
+          id: constrainedCurrentLine
+          width: parent.width
+          height: Math.max(Style.space(42), parent.height - constrainedDetails.height)
+
+          Row {
+            id: constrainedCurrent
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: Style.spacing.labelGap
+
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              anchors.verticalCenterOffset: Style.space(3)
+              text: root.glyphFor(root.condition, root.isDay)
+              color: Color.foreground
+              font.family: Style.font.family
+              font.pixelSize: Math.min(Style.space(42), constrainedCurrentLine.height * 0.72)
+            }
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              text: root.temp(root.weather.temperatureC, true)
+              color: Color.foreground
+              font.family: Style.font.family
+              font.pixelSize: Math.min(Style.space(34), constrainedCurrentLine.height * 0.58)
+              font.bold: true
+            }
+          }
+
+          Text {
+            anchors.left: constrainedCurrent.right
+            anchors.leftMargin: Style.spacing.controlGap
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            text: "  " + String(root.weather.location || "Current location").toUpperCase()
+            color: Color.muted
+            font.family: Style.font.family
+            font.pixelSize: Style.font.caption
+            font.letterSpacing: 0.7
+            elide: Text.ElideRight
+          }
+        }
+
+        Row {
+          id: constrainedDetails
+          objectName: "constrainedWeatherDetails"
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.bottom: parent.bottom
+          height: Style.space(30)
+
+          WeatherMetric {
+            width: parent.width / 3
+            label: "FEELS"
+            value: root.temp(root.weather.feelsLikeC, true)
+          }
+          WeatherMetric {
+            width: parent.width / 3
+            label: "WIND"
+            value: root.wind(root.weather.windKph)
+          }
+          WeatherMetric {
+            width: parent.width / 3
+            label: "HUMID"
+            value: Math.round(Number(root.weather.humidity || 0)) + "%"
+          }
+        }
+      }
+
+      Rectangle {
+        id: constrainedDivider
+        objectName: "constrainedWeatherDivider"
+        width: parent.width
+        height: Style.spacing.hairline
+        color: Color.foreground
+        opacity: 0.12
+      }
+
+      Item {
+        id: constrainedForecast
+        objectName: "constrainedWeatherForecast"
+        width: parent.width
+        height: Style.space(44)
+
+        Row {
+          anchors.fill: parent
+          spacing: Style.spacing.controlGap
+
+          Repeater {
+            model: root.forecastDays
+
+            Item {
+              required property var modelData
+              width: (parent.width - Math.max(0, root.forecastDays.length - 1) * parent.spacing)
+                / Math.max(1, root.forecastDays.length)
+              height: parent.height
+
+              Row {
+                anchors.centerIn: parent
+                spacing: Style.spacing.labelGap
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: root.glyphFor(modelData.condition, true)
+                  color: Color.foreground
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.display
+                }
+                Column {
+                  anchors.verticalCenter: parent.verticalCenter
+                  spacing: Style.space(2)
+                  Text {
+                    text: root.dayName(modelData.date)
+                    color: Color.muted
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.caption
+                    font.letterSpacing: 0.7
                   }
                   Text {
                     text: root.temp(modelData.highC, false) + "  " + root.temp(modelData.lowC, false)

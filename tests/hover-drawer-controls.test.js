@@ -25,18 +25,22 @@ test("Command Center keeps horizontal drawers and promotes vertical surfaces", (
   for (const [edge, label] of [
     ["left", "Volume"],
     ["right", "System"],
+    ["top", "Notifications"],
     ["bottom", "Overview"],
     ["page", "Applications"],
+    ["preferences", "Preferences"],
   ]) {
     assert.match(commandCenter, new RegExp(`DrawerButton \\{[^}]*edge: "${edge}"[^}]*label: "${label}"`))
   }
-  assert.match(commandCenter, /columns: root\.useWideLayout \? 4 : 2/)
+  assert.match(commandCenter, /columns: root\.columnCount/)
 })
 
-test("short wide command centers reflow instead of shrinking", () => {
-  assert.match(commandCenter, /readonly property bool useWideLayout:/)
-  assert.match(commandCenter, /import "\.\.\/components\/ResponsiveLayout\.js" as ResponsiveLayout/)
-  assert.match(commandCenter, /ResponsiveLayout\.useShortWide\([\s\S]*root\.standardLayoutHeight, root\.wideLayoutWidth\)/)
+test("Command Center uses a bounded two-or-three-column control grid", () => {
+  assert.match(commandCenter, /readonly property bool useThreeColumns:/)
+  assert.match(commandCenter, /readonly property int columnCount: useThreeColumns \? 3 : 2/)
+  assert.match(commandCenter, /readonly property real buttonWidth:/)
+  assert.match(commandCenter, /readonly property real contentScale:\s*1/)
+  assert.doesNotMatch(commandCenter, /scale:\s*root\.contentScale/)
   assert.match(commandCenter, /move: Transition/)
 })
 

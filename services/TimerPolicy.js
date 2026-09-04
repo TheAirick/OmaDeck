@@ -2,7 +2,8 @@
 
 var MAX_HOURS = 99
 var MAX_MINUTES = 59
-var MAX_DURATION_MS = (MAX_HOURS * 60 + MAX_MINUTES) * 60 * 1000
+var MAX_SECONDS = 59
+var MAX_DURATION_MS = (MAX_HOURS * 3600 + MAX_MINUTES * 60 + MAX_SECONDS) * 1000
 var CHIME_ATTEMPT_LIMIT = 3
 var CHIME_INTERVAL_MS = 4000
 var DEFAULT_SOUND_ID = "complete"
@@ -81,11 +82,13 @@ function isInteger(value) {
   return typeof value === "number" && isFinite(value) && Math.floor(value) === value
 }
 
-function durationMs(hours, minutes) {
-  if (!isInteger(hours) || !isInteger(minutes)) return null
-  if (hours < 0 || hours > MAX_HOURS || minutes < 0 || minutes > MAX_MINUTES) return null
-  if (hours === 0 && minutes === 0) return null
-  return (hours * 60 + minutes) * 60 * 1000
+function durationMs(hours, minutes, seconds) {
+  var normalizedSeconds = seconds === undefined ? 0 : seconds
+  if (!isInteger(hours) || !isInteger(minutes) || !isInteger(normalizedSeconds)) return null
+  if (hours < 0 || hours > MAX_HOURS || minutes < 0 || minutes > MAX_MINUTES
+      || normalizedSeconds < 0 || normalizedSeconds > MAX_SECONDS) return null
+  if (hours === 0 && minutes === 0 && normalizedSeconds === 0) return null
+  return (hours * 3600 + minutes * 60 + normalizedSeconds) * 1000
 }
 
 function idleState() {
@@ -100,15 +103,23 @@ function idleState() {
   }
 }
 
-function start(hours, minutes, nowMs) {
-  var requestedDuration = durationMs(hours, minutes)
-  if (requestedDuration === null || !isFinite(nowMs)) return null
+function start(hours, minutes, seconds, nowMs) {
+  // Keep the original three-argument policy call compatible with existing IPC
+  // and persisted-state tests: start(hours, minutes, nowMs).
+  var actionTime = nowMs
+  var requestedSeconds = seconds
+  if (nowMs === undefined) {
+    actionTime = seconds
+    requestedSeconds = 0
+  }
+  var requestedDuration = durationMs(hours, minutes, requestedSeconds)
+  if (requestedDuration === null || !isFinite(actionTime)) return null
   return {
     version: 1,
     status: "active",
     originalDurationMs: requestedDuration,
     currentDurationMs: requestedDuration,
-    deadlineMs: nowMs + requestedDuration,
+    deadlineMs: actionTime + requestedDuration,
     pausedRemainingMs: 0,
     notificationSent: false
   }
@@ -208,7 +219,7 @@ function completeIfDue(state, nowMs) {
 }
 
 function validDuration(value) {
-  return isInteger(value) && value >= 60 * 1000 && value <= MAX_DURATION_MS
+  return isInteger(value) && value >= 1000 && value <= MAX_DURATION_MS
 }
 
 function restore(raw, nowMs) {

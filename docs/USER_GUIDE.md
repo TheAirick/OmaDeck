@@ -8,13 +8,15 @@
 - `jq` and standard Linux system utilities
 - Optional NVIDIA tools and `lm_sensors` for GPU and temperature readings
 
-The current release assumes the deck is `DP-3` and the primary monitor is
-`DP-1`. If your monitor names differ, configure them first.
+On first run OmaDeck prefers `DP-3` and `DP-1`, then selects connected displays
+when those names are unavailable. If the automatic choice is not right, change
+it in **Preferences → Displays**.
 
 ## Starting OmaDeck
 
-After installation and `scripts/build-native`, OmaDeck is loaded by the Omarchy
-shell at every login. To reload it manually:
+After installation, OmaDeck is loaded by the Omarchy shell at every login. No
+native build is required for the dashboard or compositor-managed touch. To
+reload it manually:
 
 ```bash
 omarchy restart shell
@@ -22,13 +24,14 @@ omarchy restart shell
 
 ## System-tray control center
 
-OmaDeck adds an icon to the primary desktop's system tray. Click it with the
+The optional native build adds an icon to the primary desktop's system tray. Click it with the
 mouse to open diagnostics even when the deck touchscreen is unavailable. The
 Control Center shows monitor, touchscreen, native-build, input-script, and
 command health. It can copy a sanitized report, request touch reconnection, and
 restart the Omarchy shell after confirmation.
 
-The tray's **Configuration guide** action opens the source-level options
+Build the native integration with `scripts/build-native`, then restart the
+shell. The tray's **Configuration guide** action opens the source-level options
 described in [Configuration](CONFIGURATION.md).
 
 ## Clock and weather

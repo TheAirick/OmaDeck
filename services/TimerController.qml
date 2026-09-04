@@ -112,6 +112,14 @@ Item {
     return persistSoundSettings(TimerPolicy.cycleSoundId(selectedSoundId, direction))
   }
 
+  function selectSoundId(candidate) {
+    if (!soundSettingsLoaded || typeof candidate !== "string"
+        || TimerPolicy.normalizeSoundId(candidate) !== candidate)
+      return false
+    stopPreview()
+    return persistSoundSettings(candidate)
+  }
+
   function selectPreviousSound() {
     return selectSound(-1)
   }
@@ -159,11 +167,12 @@ Item {
     return true
   }
 
-  function start(hours, minutes) {
+  function start(hours, minutes, seconds) {
     if (status !== "idle") return result(false, "A timer already exists")
     stopPreview()
     var actionTime = actionNow()
-    return apply(TimerPolicy.start(hours, minutes, actionTime), "Invalid timer duration")
+    return apply(TimerPolicy.start(hours, minutes, seconds === undefined ? 0 : seconds,
+                                   actionTime), "Invalid timer duration")
   }
 
   function pause() {

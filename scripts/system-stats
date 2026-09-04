@@ -451,15 +451,18 @@ def clipboard_snapshot() -> list[Any]:
     path = os.path.join(state_home, "omarchy", "clipboard-history.json")
     raw = read_file(path, 1024 * 1024, require_owner=True)
     try:
-        decoded = json.loads(raw) if raw else {}
+        decoded = json.loads(raw) if raw else []
     except json.JSONDecodeError:
         return []
-    entries = list(decoded.items())[:MAX_CLIPBOARD_ITEMS] if isinstance(decoded, dict) else []
+    # Omarchy 4 stores newest-first clipboard history as a JSON array. Keep the
+    # source index so a displayed entry can be removed from the authoritative
+    # in-shell model without comparing or exposing clipboard contents.
+    entries = list(enumerate(decoded[:MAX_CLIPBOARD_ITEMS])) if isinstance(decoded, list) else []
     output = []
     for index, value in entries:
         item = sanitize(value)
         if isinstance(item, dict):
-            item["historyIndex"] = bounded_string(index, 32)
+            item["historyIndex"] = index
             output.append(item)
     return output
 

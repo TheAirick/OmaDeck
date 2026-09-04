@@ -62,15 +62,23 @@ test("ResponsivePanel provides one reusable bounded-content contract", () => {
 
 test("finite action panels reflow where meaningful and never rely on hidden scrolling", () => {
   const timerModule = source("modules/TimerModule.qml")
+  const timerSetup = source("modules/TimerSetupPanel.qml")
+  const timerStep = source("components/TimerStepButton.qml")
   const commandCenter = source("modules/CommandCenterModule.qml")
 
   assert.match(timerModule, /ResponsivePanel\s*\{[\s\S]*id:\s*timerViewport/)
-  assert.match(timerModule, /id:\s*presetGrid[\s\S]*columns:\s*width < Style\.space\(400\) \? 2 : 4/)
-  assert.match(timerModule, /Flow\s*\{\s*id:\s*soundSelector[\s\S]*width:\s*parent\.width/)
+  assert.equal((timerModule.match(/TimerSetupPanel\s*\{/g) || []).length, 2)
+  assert.match(timerSetup, /id:\s*durationSelector/)
+  assert.match(timerSetup, /readonly property bool oneRow:/)
+  assert.equal((timerSetup.match(/TimerStepButton\s*\{/g) || []).length, 2)
+  assert.match(timerStep, /font\.pixelSize:\s*Style\.font\.display/)
+  assert.match(timerSetup, /id:\s*actionRow[\s\S]*\(width - spacing \* 2\) \/ 3/)
   assert.doesNotMatch(timerModule, /id:\s*timerOverlayScroll/)
   assert.doesNotMatch(timerModule, /Math\.max\(Style\.space\(360\)/)
 
-  assert.match(commandCenter, /import "\.\.\/components\/ResponsiveLayout\.js" as ResponsiveLayout/)
-  assert.match(commandCenter, /ResponsiveLayout\.useShortWide\(/)
-  assert.match(commandCenter, /columns:\s*root\.useWideLayout \? 4 : 2/)
+  assert.match(commandCenter, /readonly property int columnCount:\s*useThreeColumns \? 3 : 2/)
+  assert.match(commandCenter, /readonly property real contentWidth:\s*Math\.min\(/)
+  assert.match(commandCenter, /columns:\s*root\.columnCount/)
+  assert.match(commandCenter, /readonly property real contentScale:\s*1/)
+  assert.doesNotMatch(commandCenter, /scale:\s*root\.contentScale/)
 })

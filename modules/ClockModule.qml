@@ -61,7 +61,7 @@ Item {
     }
 
     TapHandler {
-      enabled: root.interactionEnabled && root.timerStatus === "idle"
+      enabled: root.interactionEnabled
       onTapped: root.setupRequested()
     }
 

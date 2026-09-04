@@ -12,6 +12,7 @@ Rectangle {
   property var borderSpec: Border.none()
   property bool bordered: false
   property bool selected: false
+  property bool leftAlign: false
   property color foreground: Color.foreground
   property real horizontalPadding: 12
   property real verticalPadding: 8
@@ -20,7 +21,7 @@ Rectangle {
   implicitWidth: Math.max(48, label.implicitWidth + 24)
   implicitHeight: 48
   radius: 8
-  color: selected ? Color.accent : "#27272a"
+  color: selected ? Color.accent : bordered ? "#27272a" : "transparent"
   border.width: bordered ? 1 : 0
   border.color: Color.muted
   opacity: enabled ? 1 : 0.4

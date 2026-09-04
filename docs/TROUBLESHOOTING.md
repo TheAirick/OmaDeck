@@ -2,23 +2,28 @@
 
 ## OmaDeck does not appear
 
-Confirm the plugin is enabled in `~/.config/omarchy/shell.json` and that
-`targetScreen` matches `hyprctl monitors`, then run `omarchy restart shell`.
+Confirm the plugin is enabled in `~/.config/omarchy/shell.json` and that the
+saved `targetScreen` in `~/.config/omadeck/hardware.json` matches a connected
+output from `hyprctl monitors`, then run `omarchy restart shell`.
 For a linked checkout, run `omarchy-shell shell rescanPlugins`.
 
 ## Touch affects the wrong monitor
 
-Current OmaDeck releases isolate the direct touchscreen in a native bridge and
-inject it only into the deck window. Run `scripts/omadeck-doctor` and confirm
+Standard mode uses Hyprland's compositor-managed touch mapping. Configure the
+touchscreen for the OmaDeck output in Hyprland, or build the optional native
+integration for isolated direct routing.
+
+With the native integration, OmaDeck isolates the direct touchscreen and
+injects it only into the deck window. Run `scripts/omadeck-doctor` and confirm
 that the configured device is both readable and owned by the bridge. If doctor
 reports that the configured touchscreen is absent or mismatched, OmaDeck has
 deliberately refused to grab the other direct touchscreen(s) it found. Reconnect
-the deck device or configure its distinctive evdev name in `Service.qml`; do not
+the deck device or choose its distinctive evdev name in **Preferences → Input**; do not
 broaden the match to a generic `Touchscreen` value.
 
 ## Touch stops after suspend or a USB reset
 
-The bridge automatically closes the dead evdev descriptor and retries once per
+The optional native bridge automatically closes the dead evdev descriptor and retries once per
 second until the touchscreen returns. If it does not recover, open the OmaDeck
 system-tray icon with the mouse and choose **Reconnect touchscreen**, or run:
 
@@ -58,7 +63,8 @@ so PipeWire node removal does not regenerate Qt delegates during node teardown.
 
 ## The OmaDeck tray icon is missing
 
-Rebuild the native components and restart the shell:
+The tray is an optional native enhancement and is not present after the
+standard one-line install. Build the native components and restart the shell:
 
 ```bash
 ~/.config/omarchy/plugins/pretty.omadeck/scripts/build-native
@@ -67,7 +73,8 @@ omarchy restart shell
 
 ## Applications open on the deck
 
-Confirm `primaryMonitor` names a connected output. OmaDeck launches through a
+Confirm **Preferences → Displays → Primary workspace monitor** names a connected
+output. OmaDeck launches through a
 workspace-bound Hyprland rule so placement does not depend on cursor position.
 
 ## Notification Center is empty

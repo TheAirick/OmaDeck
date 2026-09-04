@@ -17,7 +17,7 @@ tray_binary="$project_dir/native/bin/omadeck-tray"
 artifact_record="$project_dir/native/artifacts.sha256"
 
 if [[ ! -x $tray_binary ]]; then
-  printf 'OmaDeck tray is not built. Run %s/scripts/build-native\n' "$project_dir" >&2
+  printf 'OmaDeck tray is not built; continuing without the optional tray controller\n' >&2
   exit 0
 fi
 
