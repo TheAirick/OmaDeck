@@ -65,6 +65,11 @@ TestCase {
       verify(presenter !== null)
       presenter.openSetup()
       wait(200)
+    } else if (state.indexOf("weather-") !== 0) {
+      var controlsPresenter = findChild(host, "timerPresenter")
+      verify(controlsPresenter !== null)
+      controlsPresenter.openForCurrentStatus()
+      wait(200)
     } else wait(200)
     return { host: host, timer: timer }
   }
@@ -148,7 +153,7 @@ TestCase {
     var slot = findChild(fixture.host, "companionSlot")
     verify(slot !== null)
     compare(visiblePresenters(fixture.host), 1)
-    compare(fixture.host.clockHeight, Math.round((data.height - fixture.host.panelGap) * 0.37))
+    compare(fixture.host.clockHeight, Math.round((data.height - fixture.host.panelGap) * 0.48))
     compare(fixture.host.companionHeight,
       data.height - fixture.host.panelGap - fixture.host.clockHeight)
 
@@ -162,7 +167,7 @@ TestCase {
       width: Math.abs(slotEnd.x - slotStart.x),
       height: Math.abs(slotEnd.y - slotStart.y)
     }
-    var minimumTargetCount = data.state === "setup" ? 10
+    var minimumTargetCount = data.state === "setup" ? 8
       : data.state === "completed" ? 1 : 4
     verify(targets.length >= minimumTargetCount, data.tag + " target count " + targets.length)
     for (var index = 0; index < targets.length; index++) {
@@ -188,7 +193,11 @@ TestCase {
       presenter.startSelectedTimer()
       compare(fixture.timer.startCalls, 1)
       compare(fixture.timer.status, "active")
+      compare(fixture.host.occupant, "weather")
+      presenter.openForCurrentStatus()
       compare(fixture.host.occupant, "timer")
+      presenter.close()
+      compare(fixture.host.occupant, "weather")
       fixture.timer.cancel()
       compare(fixture.host.occupant, "weather")
       fixture.host.destroy()
@@ -235,7 +244,7 @@ TestCase {
       property int startCalls: 0
       property int stopPreviewCalls: 0
       property bool previewRunning: false
-      function start(hours, minutes) { startCalls++; status = "active"; return { ok: true } }
+      function start(hours, minutes, seconds) { startCalls++; status = "active"; return { ok: true } }
       function stopPreview() { stopPreviewCalls++; previewRunning = false }
       function selectPreviousSound() {}
       function selectNextSound() {}

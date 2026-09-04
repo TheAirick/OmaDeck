@@ -12,22 +12,32 @@ function loadPolicy() {
   return context
 }
 
-test("timer durations are bounded to 00:01 through 99:59", () => {
+test("timer durations are bounded to 00:00:01 through 99:59:59", () => {
   const policy = loadPolicy()
 
+  assert.equal(policy.durationMs(0, 0, 1), 1_000)
   assert.equal(policy.durationMs(0, 1), 60_000)
-  assert.equal(policy.durationMs(99, 59), 359_940_000)
+  assert.equal(policy.durationMs(99, 59, 59), 359_999_000)
   for (const value of [
-    [0, 0],
+    [0, 0, 0],
     [-1, 1],
     [100, 0],
     [1, -1],
     [1, 60],
+    [1, 0, -1],
+    [1, 0, 60],
     [1.5, 0],
     ["1", 0],
   ]) {
-    assert.equal(policy.durationMs(value[0], value[1]), null, value.join(":"))
+    assert.equal(policy.durationMs(value[0], value[1], value[2]), null, value.join(":"))
   }
+})
+
+test("timer start accepts exact seconds while preserving minute-only callers", () => {
+  const policy = loadPolicy()
+
+  assert.equal(policy.start(0, 0, 5, 1_000).deadlineMs, 6_000)
+  assert.equal(policy.start(0, 5, 1_000).deadlineMs, 301_000)
 })
 
 test("active timers derive remaining time and progress from the deadline", () => {

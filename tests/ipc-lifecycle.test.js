@@ -23,7 +23,7 @@ test("DeckSurface registers and unregisters as the available IPC surface", () =>
   assert.match(deckSurface, /property var serviceHost:\s*null/)
   assert.match(deckSurface, /serviceHost\.registerSurface\(root\)/)
   assert.match(deckSurface, /serviceHost\.unregisterSurface\(root\)/)
-  assert.match(service, /if \(!layoutStore\.loaded\) return \[\]/)
+  assert.match(service, /if \(!layoutStore\.loaded \|\| !hardwareStore\.loaded\) return \[\]/)
 })
 
 test("touch IPC reports honest state without a target monitor and forwards after hotplug", () => {
@@ -38,6 +38,14 @@ test("touch IPC reports honest state without a target monitor and forwards after
   assert.match(service, /function reconnectTouch\(\): string/)
   assert.match(service, /root\.activeSurface\.reconnectTouch\(\)/)
   assert.match(service, /Target monitor unavailable/)
+})
+
+test("hardware IPC reports persisted and currently detected choices", () => {
+  assert.match(service, /function hardwareState\(\): string/)
+  assert.match(service, /hardwareStore\.snapshot\(\)/)
+  assert.match(service, /state\.availableScreenNames = hardwareStore\.availableScreenNames/)
+  assert.match(service, /state\.availableTouchDeviceNames = hardwareStore\.availableTouchDeviceNames/)
+  assert.match(service, /state\.selectedTouchDeviceName = hardwareStore\.selectedTouchDeviceName/)
 })
 
 test("drawer state identifies when no target surface exists", () => {

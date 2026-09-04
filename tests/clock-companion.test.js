@@ -29,21 +29,17 @@ function loadSplitPolicy() {
   return context
 }
 
-test("the lower companion derives exactly one occupant from setup and authoritative timer status", () => {
+test("the lower companion derives exactly one occupant from whether Timer controls are open", () => {
   const policy = loadPolicy()
 
   const cases = [
-    { setupOpen: false, status: "idle", expected: "weather" },
-    { setupOpen: true, status: "idle", expected: "timer" },
-    { setupOpen: false, status: "active", expected: "timer" },
-    { setupOpen: true, status: "active", expected: "timer" },
-    { setupOpen: false, status: "paused", expected: "timer" },
-    { setupOpen: false, status: "completed", expected: "timer" },
+    { panelOpen: false, expected: "weather" },
+    { panelOpen: true, expected: "timer" },
   ]
 
   for (const fixture of cases) {
     assert.equal(
-      policy.occupant(fixture.status, fixture.setupOpen),
+      policy.occupant(fixture.panelOpen),
       fixture.expected,
       JSON.stringify(fixture),
     )
@@ -53,26 +49,17 @@ test("the lower companion derives exactly one occupant from setup and authoritat
 test("every accepted companion transition resolves to Weather or Timer without a third state", () => {
   const policy = loadPolicy()
   const transitions = [
-    ["normal idle", "idle", false, "weather"],
-    ["clock tap", "idle", true, "timer"],
-    ["setup cancel", "idle", false, "weather"],
-    ["start", "active", false, "timer"],
-    ["pause", "paused", false, "timer"],
-    ["resume", "active", false, "timer"],
-    ["add five", "active", false, "timer"],
-    ["restart", "active", false, "timer"],
-    ["active cancel", "idle", false, "weather"],
-    ["completion", "completed", false, "timer"],
-    ["dismiss", "idle", false, "weather"],
-    ["idle recreation", "idle", false, "weather"],
-    ["active recreation", "active", false, "timer"],
-    ["paused recreation", "paused", false, "timer"],
-    ["completed recreation", "completed", false, "timer"],
-    ["hidden weather refresh", "active", false, "timer"],
+    ["normal idle", false, "weather"],
+    ["setup opened", true, "timer"],
+    ["setup cancelled", false, "weather"],
+    ["timer started and setup closed", false, "weather"],
+    ["active controls reopened", true, "timer"],
+    ["active controls hidden", false, "weather"],
+    ["completion auto-opens controls", true, "timer"],
   ]
 
-  for (const [event, status, setupOpen, expected] of transitions)
-    assert.equal(policy.occupant(status, setupOpen), expected, event)
+  for (const [event, panelOpen, expected] of transitions)
+    assert.equal(policy.occupant(panelOpen), expected, event)
 })
 
 test("Clock tile uses one explicit static companion host with complementary presenters", () => {
@@ -83,9 +70,9 @@ test("Clock tile uses one explicit static companion host with complementary pres
   assert.equal((tile.match(/ClockCompanionModule\s*\{/g) || []).length, 1)
   assert.equal((companion.match(/WeatherModule\s*\{/g) || []).length, 1)
   assert.equal((companion.match(/TimerModule\s*\{/g) || []).length, 1)
-  assert.match(companion, /readonly property string occupant:\s*ClockCompanionPolicy\.occupant\(root\.timerStatus, timerPresenter\.setupOpen\)/)
+  assert.match(companion, /readonly property string occupant:\s*ClockCompanionPolicy\.occupant\(root\.timerPanelOpen\)/)
   assert.match(companion, /visible:\s*root\.occupant === "weather"/)
-  assert.match(companion, /visible:\s*root\.occupant === "timer"/)
+  assert.match(companion, /visible:\s*root\.timerPanelOpen/)
   assert.doesNotMatch(companion, /Loader|setSource|layoutController|commit\(|scheduleSave/)
 })
 
@@ -111,7 +98,8 @@ test("Clock and companion cards retain Omarchy panel padding", () => {
   const tile = source("components/ClockCompanionTile.qml")
 
   assert.equal((tile.match(/padding:\s*Style\.spacing\.panelPadding/g) || []).length, 1)
-  assert.match(tile, /padding:\s*root\.occupant === "timer"\s*\? Style\.spacing\.labelGap\s*:\s*Style\.spacing\.panelPadding/)
+  assert.match(tile, /padding:\s*root\.occupant === "timer" && width < Style\.space\(360\)/)
+  assert.match(tile, /\? Style\.spacing\.controlGap : Style\.spacing\.panelPadding/)
 })
 
 test("the taller Weather-state Clock uses the available card height for a larger time", () => {
@@ -121,16 +109,17 @@ test("the taller Weather-state Clock uses the available card height for a larger
   assert.match(clock, /font\.pixelSize:\s*Math\.min\(root\.width \* 0\.18, root\.height \* 0\.62, Style\.font\.displayLarge \* 2\.2\)/)
 })
 
-test("companion Timer setup cancel stops preview and non-idle state is always presented", () => {
+test("companion Timer appears only while its setup or controls are explicitly open", () => {
   const timerModule = source("modules/TimerModule.qml")
+  const timerSetup = source("modules/TimerSetupPanel.qml")
 
   assert.match(timerModule, /property bool companionMode:\s*false/)
-  assert.match(timerModule, /readonly property bool presenterActive:\s*root\.setupOpen \|\| root\.timerStatus !== "idle"/)
-  assert.match(timerModule, /visible:\s*root\.companionMode \? root\.presenterActive : root\.open/)
+  assert.match(timerModule, /readonly property bool presenterActive:\s*root\.open/)
+  assert.match(timerModule, /visible:\s*root\.open/)
   assert.match(timerModule, /function cancelSetup\(\)[\s\S]*timer\.stopPreview\(\)[\s\S]*close\(\)/)
   assert.match(timerModule, /Component\.onDestruction:\s*if \(timer\) timer\.stopPreview\(\)/)
-  assert.match(timerModule, /text:\s*"Cancel"[\s\S]{0,220}onClicked:\s*root\.cancelSetup\(\)/)
-  assert.doesNotMatch(timerModule, /text:\s*"Close"/)
+  assert.match(timerSetup, /text:\s*"Cancel"[\s\S]{0,260}onClicked:\s*root\.presenter\.cancelSetup\(\)/)
+  assert.match(timerModule, /Accessible\.name:\s*"Close timer controls"/)
 })
 
 test("the direct Clock split gives Clock and Weather at least half of the center", () => {
@@ -176,7 +165,7 @@ test("companion transitions preserve layout bytes, topology, edit selection, and
         ["idle", false], ["idle", true], ["active", false],
         ["paused", false], ["completed", false], ["idle", false],
       ]) {
-        assert.ok(["weather", "timer"].includes(companionPolicy.occupant(status, setupOpen)))
+        assert.ok(["weather", "timer"].includes(companionPolicy.occupant(setupOpen)))
         assert.equal(splitPolicy.effectiveRatio(true, "clock", "command-center", saved.root.ratio), 0.5)
       }
     }
@@ -192,9 +181,9 @@ test("companion transitions preserve layout bytes, topology, edit selection, and
   }
 })
 
-test("Weather yields vertical space to Clock while Timer retains its touch-safe split", () => {
+test("Clock and companion geometry stays fixed while Timer opens and closes", () => {
   const tile = source("components/ClockCompanionTile.qml")
-  assert.match(tile, /clockShare:\s*root\.occupant === "weather" \? 0\.48 : 0\.37/)
+  assert.match(tile, /clockShare:\s*0\.48/)
   assert.match(tile, /clockHeight:\s*Math\.round\(splitHeight \* clockShare\)/)
   assert.match(tile, /companionHeight:\s*Math\.max\(0, splitHeight - clockHeight\)/)
 
@@ -214,12 +203,9 @@ test("Weather yields vertical space to Clock while Timer retains its touch-safe 
       const availableHeight = centerHeight - screen.gap
       const weatherClockHeight = Math.round(availableHeight * 0.48)
       const weatherHeight = availableHeight - weatherClockHeight
-      const timerClockHeight = Math.round(availableHeight * 0.37)
-      const timerHeight = availableHeight - timerClockHeight
       assert.ok(clockWidth >= 367, `${drawer} ${ratio} width ${clockWidth}`)
-      assert.ok(weatherClockHeight > timerClockHeight, `${drawer} ${ratio} enlarged clock`)
       assert.ok(weatherHeight > 0, `${drawer} ${ratio} weather ${weatherHeight}`)
-      assert.ok(timerHeight >= 181, `${drawer} ${ratio} timer ${timerHeight}`)
+      assert.equal(Math.round(availableHeight * 0.48), weatherClockHeight)
     }
   }
 })

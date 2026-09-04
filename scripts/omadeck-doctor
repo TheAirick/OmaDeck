@@ -18,6 +18,8 @@ script_dir=$(cd -- "${script_path%/*}" && pwd)
 plugin_dir=$(cd -- "$script_dir/.." && pwd)
 target_screen=DP-3
 primary_monitor=DP-1
+custom_target_screen=false
+custom_primary_monitor=false
 summary_only=false
 input_root=${OMADECK_INPUT_ROOT:-/dev/input}
 proc_root=${OMADECK_PROC_ROOT:-/proc}
@@ -46,10 +48,12 @@ while (($#)); do
       ;;
     --target-screen)
       target_screen=${2:?--target-screen requires a name}
+      custom_target_screen=true
       shift 2
       ;;
     --primary-monitor)
       primary_monitor=${2:?--primary-monitor requires a name}
+      custom_primary_monitor=true
       shift 2
       ;;
     --touch-device-name)
@@ -76,6 +80,26 @@ while (($#)); do
   esac
 done
 
+# A direct invocation should diagnose the same persisted hardware selection as
+# the live service. Explicit CLI arguments from the tray or a test remain
+# authoritative, and an unavailable/older service falls back to safe defaults.
+if [[ -x $OMARCHY_SHELL && -x $JQ ]]; then
+  hardware_state=$("$OMARCHY_SHELL" pretty.omadeck hardwareState 2>/dev/null || true)
+  if "$JQ" -e '
+      type == "object" and .ok == true
+      and (.targetScreen | type == "string" and length > 0 and length <= 128)
+      and (.primaryMonitor | type == "string" and length > 0 and length <= 128)
+      and (.touchDeviceNames | type == "array" and length > 0 and length <= 8
+        and all(.[]; type == "string" and length > 0 and length <= 160))
+    ' <<<"$hardware_state" >/dev/null 2>&1; then
+    $custom_target_screen || target_screen=$("$JQ" -r '.targetScreen' <<<"$hardware_state")
+    $custom_primary_monitor || primary_monitor=$("$JQ" -r '.primaryMonitor' <<<"$hardware_state")
+    if ! $custom_touch_device_names; then
+      mapfile -t touch_device_names < <("$JQ" -r '.touchDeviceNames[]' <<<"$hardware_state")
+    fi
+  fi
+fi
+
 declare -a report_lines=()
 core_issues=0
 advisories=0
@@ -86,6 +110,8 @@ touch_state=""
 touch_state_device=""
 touch_state_active=false
 touch_state_exclusive=false
+native_touch_built=false
+[[ -f $plugin_dir/native/OmaDeck/Touch/libomadecktouchplugin.so ]] && native_touch_built=true
 
 ok() {
   report_lines+=("[OK] $1")
@@ -99,6 +125,10 @@ fail() {
 warn() {
   report_lines+=("[WARN] $1")
   ((advisories += 1))
+}
+
+touch_problem() {
+  if $native_touch_built; then fail "$1"; else warn "$1 (native bridge is optional)"; fi
 }
 
 if [[ -x $PGREP ]] && "$PGREP" -x quickshell >/dev/null 2>&1; then
@@ -146,19 +176,19 @@ for event_path in "$input_root"/event*; do
 done
 
 if ((${#touch_device_names[@]} == 0)); then
-  fail "No touchscreen identity is configured; OmaDeck will not grab any direct touchscreen"
+  touch_problem "No touchscreen identity is configured; OmaDeck will not grab any direct touchscreen"
 elif [[ -n $touch_device ]]; then
   if [[ -r $touch_device ]]; then
     ok "Touchscreen is available and readable at $touch_device"
   else
-    fail "Touchscreen exists at $touch_device but is not readable"
+    touch_problem "Touchscreen exists at $touch_device but is not readable"
   fi
 elif ((${#other_touch_devices[@]} > 0)); then
   expected_names=$(IFS='/'; printf '%s' "${touch_device_names[*]}")
-  fail "Configured touchscreen is absent or mismatched (expected name containing $expected_names); found ${#other_touch_devices[@]} other direct touchscreen(s), which OmaDeck will not grab"
+  touch_problem "Configured touchscreen is absent or mismatched (expected name containing $expected_names); found ${#other_touch_devices[@]} other direct touchscreen(s), which OmaDeck will not grab"
 else
   expected_names=$(IFS='/'; printf '%s' "${touch_device_names[*]}")
-  fail "Configured touchscreen is absent (expected name containing $expected_names)"
+  touch_problem "Configured touchscreen is absent (expected name containing $expected_names)"
 fi
 
 if [[ -n $touch_device ]]; then
@@ -173,7 +203,7 @@ if [[ -n $touch_device ]]; then
   done < <([[ -x $PGREP ]] && "$PGREP" -x quickshell 2>/dev/null || true)
 fi
 
-if [[ -x $OMARCHY_SHELL && -x $JQ ]]; then
+if $native_touch_built && [[ -x $OMARCHY_SHELL && -x $JQ ]]; then
   for ((attempt = 1; attempt <= touch_state_attempts; attempt++)); do
     touch_state=$("$OMARCHY_SHELL" pretty.omadeck touchState 2>/dev/null || true)
     if "$JQ" -e 'type == "object" and .active == true and .exclusiveGrab == true' \
@@ -189,7 +219,7 @@ if [[ -x $OMARCHY_SHELL && -x $JQ ]]; then
   fi
 fi
 
-if [[ -n $touch_device ]]; then
+if $native_touch_built && [[ -n $touch_device ]]; then
   if $touch_state_active && $touch_state_exclusive && [[ $touch_state_device == "$touch_device" ]]; then
     ok "OmaDeck touch bridge reports an active exclusive grab of $touch_device"
   elif $touch_open; then
@@ -199,14 +229,14 @@ if [[ -n $touch_device ]]; then
   else
     fail "OmaDeck touch bridge does not report an active exclusive grab of the touchscreen"
   fi
-elif $touch_state_active || [[ -n $touch_state_device ]]; then
+elif $native_touch_built && { $touch_state_active || [[ -n $touch_state_device ]]; }; then
   fail "OmaDeck touch bridge reports an active device that does not match the configured touchscreen: $touch_state_device"
 fi
 
-if [[ -f $plugin_dir/native/OmaDeck/Touch/libomadecktouchplugin.so ]]; then
+if $native_touch_built; then
   ok "Native touch bridge is built"
 else
-  fail "Native touch bridge is not built; run scripts/build-native"
+  warn "Native touch bridge is not built; using compositor-managed input"
 fi
 
 if [[ -x $plugin_dir/native/bin/omadeck-tray ]]; then

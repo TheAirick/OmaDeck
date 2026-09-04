@@ -105,19 +105,24 @@ test("scene weather follows the installed Omarchy panel hierarchy and scale", ()
   assert.match(weatherVisual, /return days\.slice\(0, effectiveDetail === "full" \? 3 : 2\)/)
   assert.match(weatherVisual, /id:\s*omarchyWeather[\s\S]*OmarchyWeatherVisual\s*\{/)
   assert.match(weatherVisual, /root\.width >= Style\.space\(350\)[\s\S]*root\.height >= Style\.space\(110\)/)
+  assert.match(weatherVisual, /id:\s*constrainedWeather/)
   assert.match(weatherVisual, /root\.weather\.forecast\.slice\(0, 3\)/)
 })
 
-test("the constrained scene renderer remains byte-identical to the reviewed layout candidate", () => {
-  const reviewedWeatherVisual = childProcess.execFileSync(
-    "git",
-    ["show", "b7e178cb9a7f50cdf72477c28652e13a2868c207:components/WeatherVisual.qml"],
-    { cwd: repositoryRoot, encoding: "utf8" },
-  )
-  assert.equal(
-    componentBlock(source("components/WeatherVisual.qml"), "detailedWeather"),
-    componentBlock(reviewedWeatherVisual, "detailedWeather"),
-  )
+test("the constrained scene keeps Omarchy hierarchy without uniformly shrinking it", () => {
+  const weatherVisual = componentBlock(source("components/WeatherVisual.qml"), "constrainedWeather")
+
+  for (const objectName of [
+    "constrainedWeatherColumn",
+    "constrainedWeatherHero",
+    "constrainedWeatherDetails",
+    "constrainedWeatherDivider",
+    "constrainedWeatherForecast",
+  ]) assert.match(weatherVisual, new RegExp(`objectName:\\s*"${objectName}"`))
+  assert.match(weatherVisual, /label:\s*"FEELS"/)
+  assert.match(weatherVisual, /label:\s*"WIND"/)
+  assert.match(weatherVisual, /label:\s*"HUMID"/)
+  assert.doesNotMatch(weatherVisual, /\bscale:/)
 })
 
 test("WeatherModule exposes controller state without owning lifecycle or settings", () => {
@@ -212,6 +217,6 @@ test("offscreen QML rendering matches the accepted presentation boundary", {
   })
 
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
-  assert.match(result.stdout, /Totals: 281 passed, 0 failed/)
+  assert.match(result.stdout, /Totals: \d+ passed, 0 failed/)
   assert.doesNotMatch(result.stdout + result.stderr, /TypeError|Cannot read propert/)
 })

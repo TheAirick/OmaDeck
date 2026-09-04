@@ -14,6 +14,10 @@ a web server, Electron process, or separate system daemon.
   reserved center geometry and actual root `SplitNode` tiling region.
 - `services/AppearanceController.qml` validates and atomically persists the
   Clock/Weather presentation model.
+- `services/HardwareController.qml` validates and atomically persists the
+  selected deck screen, primary workspace monitor, and authorized direct-touch
+  device identities. Connected monitors come from Quickshell; readable direct
+  touchscreens come from the native bridge rather than a recurring helper.
 - `services/LauncherController.qml` validates and atomically persists the
   ordered Command Center launcher selection. `LauncherPolicy.js` restricts
   touch editing to installed desktop-entry IDs and the built-in action catalog,
@@ -32,8 +36,9 @@ to exactly one `components/WeatherVisual.qml`. `ClockCompanionModule.qml`
 statically embeds one Weather presenter in the lower companion slot. The module
 owns no provider process, polling or retry timer, location state, persistence,
 IPC, or settings surface; disabling Weather still stops provider work through
-the single controller in `Service.qml`. The tray remains the only Clock and
-Weather settings owner. At ordinary companion geometry, the default scene
+the single controller in `Service.qml`. The tray and OmaDeck Preferences page
+are two projections of that one controller; neither writes appearance state
+directly. At ordinary companion geometry, the default scene
 delegates to `components/OmarchyWeatherVisual.qml`, which follows the installed
 Omarchy 4.0.2 weather panel's 64/56 hero scale, right-side location/metric grid,
 14-unit vertical rhythm, hairline divider, and three-cell forecast. Constrained
@@ -43,20 +48,20 @@ logical pixels so the Xeneon Edge's scaled companion card keeps the divider and
 three-day forecast instead of falling back to the compressed current-only view.
 
 Timer setup and controls use the same presentation-only boundary:
-`modules/TimerModule.qml` owns the duration draft, compact reflow, sound selector,
+`modules/TimerModule.qml` owns the editable hours/minutes/seconds draft, compact reflow, sound selector,
 and forwarding of timer actions. `components/ClockCompanionTile.qml` is the
 Clock-specific `ModuleTile` host: it replaces the ordinary single-card wrapper
 with two sibling `DeckCard` boundaries separated by the panel-gap token. The
-Clock and Weather retain Omarchy's panel-padding token around their headers and
-content; the Timer occupant temporarily uses compact padding to preserve its
-48-logical-pixel touch targets. While Weather is visible, the upper Clock card
-uses `0.48` of the available height and the lower Weather card uses `0.52`.
+Clock, Weather, and the temporary Timer surface retain Omarchy's panel-padding
+token around their headers and content. The upper Clock card always uses `0.48`
+of the available height and the lower companion card always uses `0.52`.
 The Clock time scale uses that added height with an enlarged bounded type scale
 rather than retaining its former compact cap.
-Timer setup and non-idle states restore the touch-safe `0.37/0.63` split. The
-upper card owns only `ClockModule`; the lower card owns one static
+The upper card owns only `ClockModule`; the lower card owns one static
 `ClockCompanionModule`, whose title and sole visible occupant switch between
-Weather while idle and Timer during setup and every non-idle state. The pair is
+Weather and the explicitly opened Timer surface without changing geometry.
+Starting a timer closes that surface, leaving progress in the Clock; tapping the
+Clock reopens controls for an active, paused, or completed timer. The pair is
 still one saved `clock` leaf for selection, dragging, swapping, and persistence.
 Ambient Timer status and progress remain in the Clock without duplicating the
 countdown readout. The presentation does not own authoritative
@@ -105,12 +110,13 @@ The left Volume and right System drawers participate in the dashboard geometry.
 Their two animated reserved-space values alter both drawer positions and center
 boundaries, creating one synchronized horizontal retiling motion. Top and
 bottom gestures deliberately do not reserve geometry: they reveal full-surface
-`DeckOverlay` instances above an unchanged dashboard. Pulling down opens recent
+`DeckOverlay` instances above an unchanged dashboard. The Command Center also
+opens Preferences in the same overlay layer. Pulling down opens recent
 notifications; pulling up opens the workspace and scratchpad overview. Overlay
 state is independent of horizontal drawer state: dismissing an overlay reveals
 the same Volume or System drawer and the same underlying geometry that was
 present before the vertical gesture. The two horizontal drawers remain mutually
-exclusive, as do the two vertical overlays.
+exclusive, and only one full-surface overlay can be open at a time.
 
 The notification overlay borrows the single installed
 `omarchy.notifications` service for live notification actions, DND, clearing,
@@ -123,9 +129,21 @@ messages remain scannable on the ultra-wide deck. The overview
 delegates workspace focus and `special:scratchpad` actions to Hyprland's native
 dispatch language.
 
-The Command Center is a small page host. Its Applications button replaces the
-home controls in place with `AppLauncherModule`; Home returns without changing
-the center layout. Launcher entries may be added from Omarchy's filtered live
+The Command Center is a small page host. Its six controls expose Volume, System,
+Notifications, Overview, Applications, and Preferences. Applications replaces
+the home controls in place with `AppLauncherModule`; Home returns without changing
+the center layout. Preferences opens a full-surface category browser. Its first
+functional page owns OmaDeck layout entry points, Clock/Weather controls, and
+the timer sound selector, all delegated to the existing validated controllers.
+The Shell page projects Do Not Disturb, Night Light, and Keep Awake directly
+from the installed first-party notification, nightlight, and idle services.
+Appearance and Desktop expose the small settings for which the shell already
+owns live state and validated persistence—bar position/transparency and idle
+timeouts—through `shell.mutateShellConfig`. Richer Appearance, Desktop,
+Displays, Input, Sound, Applications, Power, and Advanced actions summon the
+installed Omarchy menu or first-party panel that owns the setting. Preferences
+therefore neither spawns helpers nor writes `shell.json`, Hyprland files, or
+application defaults itself. Launcher entries may be added from Omarchy's filtered live
 application library or a curated shortcut catalog, removed, and moved left or
 right. The service-owned launcher controller saves only stable IDs.
 
@@ -178,12 +196,19 @@ replacement. Every external producer has a byte limit, deadline, cardinality
 cap, and process-group kill path. Clipboard and Hyprland values are projected
 into a capped schema before the helper emits its 256 KiB maximum snapshot.
 
-OmaDeck also contains two native Qt components:
+OmaDeck runs without compiled artifacts by using Hyprland's compositor-managed
+input path. `OptionalTouchBridge.qml` probes once for a locally built bridge and
+loads the native QML type only when its verified artifact is present; a clean
+plugin checkout therefore never fails its keep-loaded service import.
+
+OmaDeck also contains two optional native Qt components:
 
 - `TouchBridge` exclusively reads the direct touchscreen evdev node and injects
   pointer events only into the OmaDeck window. An explicit list of distinctive,
   case-insensitive device-name substrings authorizes the exclusive grab; an
   absent match fails closed without selecting another direct touchscreen. It
+  exposes the bounded set of readable direct-touch device names to Preferences
+  and rescans only on startup, reconnect, retry, or an explicit refresh. It
   automatically releases dead descriptors, hands ownership between QML-engine
   instances after crash recovery, marks the device close-on-exec, and retries
   after USB re-enumeration or suspend.
@@ -194,7 +219,8 @@ OmaDeck also contains two native Qt components:
   it never writes the appearance file directly. `scripts/run-tray` verifies the
   build record, owner, mode, size, and digest, keeps the validated executable
   inode open through launch, and applies a parent-death signal. The service uses
-  exponential restart backoff, a stable-run reset, graceful stop, and bounded
+  exponential restart backoff for failures, treats the absent optional tray as
+  a clean terminal state, uses a stable-run reset, graceful stop, and bounded
   kill escalation.
 
 `scripts/build-native` configures and tests both components in a newly-created
@@ -220,6 +246,7 @@ omarchy-shell pretty.omadeck overlay overview
 omarchy-shell pretty.omadeck system performance
 omarchy-shell pretty.omadeck closeDrawer
 omarchy-shell pretty.omadeck reconnectTouch
+omarchy-shell pretty.omadeck hardwareState
 omarchy-shell pretty.omadeck appearanceState
 omarchy-shell pretty.omadeck setAppearance showSeconds true
 omarchy-shell pretty.omadeck timerState

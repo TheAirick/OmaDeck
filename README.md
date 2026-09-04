@@ -6,15 +6,16 @@ media, audio, applications, workspaces, monitor inputs, clipboard history, and
 live system information.
 
 > [!IMPORTANT]
-> OmaDeck is an early, hardware-specific release. It currently targets a
-> Corsair Xeneon Edge on `DP-3` and a primary workspace monitor on `DP-1`.
-> Monitor selection and launcher editing do not have settings screens yet.
+> OmaDeck is an early release built for wide secondary touchscreens such as the
+> Corsair Xeneon Edge. On first run it prefers `DP-3`, then falls back to a
+> connected secondary display; monitor and touch choices can be changed in
+> **Preferences → Displays** and **Preferences → Input**.
 
 <p align="center">
-  <img src="assets/omadeck-demo.gif" alt="OmaDeck retiling drawer demonstration" width="100%">
+  <img src="assets/omadeck-drawers.gif" alt="OmaDeck Volume and System drawer animations" width="100%">
 </p>
 
-[Higher-quality MP4 demo](assets/omadeck-demo-web.mp4)
+[Higher-quality drawer demo](assets/omadeck-drawers.mp4)
 
 ## What it does
 
@@ -32,7 +33,7 @@ live system information.
 - Provides a touch task manager with Focus, Close, and confirmed Force Kill.
 - Browses native Omarchy clipboard history with text and image previews.
 - Summons Omarchy's native network and disk speed tests.
-- Publishes a mouse-accessible system-tray control center and health report.
+- Optionally publishes a mouse-accessible system-tray control center and health report.
 - Reconnects its isolated touchscreen automatically after USB, suspend, or
   Quickshell recovery cycles without leaking ownership into child processes.
 - Adds current weather, aligned stats, and a multi-day forecast to the clock,
@@ -42,43 +43,71 @@ live system information.
 
 ## Gallery
 
-### Media and live audio
+### Dashboard
 
-![Media drawer with now-playing and PipeWire controls](assets/screenshots/media.png)
+![OmaDeck dashboard on a Corsair Xeneon Edge](assets/screenshots/dashboard.png)
+
+### Volume and live audio
+
+![Vertical Volume drawer beside Now Playing](assets/screenshots/volume.png)
 
 ### System performance
 
-![System performance history charts](assets/screenshots/performance.png)
+![System performance drawer with live charts](assets/screenshots/system.png)
 
 ### Touch launcher
 
-![Bottom application launcher retiling the center layout](assets/screenshots/applications.png)
+![Application launcher inside Command Center](assets/screenshots/applications.png)
+
+### Preferences
+
+![Touch-friendly OmaDeck and Omarchy preferences](assets/screenshots/preferences.png)
+
+### Workspaces and scratchpad
+
+![OmaDeck Overview with workspaces and scratchpad controls](assets/screenshots/overview.png)
+
+<p align="center">
+  <img src="assets/omadeck-overlays.gif" alt="OmaDeck Overview and Preferences overlay animations" width="100%">
+</p>
+
+[Higher-quality overlay demo](assets/omadeck-overlays.mp4)
 
 ## Install
 
-OmaDeck includes a small native touch bridge and system-tray controller. Add the
-plugin without enabling it, build those components, then enable the service:
+Install and enable OmaDeck with one command:
 
 ```bash
-omarchy plugin add https://github.com/TheAirick/OmaDeck.git --yes
-~/.config/omarchy/plugins/pretty.omadeck/scripts/build-native
-omarchy plugin enable pretty.omadeck
+omarchy plugin add https://github.com/TheAirick/OmaDeck.git --enable
 ```
 
-It starts with `omarchy-shell` at login; no separate autostart service is
-required. Building requires CMake, a C++ compiler, Python 3, and the Qt 6
-development packages used by Omarchy and Quickshell. Native outputs are built
-and tested in a fresh private directory, verified, and atomically installed
-into the plugin checkout; generated binaries and their integrity record remain
-local to that checkout.
+It starts with `omarchy-shell` at login; no separate autostart service or build
+step is required. Standard mode uses Hyprland's compositor-managed touch input.
 
-After an update, rebuild before restarting the shell:
+### Optional native integration
+
+OmaDeck also includes an optional native touch bridge and system-tray
+controller. Build them to isolate one touchscreen from the desktop pointer,
+route it directly into OmaDeck, and add the mouse-accessible tray controller:
 
 ```bash
-omarchy plugin disable pretty.omadeck
+~/.config/omarchy/plugins/pretty.omadeck/scripts/build-native
+omarchy restart shell
+```
+
+Building requires CMake, a C++ compiler, Python 3, and the Qt 6 development
+packages used by Omarchy and Quickshell. Outputs are built and tested in a
+fresh private directory, verified, and atomically installed into the plugin
+checkout; generated binaries and their integrity record remain local to that
+checkout.
+
+After an update, standard mode is immediately available. If you use the
+optional native integration, rebuild it after updating:
+
+```bash
 omarchy plugin update pretty.omadeck
 ~/.config/omarchy/plugins/pretty.omadeck/scripts/build-native
-omarchy plugin enable pretty.omadeck
+omarchy restart shell
 ```
 
 Remove it with:
@@ -127,8 +156,8 @@ ln -s "$HOME/Projects/Omadeck" "$HOME/.config/omarchy/plugins/pretty.omadeck"
 ```
 
 Add `pretty.omadeck` to the top-level `plugins` array in
-`~/.config/omarchy/shell.json`, build the native components, then reload after
-edits:
+`~/.config/omarchy/shell.json`, then reload after edits. Building the native
+components is optional during QML development:
 
 ```bash
 ./scripts/build-native

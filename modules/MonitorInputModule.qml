@@ -6,6 +6,7 @@ import qs.Ui
 
 BorderSurface {
   id: root
+  objectName: "monitorInputModule"
 
   property string omarchyCommand: Quickshell.env("HOME") + "/.local/bin/alienware-to-omarchy"
   property string macCommand: Quickshell.env("HOME") + "/.local/bin/alienware-to-mac"

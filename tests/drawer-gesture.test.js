@@ -53,7 +53,7 @@ test("short and wrong-direction gestures do not trigger", () => {
 test("drawers and overlays keep content outside dismissal handling", () => {
   assert.doesNotMatch(deckSource, /onTapped:\s*if \(root\.openDrawer !== ""\) root\.closeDrawer\(\)/)
   assert.equal((deckSource.match(/onDismissRequested:\s*root\.dismissDrawer\(edge\)/g) || []).length, 2)
-  assert.equal((deckSource.match(/onDismissRequested:\s*root\.closeOverlay\(\)/g) || []).length, 2)
+  assert.equal((deckSource.match(/onDismissRequested:\s*root\.closeOverlay\(\)/g) || []).length, 3)
   assert.match(drawerSource, /reverse:\s*true/)
   assert.match(drawerSource, /gestureThickness:\s*root\.dismissInset/)
   assert.match(overlaySource, /reverse:\s*true/)

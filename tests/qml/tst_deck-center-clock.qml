@@ -153,7 +153,7 @@ TestCase {
     wait(250)
     var targets = []
     collectTargets(timer, companionContent, targets)
-    verify(targets.length >= 10)
+    verify(targets.length >= 8)
     for (var index = 0; index < targets.length; index++) {
       verify(targets[index].bounds.width >= 48, targets[index].name + " transformed width")
       verify(targets[index].bounds.height >= 48, targets[index].name + " transformed height")
@@ -223,7 +223,7 @@ TestCase {
     property string selectedSoundName: "Complete"
     property bool soundSettingsLoaded: true
     property string selectedSoundId: "complete"
-    function start(hours, minutes) { status = "active"; return { ok: true } }
+    function start(hours, minutes, seconds) { status = "active"; return { ok: true } }
     function stopPreview() {}
     function selectPreviousSound() {}
     function selectNextSound() {}

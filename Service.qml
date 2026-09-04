@@ -10,9 +10,9 @@ Item {
 
   property var shell: null
   property var manifest: null
-  property string targetScreen: "DP-3"
-  property string primaryMonitor: "DP-1"
-  property var touchDeviceNames: ["WCH.CN", "XENEON"]
+  readonly property string targetScreen: hardwareStore.targetScreen
+  readonly property string primaryMonitor: hardwareStore.primaryMonitor
+  readonly property var touchDeviceNames: hardwareStore.touchDeviceNames
   property var activeSurface: null
   property bool unloading: false
   property int trayRestartFailures: 0
@@ -22,7 +22,7 @@ Item {
     return resolved.replace(/^file:\/\//, "").replace(/\/$/, "")
   }
   readonly property var targetScreens: {
-    if (!layoutStore.loaded) return []
+    if (!layoutStore.loaded || !hardwareStore.loaded) return []
     var screens = Quickshell.screens || []
     var matches = []
     for (var i = 0; i < screens.length; i++) {
@@ -30,18 +30,35 @@ Item {
     }
     return matches
   }
+  readonly property var availableScreenNames: {
+    var screens = Quickshell.screens || []
+    var names = []
+    for (var i = 0; i < screens.length; i++) names.push(String(screens[i].name))
+    names.sort()
+    return names
+  }
 
   function registerSurface(surface) {
-    if (surface) activeSurface = surface
+    if (!surface) return
+    activeSurface = surface
+    hardwareStore.availableTouchDeviceNames = surface.availableTouchDeviceNames
   }
 
   function unregisterSurface(surface) {
-    if (activeSurface === surface) activeSurface = null
+    if (activeSurface !== surface) return
+    activeSurface = null
+    hardwareStore.availableTouchDeviceNames = []
   }
 
   function startTray() {
-    if (unloading || pluginDir === "" || trayController.running) return
+    if (unloading || pluginDir === "" || !hardwareStore.loaded || trayController.running) return
     trayController.running = true
+  }
+
+  function restartTrayForHardwareChange() {
+    if (!hardwareStore.loaded || unloading) return
+    if (trayController.running) stopTray()
+    else Qt.callLater(root.startTray)
   }
 
   function stopTray() {
@@ -61,9 +78,26 @@ Item {
     if (pluginDir === "") stopTray()
     else Qt.callLater(root.startTray)
   }
+  onTargetScreenChanged: root.restartTrayForHardwareChange()
+  onPrimaryMonitorChanged: root.restartTrayForHardwareChange()
+  onTouchDeviceNamesChanged: root.restartTrayForHardwareChange()
+
+  Connections {
+    target: root.activeSurface
+    function onAvailableTouchDeviceNamesChanged() {
+      hardwareStore.availableTouchDeviceNames = root.activeSurface
+        ? root.activeSurface.availableTouchDeviceNames : []
+    }
+  }
 
   LayoutController {
     id: layoutStore
+  }
+
+  HardwareController {
+    id: hardwareStore
+    availableScreenNames: root.availableScreenNames
+    onLoadedChanged: if (loaded) Qt.callLater(root.startTray)
   }
 
   AppearanceController {
@@ -93,6 +127,12 @@ Item {
       trayStableDelay.stop()
       trayForceStopDelay.stop()
       if (root.unloading || root.pluginDir === "") return
+      // A missing optional tray exits successfully. Do not turn that standard
+      // install mode into a keep-loaded polling loop.
+      if (exitCode === 0) {
+        root.trayRestartFailures = 0
+        return
+      }
       root.trayRestartFailures = Math.min(root.trayRestartFailures + 1, 6)
       trayRestartDelay.interval = Math.min(30000,
                                            1000 * Math.pow(2, root.trayRestartFailures - 1))
@@ -132,7 +172,7 @@ Item {
 
     function overlay(name: string): void {
       if (!root.activeSurface) return
-      if (["notifications", "overview"].indexOf(name) !== -1)
+      if (["notifications", "overview", "preferences"].indexOf(name) !== -1)
         root.activeSurface.openOverlay(name)
     }
 
@@ -162,10 +202,23 @@ Item {
       return JSON.stringify({
         active: false,
         exclusiveGrab: false,
+        nativeAvailable: false,
+        mode: "unavailable",
         devicePath: "",
         configuredDeviceNames: root.touchDeviceNames,
         status: "Target monitor unavailable"
       })
+    }
+
+    function hardwareState(): string {
+      if (!hardwareStore.loaded)
+        return JSON.stringify({ ok: false, error: "Hardware settings are not ready" })
+      var state = hardwareStore.snapshot()
+      state.availableScreenNames = hardwareStore.availableScreenNames
+      state.availableTouchDeviceNames = hardwareStore.availableTouchDeviceNames
+      state.selectedTouchDeviceName = hardwareStore.selectedTouchDeviceName
+      state.ok = true
+      return JSON.stringify(state)
     }
 
     function reconnectTouch(): string {
@@ -308,6 +361,7 @@ Item {
       targetScreen: root.targetScreen
       primaryMonitor: root.primaryMonitor
       touchDeviceNames: root.touchDeviceNames
+      hardwareController: hardwareStore
       layoutController: layoutStore
       appearanceController: appearanceStore
       launcherController: launcherStore

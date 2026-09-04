@@ -1,13 +1,13 @@
 # Configuration
 
-OmaDeck keeps configuration off the deck surface so its touch display stays
-focused on primary navigation. Monitor selection and launcher entries remain
-source-level options.
+OmaDeck keeps configuration behind the Command Center's **Preferences** page so
+its normal touch surface stays focused on primary navigation.
 
 ## Clock and weather
 
-Open the OmaDeck taskbar icon's menu on the primary desktop and choose
-**Clock & weather settings…**. The single settings panel controls:
+Open **Preferences** from OmaDeck's Command Center, or open the OmaDeck
+taskbar icon's menu on the primary desktop and choose **Clock & weather
+settings…**. Both surfaces use the same validated controller for:
 
 - The saved Hero, Split, or Compact clock preference (retained for rollback and
   compatibility); the Clock + Weather/Timer companion surface currently uses
@@ -19,6 +19,46 @@ Open the OmaDeck taskbar icon's menu on the primary desktop and choose
 - Rich, Glyph, or Minimal weather visuals
 - Compact current conditions, Standard two-day forecast, or Full three-day forecast
 - Fahrenheit or Celsius
+
+The OmaDeck Preferences page also selects and previews the timer completion
+sound through the timer's existing allowlisted, atomically persisted sound
+controller.
+
+## Omarchy preferences
+
+The **Shell** category in OmaDeck Preferences projects three live Omarchy
+services without duplicating their state or editing `shell.json` directly:
+
+- **Do Not Disturb** uses the persistent `omarchy.notifications` service.
+- **Night Light** uses the current `omarchy.nightlight` service and remains
+  unavailable until that service has detected the active temperature.
+- **Keep Awake** uses `omarchy.idle`, including its existing persistent state,
+  to temporarily suspend the configured screensaver and automatic lock cycle.
+
+The other categories combine direct, host-owned controls with links into the
+installed Omarchy interface:
+
+- **Appearance** changes bar position and transparency through Omarchy's shell
+  configuration mutator, and opens Omarchy's theme, background, and font
+  selectors.
+- **Desktop** changes the screensaver and lock timeouts through that same
+  mutator, exposes Keep Awake, and opens Omarchy's workspace/window toggles and
+  keybinding browser.
+- **Displays** chooses OmaDeck and primary workspace monitors before offering
+  Omarchy's monitor controls. **Input** chooses and reconnects the authorized
+  direct touchscreen before opening Omarchy's broader hardware/input routes.
+  **Sound** opens the installed audio and Bluetooth surfaces plus OmaDeck's
+  touch mixer.
+- **Applications** opens OmaDeck's editable launcher, Omarchy's default-app
+  selector, and its complete application library.
+- **Power** opens Omarchy's battery/profile panel and session actions, while
+  retaining the live Keep Awake control.
+- **Advanced** opens Omarchy's plugin, configuration, update, and recovery
+  routes.
+
+OmaDeck does not duplicate Omarchy's package discovery or configuration-file
+editors. Settings with more complex validation remain owned by Omarchy and are
+opened on demand from the touch-friendly Preferences index.
 
 These choices are saved atomically to
 `~/.config/omadeck/appearance.json`. Removing that file restores the defaults.
@@ -50,18 +90,24 @@ providers when weather is enabled.
 
 ## Monitor names
 
-Find Hyprland's monitor names with `hyprctl monitors`. The current defaults live
-in `Service.qml`:
-
-```qml
-property string targetScreen: "DP-3"
-property string primaryMonitor: "DP-1"
-```
-
-`targetScreen` displays OmaDeck. `primaryMonitor` receives workspace and
-application actions.
+Open **Preferences → Displays**. **OmaDeck screen** chooses the connected output
+that displays the dashboard; changing it moves OmaDeck immediately. **Primary
+workspace monitor** chooses where workspace and application actions are sent.
+The selectors use Quickshell's connected-screen model, so a stale or invented
+output name cannot be saved from the UI. A fresh install prefers `DP-3` for
+OmaDeck and `DP-1` for the primary workspace monitor. When those names are not
+connected, it chooses a connected secondary display and primary display so the
+dashboard is usable before configuration.
 
 ## Touch mapping
+
+Standard installs use compositor-managed touch and need no local compilation.
+Map the touchscreen to the selected output through Hyprland when its default
+mapping is not correct.
+
+The optional native integration provides stricter dedicated-screen routing.
+Build it with `scripts/build-native` and restart the shell before using the
+device selector and exclusive mapping below.
 
 OmaDeck's native bridge discovers a direct touchscreen whose evdev name contains
 one of the explicitly configured identities, exclusively grabs that node, and
@@ -71,18 +117,14 @@ other touchscreens untouched instead of falling back to one of them. This
 prevents touch from moving the desktop mouse pointer or activating windows on
 another monitor without risking an unrelated laptop or pen display touchscreen.
 
-The configured case-insensitive name substrings live beside the monitor options
-in `Service.qml`:
-
-```qml
-property var touchDeviceNames: ["WCH.CN", "XENEON"]
-```
-
-Replace that list with one or more distinctive substrings reported for another
-dedicated deck touchscreen. Do not use a generic value such as `Touchscreen`:
-the matching identity is the safety boundary that authorizes the exclusive
-grab. The same list is passed to the tray and doctor so their diagnosis reflects
-the bridge configuration.
+Open **Preferences → Input** to choose from direct touchscreens that the native
+bridge can currently open and verify. Saving a device records its exact evdev
+name and reconnects the bridge. The initial fallback identities are `WCH.CN`
+and `XENEON`; they allow first-run discovery without authorizing an unrelated
+laptop touchscreen. Do not replace the saved identity with a generic value such
+as `Touchscreen`: the match is the safety boundary that authorizes the exclusive
+grab. The same setting is passed to the tray and doctor so their diagnosis
+reflects the bridge configuration.
 
 The logged-in user must be able to read the touchscreen event node. Confirm the
 device and the bridge state with:
@@ -91,8 +133,7 @@ device and the bridge state with:
 ./scripts/omadeck-doctor
 ```
 
-To diagnose a source-level custom identity directly, repeat
-`--touch-device-name` as needed:
+To diagnose a custom identity directly, repeat `--touch-device-name` as needed:
 
 ```bash
 ./scripts/omadeck-doctor --touch-device-name "ACME Deck 9000"
@@ -122,15 +163,16 @@ touchscreen models can use different normalized names.
 
 ## System tray
 
-OmaDeck launches a small system-tray controller with the service. Click its
+When the optional native integration is built, OmaDeck launches a small
+system-tray controller with the service. Click its
 icon from the primary desktop to open the OmaDeck Control Center, inspect touch
 and monitor health, copy a sanitized report, request a touch reconnect, or
 restart the Omarchy shell. Its context menu also owns the single
 **Clock & weather settings…** panel; the deck surface does not duplicate those
 controls. This path does not require the deck touchscreen.
 
-The tray is built by `scripts/build-native`. If the tray is missing, rebuild and
-restart the shell.
+The tray is intentionally absent in standard mode. If you want it, run
+`scripts/build-native` and restart the shell.
 
 ## Media and Volume
 
@@ -198,6 +240,12 @@ appearance choices.
 Command Center launcher choices are stored independently in
 `~/.config/omadeck/launcher.json`. Invalid or unknown catalog entries are
 dropped; invalid files recover to the default launcher set.
+
+Monitor and direct-touch choices are stored atomically in
+`~/.config/omadeck/hardware.json`. A missing or invalid file prefers the safe
+DP-3, DP-1, WCH.CN/XENEON defaults, then selects connected displays when those
+outputs are unavailable. A saved target monitor that is temporarily
+disconnected remains selected so OmaDeck returns to that display after hotplug.
 
 The Clock's single countdown is stored atomically in
 `~/.config/omadeck/timer.json`. Active, paused, and completed countdowns recover

@@ -36,6 +36,7 @@ test("the tray pins a verified inode and has bounded lifecycle recovery", () => 
   assert.match(runner, /export PATH=\/usr\/bin:\/usr\/share\/omarchy\/bin/)
   assert.match(runner, /"\$SETPRIV" --pdeathsig TERM \/proc\/self\/fd\/9/)
   assert.match(service, /trayRestartFailures/)
+  assert.match(service, /if \(exitCode === 0\)/)
   assert.match(service, /Math\.min\(30000/)
   assert.match(service, /trayController\.signal\(9\)/)
   assert.match(service, /Component\.onDestruction/)
@@ -46,6 +47,21 @@ test("the tray pins a verified inode and has bounded lifecycle recovery", () => 
   assert.match(doctor, /readonly OMARCHY_SHELL=\/usr\/share\/omarchy\/bin\/omarchy-shell/)
   assert.match(doctor, /export PATH=\/usr\/bin:\/usr\/share\/omarchy\/bin/)
   assert.doesNotMatch(doctor, /command -v/)
+})
+
+test("a clean checkout keeps native touch and tray integration optional", () => {
+  const surface = source("components/DeckSurface.qml")
+  const optional = source("components/OptionalTouchBridge.qml")
+  const native = source("components/NativeTouchBridge.qml")
+  const runner = source("scripts/run-tray")
+
+  assert.doesNotMatch(surface, /import "\.\.\/native\/OmaDeck\/Touch"/)
+  assert.match(surface, /OptionalTouchBridge\s*\{/)
+  assert.match(optional, /command: \["\/usr\/bin\/test", "-f", root\.nativeLibraryPath\]/)
+  assert.match(optional, /mode: nativeAvailable \? "native" : "compositor"/)
+  assert.match(optional, /active: root\.nativeArtifactPresent/)
+  assert.match(native, /import "\.\.\/native\/OmaDeck\/Touch" as NativeTouch/)
+  assert.match(runner, /continuing without the optional tray controller/)
 })
 
 test("system stats use secure state and bounded process groups", () => {

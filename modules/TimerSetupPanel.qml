@@ -1,139 +1,169 @@
 import QtQuick
 import qs.Commons
 import qs.Ui
+import "../components"
 
 Item {
   id: root
 
   required property var presenter
   readonly property int touchTarget: 48
-  readonly property bool wideLayout: width >= Style.space(500)
-  readonly property real rowGap: Style.spacing.controlGap
+  readonly property real naturalAdjustWidth: touchTarget * 2
+    + durationSelector.implicitWidth + Style.spacing.controlGap * 2
+  readonly property real naturalActionWidth: touchTarget * 3 + Style.spacing.controlGap * 2
+  readonly property bool oneRow: presenter.height < Style.space(95)
+    && width >= naturalAdjustWidth + naturalActionWidth + Style.spacing.controlGap
 
-  implicitHeight: soundActions.y + soundActions.implicitHeight
+  implicitHeight: Math.max(adjustRow.y + adjustRow.height,
+    actionRow.y + actionRow.height)
   height: implicitHeight
 
-  Row {
-    id: durationRow
-    x: root.wideLayout ? 0 : Math.max(0, (parent.width - implicitWidth) / 2)
-    y: 0
-    spacing: Style.spacing.labelGap
+  function commitFields() {
+    hoursField.commit()
+    minutesField.commit()
+    secondsField.commit()
+  }
 
-    Row {
-      spacing: Style.spacing.labelGap
-      Button {
-        width: root.touchTarget; height: root.touchTarget; text: "−"; bordered: true
-        Accessible.role: Accessible.Button; Accessible.name: "Decrease hours"
-        onClicked: root.presenter.selectedHours = Math.max(0, root.presenter.selectedHours - 1)
-      }
-      Text {
-        width: Style.space(42); height: root.touchTarget
-        verticalAlignment: Text.AlignVCenter; horizontalAlignment: Text.AlignHCenter
-        text: (root.presenter.selectedHours < 10 ? "0" : "") + root.presenter.selectedHours + "h"
-        color: Color.foreground; font.family: Style.font.family; font.pixelSize: Style.font.subtitle; font.bold: true
-      }
-      Button {
-        width: root.touchTarget; height: root.touchTarget; text: "+"; bordered: true
-        Accessible.role: Accessible.Button; Accessible.name: "Increase hours"
-        onClicked: root.presenter.selectedHours = Math.min(99, root.presenter.selectedHours + 1)
+  Row {
+    id: adjustRow
+    objectName: "timerDurationActions"
+    x: root.oneRow
+      ? (root.width - root.naturalAdjustWidth - root.naturalActionWidth
+         - Style.spacing.controlGap) / 2
+      : (root.width - implicitWidth) / 2
+    spacing: Style.spacing.controlGap
+
+    TimerStepButton {
+      width: root.touchTarget
+      height: root.touchTarget
+      text: "−"
+      accessibleName: "Subtract one " + root.presenter.selectedSegment.slice(0, -1)
+      onClicked: {
+        root.commitFields()
+        root.presenter.adjustSelectedPart(-1)
       }
     }
 
     Row {
-      spacing: Style.spacing.labelGap
-      Button {
-        width: root.touchTarget; height: root.touchTarget; text: "−"; bordered: true
-        Accessible.role: Accessible.Button; Accessible.name: "Decrease minutes"
-        onClicked: root.presenter.selectedMinutes = Math.max(0, root.presenter.selectedMinutes - 1)
+      id: durationSelector
+      objectName: "timerDurationSelector"
+      spacing: Math.max(2, Style.spacing.labelGap / 2)
+
+      TimerDurationField {
+        id: hoursField
+        objectName: "timerHoursField"
+        value: root.presenter.selectedHours
+        maximum: 99
+        segment: "hours"
+        accessibleName: "Hours"
+        selected: root.presenter.selectedSegment === segment
+        onChosen: root.presenter.selectedSegment = segment
+        onEdited: function(value) { root.presenter.setSelectedPart(segment, value) }
       }
+
       Text {
-        width: Style.space(42); height: root.touchTarget
-        verticalAlignment: Text.AlignVCenter; horizontalAlignment: Text.AlignHCenter
-        text: (root.presenter.selectedMinutes < 10 ? "0" : "") + root.presenter.selectedMinutes + "m"
-        color: Color.foreground; font.family: Style.font.family; font.pixelSize: Style.font.subtitle; font.bold: true
+        height: root.touchTarget
+        text: ":"
+        color: Color.muted
+        font.family: Style.font.family
+        font.pixelSize: Style.font.title
+        font.bold: true
+        verticalAlignment: Text.AlignVCenter
       }
-      Button {
-        width: root.touchTarget; height: root.touchTarget; text: "+"; bordered: true
-        Accessible.role: Accessible.Button; Accessible.name: "Increase minutes"
-        onClicked: root.presenter.selectedMinutes = Math.min(59, root.presenter.selectedMinutes + 1)
+
+      TimerDurationField {
+        id: minutesField
+        objectName: "timerMinutesField"
+        value: root.presenter.selectedMinutes
+        maximum: 59
+        segment: "minutes"
+        accessibleName: "Minutes"
+        selected: root.presenter.selectedSegment === segment
+        onChosen: root.presenter.selectedSegment = segment
+        onEdited: function(value) { root.presenter.setSelectedPart(segment, value) }
+      }
+
+      Text {
+        height: root.touchTarget
+        text: ":"
+        color: Color.muted
+        font.family: Style.font.family
+        font.pixelSize: Style.font.title
+        font.bold: true
+        verticalAlignment: Text.AlignVCenter
+      }
+
+      TimerDurationField {
+        id: secondsField
+        objectName: "timerSecondsField"
+        value: root.presenter.selectedSeconds
+        maximum: 59
+        segment: "seconds"
+        accessibleName: "Seconds"
+        selected: root.presenter.selectedSegment === segment
+        onChosen: root.presenter.selectedSegment = segment
+        onEdited: function(value) { root.presenter.setSelectedPart(segment, value) }
+      }
+    }
+
+    TimerStepButton {
+      width: root.touchTarget
+      height: root.touchTarget
+      text: "+"
+      accessibleName: "Add one " + root.presenter.selectedSegment.slice(0, -1)
+      onClicked: {
+        root.commitFields()
+        root.presenter.adjustSelectedPart(1)
       }
     }
   }
 
   Row {
-    id: presetRow
-    x: root.wideLayout ? durationRow.implicitWidth + Style.spacing.labelGap : 0
-    y: root.wideLayout ? 0 : root.touchTarget + root.rowGap
-    width: Math.max(0, parent.width - x)
-    spacing: root.rowGap
-    readonly property real buttonWidth: Math.max(root.touchTarget,
-      (width - spacing * 3) / 4)
+    id: actionRow
+    objectName: "timerSetupActions"
+    x: root.oneRow ? adjustRow.x + adjustRow.implicitWidth
+      + Style.spacing.controlGap : (root.width - width) / 2
+    y: root.oneRow ? 0 : adjustRow.height + Style.spacing.controlGap
+    width: root.oneRow ? root.naturalActionWidth
+      : Math.min(parent.width, Style.space(360))
+    spacing: Style.spacing.controlGap
+    readonly property real cellWidth: Math.max(root.touchTarget,
+      (width - spacing * 2) / 3)
 
     Button {
-      width: presetRow.buttonWidth; height: root.touchTarget; text: "5m"; bordered: true
-      Accessible.role: Accessible.Button; Accessible.name: "Set 5 minutes"
-      onClicked: root.presenter.setPreset(5)
-    }
-    Button {
-      width: presetRow.buttonWidth; height: root.touchTarget; text: "15m"; bordered: true
-      Accessible.role: Accessible.Button; Accessible.name: "Set 15 minutes"
-      onClicked: root.presenter.setPreset(15)
-    }
-    Button {
-      width: presetRow.buttonWidth; height: root.touchTarget; text: "30m"; bordered: true
-      Accessible.role: Accessible.Button; Accessible.name: "Set 30 minutes"
-      onClicked: root.presenter.setPreset(30)
-    }
-    Button {
-      width: presetRow.buttonWidth; height: root.touchTarget; text: "60m"; bordered: true
-      Accessible.role: Accessible.Button; Accessible.name: "Set 60 minutes"
-      onClicked: root.presenter.setPreset(60)
-    }
-  }
-
-  Flow {
-    id: soundActions
-    x: width >= Style.space(365) ? (parent.width - width) / 2 : 0
-    y: root.wideLayout ? root.touchTarget + root.rowGap
-      : root.touchTarget * 2 + root.rowGap * 2
-    width: Math.min(parent.width, Style.space(365))
-    spacing: Style.spacing.labelGap
-
-    Button {
-      width: root.touchTarget; height: root.touchTarget; text: "‹"; bordered: true
-      Accessible.role: Accessible.Button; Accessible.name: "Select previous timer sound"
-      onClicked: root.presenter.timer.selectPreviousSound()
-    }
-    Text {
-      visible: root.width >= Style.space(365)
-      width: Style.space(52); height: root.touchTarget
-      verticalAlignment: Text.AlignVCenter; horizontalAlignment: Text.AlignHCenter
-      text: root.presenter.timer ? root.presenter.timer.selectedSoundName : "Complete"
-      color: Color.muted; font.family: Style.font.family; font.pixelSize: Style.font.caption
-      elide: Text.ElideRight
-    }
-    Button {
-      width: root.touchTarget; height: root.touchTarget; text: "›"; bordered: true
-      Accessible.role: Accessible.Button; Accessible.name: "Select next timer sound"
+      width: actionRow.cellWidth
+      height: root.touchTarget
+      iconText: "󰎆"
+      bordered: true
+      iconSize: Style.font.title
+      enabled: root.presenter.timer && root.presenter.timer.soundSettingsLoaded
+      opacity: enabled ? 1 : 0.4
+      Accessible.role: Accessible.Button
+      Accessible.name: "Choose next timer sound"
       onClicked: root.presenter.timer.selectNextSound()
     }
     Button {
-      width: Style.space(64); height: root.touchTarget; text: "Preview"; bordered: true
-      enabled: root.presenter.timer && root.presenter.timer.soundSettingsLoaded
-        && root.presenter.timer.selectedSoundId !== ""
-      Accessible.role: Accessible.Button; Accessible.name: "Preview timer sound"
-      onClicked: root.presenter.timer.previewSelectedSound()
-    }
-    Button {
-      width: Style.space(64); height: root.touchTarget; text: "Cancel"; bordered: true
-      Accessible.role: Accessible.Button; Accessible.name: "Cancel timer setup"
+      width: actionRow.cellWidth
+      height: root.touchTarget
+      text: "Cancel"
+      bordered: true
+      Accessible.role: Accessible.Button
+      Accessible.name: "Cancel timer setup"
       onClicked: root.presenter.cancelSetup()
     }
     Button {
-      width: Style.space(64); height: root.touchTarget; text: "Start"; selected: true
+      width: actionRow.cellWidth
+      height: root.touchTarget
+      text: "Start"
+      selected: true
       enabled: root.presenter.selectedDurationValid
-      Accessible.role: Accessible.Button; Accessible.name: "Start timer"
-      onClicked: root.presenter.startSelectedTimer()
+      opacity: enabled ? 1 : 0.4
+      Accessible.role: Accessible.Button
+      Accessible.name: "Start timer"
+      onClicked: {
+        root.commitFields()
+        root.presenter.startSelectedTimer()
+      }
     }
   }
 }

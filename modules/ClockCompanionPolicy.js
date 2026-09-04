@@ -1,5 +1,5 @@
 .pragma library
 
-function occupant(timerStatus, setupOpen) {
-  return setupOpen || timerStatus !== "idle" ? "timer" : "weather"
+function occupant(panelOpen) {
+  return panelOpen ? "timer" : "weather"
 }

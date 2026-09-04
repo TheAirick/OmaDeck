@@ -17,7 +17,11 @@ QtObject {
     readonly property real controlPaddingX: 12
     readonly property real controlPaddingY: 8
     readonly property real rowPaddingX: 8
+    readonly property real rowPaddingY: 8
+    readonly property real xs: 4
+    readonly property real md: 8
     readonly property real lg: 16
+    readonly property real huge: 24
     readonly property real hairline: 1
   }
   readonly property QtObject font: QtObject {
@@ -39,5 +43,9 @@ QtObject {
 
   function selectedFillFor(foreground, accent) {
     return accent
+  }
+
+  function pressedFillFor(foreground, accent) {
+    return pressedFill
   }
 }

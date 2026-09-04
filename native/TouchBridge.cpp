@@ -108,7 +108,7 @@ void TouchBridge::setWindow(QObject *window)
     emit windowChanged();
 }
 
-QString TouchBridge::findTouchscreen(QStringList *detectedNames) const
+QString TouchBridge::findTouchscreen(QStringList *detectedNames)
 {
     QDir input(QStringLiteral("/dev/input"));
     auto entries = input.entryInfoList({QStringLiteral("event*")}, QDir::System | QDir::Files, QDir::Name);
@@ -129,10 +129,19 @@ QString TouchBridge::findTouchscreen(QStringList *detectedNames) const
         paths.append(entry.absoluteFilePath());
         names.append(name);
     }
+    if (names != m_availableDeviceNames) {
+        m_availableDeviceNames = names;
+        emit availableDeviceNamesChanged();
+    }
     if (detectedNames)
         *detectedNames = names;
     const int selected = selectDeviceIndex(names, m_deviceNames);
     return selected >= 0 ? paths.at(selected) : QString();
+}
+
+void TouchBridge::refreshDevices()
+{
+    findTouchscreen(nullptr);
 }
 
 int TouchBridge::selectDeviceIndex(const QStringList &detectedNames,
@@ -283,6 +292,7 @@ bool TouchBridge::openDevice(const QString &path)
 
     resetInputState();
     m_devicePath = path;
+    m_activeDeviceName = name;
     m_notifier = new QSocketNotifier(m_fd, QSocketNotifier::Read, this);
     connect(m_notifier, &QSocketNotifier::activated, this, &TouchBridge::readEvents);
     activeBridge = this;
@@ -292,6 +302,7 @@ bool TouchBridge::openDevice(const QString &path)
             << "axes" << m_xMin << m_xMax << m_yMin << m_yMax
             << "closeOnExec" << bool(::fcntl(m_fd, F_GETFD) & FD_CLOEXEC);
     emit devicePathChanged();
+    emit activeDeviceNameChanged();
     emit activeChanged();
     return true;
 }
@@ -326,9 +337,11 @@ void TouchBridge::closeDevice(const QString &status)
     if (activeBridge == this)
         activeBridge.clear();
     m_devicePath.clear();
+    m_activeDeviceName.clear();
     resetInputState();
     setStatus(status);
     emit devicePathChanged();
+    emit activeDeviceNameChanged();
     emit activeChanged();
 
     // Deliver the final release only after teardown is complete. Qt event

@@ -4,6 +4,7 @@ import qs.Ui
 
 BorderSurface {
   id: root
+  objectName: "drawerButton:" + edge
 
   property string edge: ""
   property string label: ""

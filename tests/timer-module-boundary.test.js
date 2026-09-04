@@ -26,17 +26,21 @@ test("Clock companion hosts exactly one presentation-only TimerModule boundary",
 
 test("TimerModule owns setup draft and forwarding without controller lifecycle", () => {
   const timerModule = source("modules/TimerModule.qml")
+  const timerSetup = source("modules/TimerSetupPanel.qml")
   const clock = source("modules/ClockModule.qml")
   const service = source("Service.qml")
 
   assert.match(timerModule, /property int selectedHours:\s*0/)
   assert.match(timerModule, /property int selectedMinutes:\s*5/)
+  assert.match(timerModule, /property int selectedSeconds:\s*0/)
+  assert.match(timerModule, /property string selectedSegment:\s*"minutes"/)
   assert.match(timerModule, /readonly property bool selectedDurationValid:/)
-  assert.match(timerModule, /function setPreset\(minutes\)/)
+  assert.match(timerModule, /function setSelectedPart\(part, value\)/)
+  assert.match(timerModule, /function adjustSelectedPart\(delta\)/)
   assert.match(timerModule, /function startSelectedTimer\(\)/)
   assert.match(timerModule, /id:\s*pickerContent/)
-  assert.match(timerModule, /text:\s*"Preview"/)
-  assert.match(timerModule, /text:\s*"Start"/)
+  assert.match(timerSetup, /objectName:\s*"timerDurationSelector"/)
+  assert.match(timerSetup, /text:\s*"Start"/)
 
   for (const forbidden of [
     /\bProcess\s*\{/,
@@ -60,11 +64,25 @@ test("TimerModule owns active paused and completed companion presentation", () =
   assert.match(timerModule, /id:\s*controlsContent/)
   assert.match(timerModule, /timerStatus === "active" \|\| root\.timerStatus === "paused"/)
   assert.match(timerModule, /timerStatus === "completed"/)
-  for (const action of ["pause", "resume", "add", "restart", "cancel", "dismiss"]) {
+  assert.match(timerModule, /if \(timerStatus === "completed"\) controlsOpen = true/)
+  assert.match(timerModule, /Component\.onCompleted: if \(timerStatus === "completed"\) controlsOpen = true/)
+  for (const action of ["pause", "resume", "add", "cancel", "dismiss"]) {
     assert.match(timerModule, new RegExp(`root\\.timer\\.${action}\\(`), action)
   }
-  assert.doesNotMatch(timerModule, /Accessible\.name:\s*"Close timer controls"/)
+  assert.doesNotMatch(timerModule, /root\.timer\.restart\(/)
+  assert.match(timerModule, /Accessible\.name:\s*"Close timer controls"/)
   assert.doesNotMatch(clock, /controlsOpen|id:\s*controlsContent|root\.timer\.(?:pause|resume|add|restart|cancel|dismiss)\(/)
+})
+
+test("Timer step buttons use pressed-only feedback without sticky hover state", () => {
+  const stepButton = source("components/TimerStepButton.qml")
+  const setup = source("modules/TimerSetupPanel.qml")
+
+  assert.equal((setup.match(/TimerStepButton\s*\{/g) || []).length, 2)
+  assert.match(stepButton, /color:\s*stepTap\.pressed/)
+  assert.match(stepButton, /pressFeedbackActive:\s*stepTap\.pressed/)
+  assert.match(stepButton, /TapHandler\s*\{[\s\S]*id:\s*stepTap/)
+  assert.doesNotMatch(stepButton, /HoverHandler|MouseArea|containsMouse|hasCursor/)
 })
 
 test("compact Clock retains ambient projection and delegates setup opening to TimerModule", () => {
@@ -75,8 +93,8 @@ test("compact Clock retains ambient projection and delegates setup opening to Ti
 
   assert.match(timerModule, /function openForCurrentStatus\(\)/)
   assert.match(clock, /onTapped:\s*root\.setupRequested\(\)/)
-  assert.match(tile, /onSetupRequested:\s*companionModule\.openSetup\(\)/)
-  assert.match(companion, /function openSetup\(\) \{ timerPresenter\.openSetup\(\) \}/)
+  assert.match(tile, /onSetupRequested:\s*companionModule\.openTimer\(\)/)
+  assert.match(companion, /function openTimer\(\) \{ timerPresenter\.openForCurrentStatus\(\) \}/)
   assert.doesNotMatch(clock, /function (?:openTimerControls|openSetup|openControls)\(/)
   assert.equal((clock.match(/text:\s*root\.timeText\(\)/g) || []).length, 1)
   assert.match(clock, /root\.timerSummary\(\)/)

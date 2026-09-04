@@ -15,11 +15,12 @@ Item {
   readonly property string temperatureUnit: controller ? controller.temperatureUnit : "fahrenheit"
   readonly property string timerStatus: timer ? timer.status : "idle"
   readonly property bool timerSetupOpen: timerPresenter.setupOpen
-  readonly property string occupant: ClockCompanionPolicy.occupant(root.timerStatus, timerPresenter.setupOpen)
+  readonly property bool timerPanelOpen: timerPresenter.open
+  readonly property string occupant: ClockCompanionPolicy.occupant(root.timerPanelOpen)
 
   clip: true
 
-  function openSetup() { timerPresenter.openSetup() }
+  function openTimer() { timerPresenter.openForCurrentStatus() }
 
   Item {
     id: companionSlot
@@ -57,7 +58,7 @@ Item {
       id: timerPresenter
       objectName: "timerPresenter"
       anchors.fill: parent
-      visible: root.occupant === "timer"
+      visible: root.timerPanelOpen
       timer: root.timer
       companionMode: true
     }

@@ -21,6 +21,9 @@ function createFixture({
   touchName = touchModel,
   touchStateFailures = 0,
   inactiveTouchStates = 0,
+  hardwareState = null,
+  monitorNames = ["DP-3", "DP-1"],
+  nativeBuilt = true,
 }) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "omadeck-doctor-"))
   const binDir = path.join(root, "bin")
@@ -42,25 +45,27 @@ function createFixture({
   fs.mkdirSync(path.join(sysInputRoot, "event13/device"), { recursive: true })
   fs.writeFileSync(touchDevice, "")
   fs.writeFileSync(path.join(sysInputRoot, "event13/device/name"), `${touchName}\n`)
-  fs.writeFileSync(path.join(pluginDir, "native/OmaDeck/Touch/libomadecktouchplugin.so"), "")
-  executable(path.join(pluginDir, "native/bin/omadeck-tray"), "#!/usr/bin/env bash\nexit 0\n")
-  const nativeRoot = path.join(pluginDir, "native")
-  const artifactPaths = ["OmaDeck/Touch/libomadecktouchplugin.so", "bin/omadeck-tray"]
-  const artifactRecord = artifactPaths.map(relativePath => {
-    const digest = crypto.createHash("sha256")
-      .update(fs.readFileSync(path.join(nativeRoot, relativePath)))
-      .digest("hex")
-    return `${digest}  ${relativePath}`
-  }).join("\n") + "\n"
-  fs.writeFileSync(path.join(nativeRoot, "artifacts.sha256"), artifactRecord, { mode: 0o600 })
+  if (nativeBuilt) {
+    fs.writeFileSync(path.join(pluginDir, "native/OmaDeck/Touch/libomadecktouchplugin.so"), "")
+    executable(path.join(pluginDir, "native/bin/omadeck-tray"), "#!/usr/bin/env bash\nexit 0\n")
+    const nativeRoot = path.join(pluginDir, "native")
+    const artifactPaths = ["OmaDeck/Touch/libomadecktouchplugin.so", "bin/omadeck-tray"]
+    const artifactRecord = artifactPaths.map(relativePath => {
+      const digest = crypto.createHash("sha256")
+        .update(fs.readFileSync(path.join(nativeRoot, relativePath)))
+        .digest("hex")
+      return `${digest}  ${relativePath}`
+    }).join("\n") + "\n"
+    fs.writeFileSync(path.join(nativeRoot, "artifacts.sha256"), artifactRecord, { mode: 0o600 })
+  }
   executable(path.join(homeDir, ".local/bin/alienware-to-omarchy"), "#!/usr/bin/env bash\nexit 0\n")
   executable(path.join(homeDir, ".local/bin/alienware-to-mac"), "#!/usr/bin/env bash\nexit 0\n")
 
   executable(path.join(binDir, "pgrep"), "#!/usr/bin/env bash\n[[ $* == '-x quickshell' ]] || exit 1\nprintf '4242\\n'\n")
-  executable(path.join(binDir, "hyprctl"), "#!/usr/bin/env bash\nprintf '%s\\n' '[{\"name\":\"DP-3\"},{\"name\":\"DP-1\"}]'\n")
+  executable(path.join(binDir, "hyprctl"), `#!/usr/bin/env bash\nprintf '%s\\n' '${JSON.stringify(monitorNames.map(name => ({ name })))}'\n`)
   executable(path.join(binDir, "udevadm"), `#!/usr/bin/env bash\nprintf 'ID_INPUT_TOUCHSCREEN=1\\nID_MODEL=${touchModel}\\n'\n`)
   executable(path.join(binDir, "sleep"), `#!/usr/bin/env bash\nprintf '%s\\n' "$1" >>'${sleepLog}'\n`)
-  executable(path.join(binDir, "omarchy-shell"), `#!/usr/bin/env bash\nif [[ $2 == touchState ]]; then\n  count=0\n  [[ ! -f '${touchStateCount}' ]] || count=$(<'${touchStateCount}')\n  count=$((count + 1))\n  printf '%s' "$count" >'${touchStateCount}'\n  ((count > ${touchStateFailures})) || exit 1\n  if ((count <= ${touchStateFailures + inactiveTouchStates})); then\n    printf '%s\\n' '${JSON.stringify({ active: false, exclusiveGrab: false, devicePath: "", status: "Direct touch not started" })}'\n  else\n    printf '%s\\n' '${JSON.stringify({ active: bridgeActive, exclusiveGrab: bridgeActive, devicePath: touchDevice, status: bridgeActive ? "Isolated direct touch" : "Direct touch not started" })}'\n  fi\nfi\n`)
+  executable(path.join(binDir, "omarchy-shell"), `#!/usr/bin/env bash\nif [[ $2 == hardwareState ]]; then\n  printf '%s\\n' '${hardwareState ? JSON.stringify(hardwareState) : ""}'\nfi\nif [[ $2 == touchState ]]; then\n  count=0\n  [[ ! -f '${touchStateCount}' ]] || count=$(<'${touchStateCount}')\n  count=$((count + 1))\n  printf '%s' "$count" >'${touchStateCount}'\n  ((count > ${touchStateFailures})) || exit 1\n  if ((count <= ${touchStateFailures + inactiveTouchStates})); then\n    printf '%s\\n' '${JSON.stringify({ active: false, exclusiveGrab: false, devicePath: "", status: "Direct touch not started" })}'\n  else\n    printf '%s\\n' '${JSON.stringify({ active: bridgeActive, exclusiveGrab: bridgeActive, devicePath: touchDevice, status: bridgeActive ? "Isolated direct touch" : "Direct touch not started" })}'\n  fi\nfi\n`)
   for (const name of ["omarchy", "wpctl"])
     executable(path.join(binDir, name), "#!/usr/bin/env bash\nexit 0\n")
 
@@ -125,6 +130,49 @@ test("doctor reports an IPC-confirmed active exclusive grab", t => {
   assert.match(result.stdout, /active exclusive grab/)
   assert.match(result.stdout, new RegExp(fixture.touchDevice.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")))
   assert.match(result.stdout, /Overall: healthy/)
+})
+
+test("doctor treats an unbuilt native layer as a healthy standard install", t => {
+  const fixture = createFixture({
+    bridgeActive: false,
+    shellHasOpenFd: false,
+    nativeBuilt: false,
+  })
+  t.after(fixture.cleanup)
+
+  const result = runDoctor(fixture)
+
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.match(result.stdout, /using compositor-managed input/)
+  assert.match(result.stdout, /System-tray controller is not built/)
+  assert.match(result.stdout, /Overall: healthy with/)
+  assert.equal(fs.existsSync(fixture.touchStateCount), false)
+})
+
+test("doctor uses the live persisted hardware selection when arguments are omitted", t => {
+  const hardwareState = {
+    ok: true,
+    version: 1,
+    targetScreen: "DP-9",
+    primaryMonitor: "HDMI-A-1",
+    touchDeviceNames: ["ACME Deck"],
+  }
+  const fixture = createFixture({
+    bridgeActive: true,
+    shellHasOpenFd: true,
+    touchModel: "ACME",
+    touchName: "ACME Deck Touch",
+    hardwareState,
+    monitorNames: ["DP-9", "HDMI-A-1"],
+  })
+  t.after(fixture.cleanup)
+
+  const result = runDoctor(fixture)
+
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.match(result.stdout, /Deck monitor DP-9 is connected/)
+  assert.match(result.stdout, /Primary monitor HDMI-A-1 is connected/)
+  assert.match(result.stdout, /Touchscreen is available and readable/)
 })
 
 test("doctor distinguishes an open shell descriptor from an active bridge grab", t => {
@@ -255,7 +303,8 @@ test("Service exposes the available DeckSurface bridge state over persistent IPC
   const source = fs.readFileSync(path.join(repositoryRoot, "components/DeckSurface.qml"), "utf8")
   const service = fs.readFileSync(path.join(repositoryRoot, "Service.qml"), "utf8")
 
-  assert.match(service, /property var touchDeviceNames: \["WCH\.CN", "XENEON"\]/)
+  assert.match(service, /readonly property var touchDeviceNames: hardwareStore\.touchDeviceNames/)
+  assert.match(service, /HardwareController\s*\{/)
   assert.match(service, /touchDeviceNames: root\.touchDeviceNames/)
   assert.match(service, /function touchState\(\): string/)
   assert.match(service, /root\.activeSurface\.touchState\(\)/)
@@ -263,7 +312,11 @@ test("Service exposes the available DeckSurface bridge state over persistent IPC
   assert.match(source, /function touchState\(\): string/)
   assert.match(source, /active: directTouch\.active/)
   assert.match(source, /exclusiveGrab: directTouch\.active/)
+  assert.match(source, /nativeAvailable: directTouch\.nativeAvailable/)
+  assert.match(source, /mode: directTouch\.mode/)
   assert.match(source, /devicePath: directTouch\.devicePath/)
+  assert.match(source, /activeDeviceName: directTouch\.activeDeviceName/)
+  assert.match(source, /availableDeviceNames: directTouch\.availableDeviceNames/)
   assert.match(source, /status: directTouch\.status/)
   assert.match(source, /configuredDeviceNames: directTouch\.deviceNames/)
 })
@@ -281,6 +334,18 @@ test("native bridge revalidates identity at grab time and releases stale ownersh
   assert.ok(staleRelease >= 0 && staleRelease < emptyConfiguration)
   assert.ok(directValidation >= 0 && directValidation < grabValidation)
   assert.ok(grabValidation < exclusiveGrab)
+})
+
+test("native bridge exposes bounded direct-touch discovery to Preferences", () => {
+  const header = fs.readFileSync(path.join(repositoryRoot, "native/TouchBridge.h"), "utf8")
+  const source = fs.readFileSync(path.join(repositoryRoot, "native/TouchBridge.cpp"), "utf8")
+
+  assert.match(header, /Q_PROPERTY\(QStringList availableDeviceNames/)
+  assert.match(header, /Q_PROPERTY\(QString activeDeviceName/)
+  assert.match(header, /Q_INVOKABLE void refreshDevices\(\)/)
+  assert.match(source, /if \(names != m_availableDeviceNames\)/)
+  assert.match(source, /emit availableDeviceNamesChanged\(\)/)
+  assert.doesNotMatch(source, /\/dev\/input\/by-path|udevadm|hyprctl/)
 })
 
 test("tray diagnostics preserve an explicitly empty device identity list", () => {

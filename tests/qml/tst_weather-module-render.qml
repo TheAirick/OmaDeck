@@ -263,6 +263,33 @@ TestCase {
     verify(forecastRow.width <= 480)
   }
 
+  function test_constrainedSceneKeepsDetailsAndForecast() {
+    var module = createTemporaryObject(weatherModuleComponent, testCase, {
+      width: 230,
+      height: 200,
+      enabled: true,
+      weatherController: controllerFor("current"),
+      visualStyle: "scene",
+      detailMode: "standard",
+      temperatureUnit: "fahrenheit"
+    })
+    verify(module !== null)
+    wait(1)
+
+    var column = findChild(module, "constrainedWeatherColumn")
+    var details = findChild(module, "constrainedWeatherDetails")
+    var divider = findChild(module, "constrainedWeatherDivider")
+    var forecast = findChild(module, "constrainedWeatherForecast")
+    verify(column !== null && details !== null && divider !== null && forecast !== null)
+    var columnBounds = rectIn(column, module)
+    verify(columnBounds.x >= -0.5 && columnBounds.y >= -0.5)
+    verify(columnBounds.x + columnBounds.width <= module.width + 0.5)
+    verify(columnBounds.y + columnBounds.height <= module.height + 0.5)
+    compare(divider.height, 1)
+    compare(forecast.height, 44)
+    grabImage(module).save("/tmp/omadeck-weather-constrained.png")
+  }
+
   function test_omarchyLiveCompanionGeometry() {
     var module = createTemporaryObject(weatherModuleComponent, testCase, {
       width: 384,

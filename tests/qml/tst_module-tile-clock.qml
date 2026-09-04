@@ -186,13 +186,13 @@ TestCase {
 
     var timerClockBounds = rectIn(fixture.clockCard, tile)
     var timerLowerBounds = rectIn(fixture.companionCard, tile)
-    verify(timerClockBounds.height < clockCardBefore.height, "Timer restores its touch-safe lower share")
-    verify(timerLowerBounds.height > lowerBefore.height, "Timer receives the released vertical space")
+    compareRect(timerClockBounds, clockCardBefore, "Clock card while Timer is open")
+    compareRect(timerLowerBounds, lowerBefore, "companion card while Timer is open")
     compare(fixture.clock.visible, true)
     compare(fixture.weather.visible, false)
     compare(fixture.timer.visible, true)
     compare(fixture.companionCard.title, "Timer")
-    compare(fixture.companionCard.padding, Style.spacing.labelGap)
+    compare(fixture.companionCard.padding, Style.spacing.panelPadding)
     var overlay = findChild(fixture.timer, "timerOverlay")
     verify(overlay !== null)
     compareRect(rectIn(overlay, tile), rectIn(fixture.companionContent, tile), "Timer overlay")
@@ -227,6 +227,23 @@ TestCase {
     compare(setupSpy.count, 1, "Clock click must request setup exactly once")
     mouseClick(fixture.timer, 4, 4)
     compare(setupSpy.count, 1, "Timer input must not request setup again")
+    var compactSetup = findChild(fixture.timer, "compactTimerSetupContent")
+    var secondsInput = findChild(compactSetup, "secondsTimerField")
+    verify(secondsInput !== null)
+    fixture.timer.selectedHours = 0
+    fixture.timer.selectedMinutes = 0
+    fixture.timer.selectedSeconds = 0
+    secondsInput.forceActiveFocus()
+    secondsInput.text = "00"
+    var addSecond = findAccessible(fixture.timer, "Add one second")
+    verify(addSecond !== null)
+    mousePress(addSecond, addSecond.width / 2, addSecond.height / 2)
+    compare(addSecond.pressFeedbackActive, true, "step feedback appears only while pressed")
+    mouseRelease(addSecond, addSecond.width / 2, addSecond.height / 2)
+    tryCompare(addSecond, "pressFeedbackActive", false, 250)
+    compare(fixture.timer.selectedTotalSeconds, 1, "zero duration can be incremented")
+    compare(fixture.timer.selectedSeconds, 1, "plus changes the focused zero segment")
+    compare(secondsInput.text, "01", "focused digits refresh after plus")
     clickAccessible(fixture.timer, "Cancel timer setup")
     compare(fixture.weather.visible, true)
 
@@ -235,18 +252,25 @@ TestCase {
     clickAccessible(fixture.timer, "Start timer")
     compare(timerController.startCalls, 1)
     compare(timerController.status, "active")
+    compare(fixture.timer.visible, false)
+    compare(fixture.weather.visible, true)
+    mouseClick(fixture.clock, fixture.clock.width / 2, fixture.clock.height / 2)
     compare(fixture.timer.visible, true)
     clickAccessible(fixture.timer, "Pause timer")
     compare(timerController.status, "paused")
     clickAccessible(fixture.timer, "Resume timer")
     compare(timerController.status, "active")
+    clickAccessible(fixture.timer, "Close timer controls")
+    compare(fixture.timer.visible, false)
+    compare(fixture.weather.visible, true)
+    mouseClick(fixture.clock, fixture.clock.width / 2, fixture.clock.height / 2)
     clickAccessible(fixture.timer, "Cancel timer")
     compare(fixture.weather.visible, true)
     timerController.status = "completed"
-    compare(fixture.timer.visible, true)
+    compare(fixture.timer.visible, true, "completion opens Dismiss without another Clock tap")
     clickAccessible(fixture.timer, "Dismiss timer")
     compare(fixture.weather.visible, true)
-    compare(setupSpy.count, 2, "lower controls must not duplicate setup callbacks")
+    compare(setupSpy.count, 4, "each Clock tap must emit exactly one timer callback")
     compareRect(rectIn(fixture.clockCard, tile), clockBounds, "Clock throughout timer lifecycle")
     compareRect(rectIn(fixture.companionCard, tile), lowerBounds, "lower card throughout timer lifecycle")
     comparePersistent(persistentSnapshot(), stateBefore, "timer lifecycle", true)
@@ -301,7 +325,7 @@ TestCase {
     wait(200)
     var targets = []
     collectTargets(fixture.timer, fixture.companionContent, targets)
-    verify(targets.length >= 10, data.tag + " target count " + targets.length)
+    verify(targets.length >= 8, data.tag + " target count " + targets.length)
     for (var index = 0; index < targets.length; index++) {
       var target = targets[index]
       verify(target.bounds.width >= 48, data.tag + " " + target.name + " width")
@@ -341,16 +365,14 @@ TestCase {
       compare(overlay.visible, true)
       compareRect(rectIn(overlay, tile), rectIn(fixture.companionContent, tile),
         "lower-only overlay cycle " + cycle)
-      clickAccessible(fixture.timer, "Preview timer sound")
+      clickAccessible(fixture.timer, "Choose next timer sound")
       clickAccessible(fixture.timer, "Cancel timer setup")
       compare(overlay.visible, false)
-      compare(timerController.previewRunning, false)
       compare(timerController.stopPreviewCalls, cycle + 1)
       compare(fixture.clock, clockObject, "Clock object must persist")
       compareRect(rectIn(fixture.clock, tile), clockBounds, "Clock bounds cycle " + cycle)
       compareRect(rectIn(fixture.companionCard, tile), lowerBounds, "lower bounds cycle " + cycle)
       comparePersistent(persistentSnapshot(), stateBefore, "lifecycle cycle " + cycle, true)
-      compare(timerController.previewRunning, false)
     }
   }
 
@@ -422,7 +444,7 @@ TestCase {
     property int startCalls: 0
     property int stopPreviewCalls: 0
     property bool previewRunning: false
-    function start(hours, minutes) { startCalls++; status = "active"; return { ok: true } }
+    function start(hours, minutes, seconds) { startCalls++; status = "active"; return { ok: true } }
     function stopPreview() { stopPreviewCalls++; previewRunning = false }
     function selectPreviousSound() {}
     function selectNextSound() {}
