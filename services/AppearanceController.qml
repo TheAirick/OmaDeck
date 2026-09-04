@@ -19,6 +19,7 @@ Item {
   property bool directoryReady: false
   property bool lastSaveSucceeded: false
   property string lastSaveError: ""
+  property string confirmedText: ""
 
   function oneOf(value, choices, fallback) {
     return choices.indexOf(String(value || "")) !== -1 ? String(value) : fallback
@@ -90,10 +91,19 @@ Item {
 
   function persist() {
     if (!directoryReady) return false
+    var serialized = JSON.stringify(snapshot(), null, 2) + "\n"
+    // FileView skips identical writes without emitting saved. Only acknowledge
+    // a no-op when these exact bytes were read from disk or saved successfully.
+    if (serialized === confirmedText) {
+      lastSaveSucceeded = true
+      lastSaveError = ""
+      return true
+    }
     lastSaveSucceeded = false
     lastSaveError = ""
     try {
-      settingsFile.setText(JSON.stringify(snapshot(), null, 2) + "\n")
+      settingsFile.setText(serialized)
+      if (lastSaveSucceeded) confirmedText = serialized
     } catch (error) {
       console.warn("OmaDeck: failed to persist appearance settings:", error)
       lastSaveError = String(error)
@@ -119,11 +129,16 @@ Item {
     printErrors: false
     onSaved: root.lastSaveSucceeded = true
     onSaveFailed: function(error) {
+      root.confirmedText = ""
       root.lastSaveSucceeded = false
       root.lastSaveError = String(error)
     }
-    onLoaded: root.load(text())
+    onLoaded: {
+      root.confirmedText = text()
+      root.load(root.confirmedText)
+    }
     onLoadFailed: {
+      root.confirmedText = ""
       if (!root.directoryReady) return
       root.loaded = true
       root.persist()

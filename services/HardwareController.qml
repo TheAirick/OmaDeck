@@ -20,6 +20,7 @@ Item {
   property bool directoryReady: false
   property bool lastSaveSucceeded: false
   property string lastSaveError: ""
+  property string confirmedText: ""
 
   function snapshot() {
     return HardwarePolicy.snapshot(targetScreen, primaryMonitor, touchDeviceNames)
@@ -83,10 +84,18 @@ Item {
     if (!directoryReady) return false
     var state = snapshot()
     if (state === null) return false
+    var serialized = JSON.stringify(state, null, 2) + "\n"
+    // Identical FileView writes have no saved signal; require confirmed bytes.
+    if (serialized === confirmedText) {
+      lastSaveSucceeded = true
+      lastSaveError = ""
+      return true
+    }
     lastSaveSucceeded = false
     lastSaveError = ""
     try {
-      settingsFile.setText(JSON.stringify(state, null, 2) + "\n")
+      settingsFile.setText(serialized)
+      if (lastSaveSucceeded) confirmedText = serialized
     } catch (error) {
       lastSaveError = String(error)
       console.warn("OmaDeck: failed to persist hardware settings:", error)
@@ -112,11 +121,16 @@ Item {
     printErrors: false
     onSaved: root.lastSaveSucceeded = true
     onSaveFailed: function(error) {
+      root.confirmedText = ""
       root.lastSaveSucceeded = false
       root.lastSaveError = String(error)
     }
-    onLoaded: root.load(text())
+    onLoaded: {
+      root.confirmedText = text()
+      root.load(root.confirmedText)
+    }
     onLoadFailed: {
+      root.confirmedText = ""
       if (!root.directoryReady) return
       root.restoreSnapshot(HardwarePolicy.initialSnapshot(root.availableScreenNames))
       root.loaded = true
