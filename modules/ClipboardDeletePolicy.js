@@ -6,6 +6,12 @@ function sameEntry(left, right) {
     return String(left.path || "") === String(right.path || "")
       && String(left.mime || "image/png") === String(right.mime || "image/png")
   }
+  // The snapshot text is only a preview. Qt.md5 hashes the full UTF-8 text,
+  // matching system-stats; this checksum detects stale selections, not trust.
+  if (right.textDigest !== undefined) {
+    return typeof left.text === "string" && /^[a-f0-9]{32}$/.test(right.textDigest)
+      && Qt.md5(left.text) === right.textDigest
+  }
   return String(left.text || "") === String(right.text || "")
 }
 

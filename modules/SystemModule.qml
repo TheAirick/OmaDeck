@@ -17,6 +17,7 @@ Item {
   property bool forceKillArmed: false
   property string clipboardNotice: ""
   property bool clipboardSaveSucceeded: false
+  property string clipboardCopyText: ""
   property var cpuHistory: []
   property var gpuHistory: []
   property var memoryHistory: []
@@ -82,21 +83,45 @@ Item {
     return String(entry.text || "").replace(/\s+/g, " ").trim() || "Empty text"
   }
   function copyClipboard(entry) {
-    if (!entry) return
-    if (entry.type === "image") {
-      Quickshell.execDetached([
-        "/usr/bin/env", "PATH=/usr/bin:/usr/share/omarchy/bin",
-        "/usr/bin/timeout", "--signal=TERM", "--kill-after=1s", "3s",
-        "/usr/bin/omarchy-clipboard-paste-file", "--copy-only", entry.mime || "image/png", entry.path
-      ])
-    } else {
-      Quickshell.execDetached([
-        "/usr/bin/env", "PATH=/usr/bin:/usr/share/omarchy/bin",
-        "/usr/bin/timeout", "--signal=TERM", "--kill-after=1s", "3s",
-        "/usr/bin/omarchy-clipboard-paste-text", "--copy-only", entry.text || ""
-      ])
+    if (!entry || clipboardCopyProcess.running) return
+    var owner = clipboardOwner()
+    if (!owner || !ClipboardDeletePolicy.removeEntry(owner.history, entry).ok) {
+      clipboardNotice = "History changed · try again"
+      noticeTimer.restart()
+      refreshTimer.restart()
+      return
     }
-    clipboardNotice = "Copied"
+    entry = owner.history[entry.historyIndex]
+    if (entry.type === "image") {
+      // Fixed shell redirection, positional data, and wl-copy's real status.
+      clipboardCopyProcess.command = [
+        "/usr/bin/env", "PATH=/usr/bin:/usr/share/omarchy/bin",
+        "/usr/bin/timeout", "--signal=TERM", "--kill-after=1s", "3s",
+        "/usr/bin/bash", "-c", 'exec /usr/bin/wl-copy --type "$1" < "$2"',
+        "omadeck-clipboard", entry.mime || "image/png", entry.path
+      ]
+    } else {
+      // Capture the validated value now, not a history index re-read later.
+      // Stdin also avoids argv size limits and option-like clipboard text.
+      clipboardCopyText = entry.text || ""
+      clipboardCopyProcess.command = [
+        "/usr/bin/env", "PATH=/usr/bin:/usr/share/omarchy/bin",
+        "/usr/bin/timeout", "--signal=TERM", "--kill-after=1s", "3s",
+        "/usr/bin/wl-copy", "--type", "text/plain;charset=utf-8"
+      ]
+    }
+    clipboardNotice = "Copying…"
+    clipboardCopyProcess.stdinEnabled = true
+    clipboardCopyProcess.running = true
+  }
+  function startClipboardCopy() {
+    clipboardCopyProcess.write(clipboardCopyText)
+    clipboardCopyProcess.stdinEnabled = false
+    clipboardCopyText = ""
+  }
+  function finishClipboardCopy(exitCode, exitStatus) {
+    clipboardCopyText = ""
+    clipboardNotice = exitCode === 0 && exitStatus === 0 ? "Copied" : "Copy failed"
     noticeTimer.restart()
   }
   function clipboardOwner() {
@@ -201,6 +226,12 @@ Item {
     Quickshell.execDetached(["/usr/bin/kill", "-KILL", String(client.pid)])
     forceKillArmed = false
     selectedClientAddress = ""
+  }
+
+  Process {
+    id: clipboardCopyProcess
+    onStarted: root.startClipboardCopy()
+    onExited: function(exitCode, exitStatus) { root.finishClipboardCopy(exitCode, exitStatus) }
   }
 
   Process {

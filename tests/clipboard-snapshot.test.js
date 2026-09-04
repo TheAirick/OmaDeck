@@ -4,6 +4,7 @@ const fs = require("node:fs")
 const os = require("node:os")
 const path = require("node:path")
 const test = require("node:test")
+const crypto = require("node:crypto")
 
 const repositoryRoot = path.join(__dirname, "..")
 
@@ -18,14 +19,15 @@ function snapshotFor(history) {
   )
 
   try {
-    const result = childProcess.spawnSync(path.join(repositoryRoot, "scripts/system-stats"), [], {
+    const result = childProcess.spawnSync("/usr/bin/python3", ["-c",
+      "import runpy,json; m=runpy.run_path('scripts/system-stats'); print(json.dumps(m['clipboard_snapshot']()))"], {
       cwd: repositoryRoot,
       encoding: "utf8",
       env: { ...process.env, XDG_STATE_HOME: fixtureRoot },
       timeout: 10000,
     })
     assert.equal(result.status, 0, result.stderr)
-    return JSON.parse(result.stdout).clipboard
+    return JSON.parse(result.stdout)
   } finally {
     fs.rmSync(fixtureRoot, { recursive: true, force: true })
   }
@@ -52,4 +54,17 @@ test("clipboard snapshot rejects stale object schemas and caps cardinality", () 
   const clipboard = snapshotFor(history)
   assert.equal(clipboard.length, 20)
   assert.equal(clipboard[19].historyIndex, 19)
+})
+
+test("long text keeps a bounded preview with a full-content action identity", () => {
+  const text = "synthetic 😀\n".repeat(400) + "distinct tail"
+  const [entry] = snapshotFor([{ type: "text", text }])
+  assert.ok(entry.text.length <= 4096) // Python's 2048 Unicode code points
+  assert.equal(entry.textDigest, crypto.createHash("md5").update(text).digest("hex"))
+})
+
+test("malformed Unicode cannot break the snapshot or become a copy identity", () => {
+  const entries = snapshotFor([{ type: "text", text: "\ud800" }, { type: "text", text: "valid" }])
+  assert.equal(entries.length, 1)
+  assert.equal(entries[0].historyIndex, 1)
 })

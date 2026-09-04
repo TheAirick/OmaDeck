@@ -3,6 +3,7 @@ const fs = require("node:fs")
 const path = require("node:path")
 const vm = require("node:vm")
 const test = require("node:test")
+const crypto = require("node:crypto")
 
 const repositoryRoot = path.join(__dirname, "..")
 
@@ -10,7 +11,7 @@ function loadPolicy() {
   const source = fs
     .readFileSync(path.join(repositoryRoot, "modules/ClipboardDeletePolicy.js"), "utf8")
     .replace(/^\.pragma library\s*/m, "")
-  const context = {}
+  const context = { Qt: { md5: text => crypto.createHash("md5").update(text).digest("hex") } }
   vm.runInNewContext(source, context, { filename: "ClipboardDeletePolicy.js" })
   return context
 }
@@ -114,4 +115,22 @@ test("clipboard deletion never performs eager image-file removal", () => {
   const source = fs.readFileSync(path.join(repositoryRoot, "modules/ClipboardDeletePolicy.js"), "utf8")
 
   assert.doesNotMatch(source, /\brm\b|unlink|removeFile|exec/)
+})
+
+test("deletion resolves long text by full identity, not the shared preview", () => {
+  const policy = loadPolicy()
+  const text = "x".repeat(4096) + "original"
+  const original = { type: "text", text }
+  const selected = { type: "text", text: text.slice(0, 2048), historyIndex: 0,
+    textDigest: crypto.createHash("md5").update(text).digest("hex") }
+  assert.equal(policy.removeEntry([original], selected).ok, true)
+  for (const history of [
+    [{ type: "text", text: "x".repeat(4096) + "replacement" }],
+    [{ type: "text", text: "new" }, original],
+    [],
+  ]) {
+    const result = policy.removeEntry(history, selected)
+    assert.equal(result.ok, false)
+    assert.deepEqual(plain(result.history), history)
+  }
 })

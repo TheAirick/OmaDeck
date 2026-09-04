@@ -10,6 +10,7 @@ directory so predictable state names cannot be redirected through symlinks.
 from __future__ import annotations
 
 import fcntl
+import hashlib
 import json
 import math
 import os
@@ -455,13 +456,19 @@ def clipboard_snapshot() -> list[Any]:
     except json.JSONDecodeError:
         return []
     # Omarchy 4 stores newest-first clipboard history as a JSON array. Keep the
-    # source index so a displayed entry can be removed from the authoritative
-    # in-shell model without comparing or exposing clipboard contents.
+    # source index plus a full-text checksum for resolving bounded previews
+    # against the authoritative in-shell model. This is not authentication.
     entries = list(enumerate(decoded[:MAX_CLIPBOARD_ITEMS])) if isinstance(decoded, list) else []
     output = []
     for index, value in entries:
         item = sanitize(value)
         if isinstance(item, dict):
+            if item.get("type") == "text" and isinstance(value.get("text"), str):
+                try:
+                    text_bytes = value["text"].encode("utf-8")
+                except UnicodeEncodeError:
+                    continue
+                item["textDigest"] = hashlib.md5(text_bytes, usedforsecurity=False).hexdigest()
             item["historyIndex"] = index
             output.append(item)
     return output
