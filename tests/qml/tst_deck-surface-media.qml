@@ -14,6 +14,10 @@ TestCase {
   property var fixtureStreams: []
 
   function init() {
+    layoutFixture.saveError = ""
+    launcherFixture.saveError = ""
+    layoutFixture.retryCalls = 0
+    launcherFixture.retryCalls = 0
     mediaFixture.activePlayer = playerFixture
     var sinkAudio = createTemporaryObject(audioComponent, testCase, { volume: 0.7 })
     var sourceAudio = createTemporaryObject(audioComponent, testCase, { volume: 0.5 })
@@ -100,6 +104,30 @@ TestCase {
     verify(point.y >= 0 && point.y <= deck.height,
       "pointer y " + point.y + " outside 0.." + deck.height)
     mouseClick(item, item.width / 2, item.height / 2)
+  }
+
+  function test_saveFailuresRemainVisibleAfterEditingAndRetryTheirOwner() {
+    var deck = createDeck()
+    var layoutRetry = findChild(deck, "layoutSaveRetry")
+    var launcherRetry = findChild(deck, "launcherSaveRetry")
+    verify(layoutRetry !== null && launcherRetry !== null)
+    compare(layoutRetry.visible, false)
+    compare(launcherRetry.visible, false)
+    layoutFixture.editMode = false
+    layoutFixture.saveError = "ENOSPC"
+    launcherFixture.saveError = "permission denied"
+    compare(layoutRetry.visible, true)
+    compare(launcherRetry.visible, true)
+    verify(layoutRetry.height >= 48)
+    wait(50) // allow Column's geometry polish before pointer hit testing
+    clickItem(deck, layoutRetry)
+    compare(layoutFixture.retryCalls, 1)
+    compare(layoutRetry.visible, false)
+    compare(launcherRetry.visible, true)
+    wait(50)
+    clickItem(deck, launcherRetry)
+    compare(launcherFixture.retryCalls, 1)
+    compare(launcherRetry.visible, false)
   }
 
   function test_nowPlayingIsStaticAndLeftDrawerOwnsOnlyVolume() {
@@ -971,6 +999,9 @@ TestCase {
 
   QtObject {
     id: layoutFixture
+    property string saveError: ""
+    property int retryCalls: 0
+    function persist() { retryCalls++; saveError = "" }
     property int revision: 0
     property bool editMode: false
     property string selectedPath: ""
@@ -1027,6 +1058,9 @@ TestCase {
 
   QtObject {
     id: launcherFixture
+    property string saveError: ""
+    property int retryCalls: 0
+    function persist() { retryCalls++; saveError = "" }
     property int revision: 0
     property var entryIds: ["terminal", "browser", "files"]
     property var catalog: [

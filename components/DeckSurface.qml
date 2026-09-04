@@ -397,6 +397,30 @@ PanelWindow {
   EdgeSwipeArea { enabled: root.openOverlayName === ""; edge: "top"; anchors.top: parent.top; anchors.left: parent.left; anchors.right: parent.right; onTriggered: root.toggleOverlay("notifications") }
   EdgeSwipeArea { enabled: root.openOverlayName === ""; edge: "bottom"; anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.right: parent.right; onTriggered: root.toggleOverlay("overview") }
 
+  // Keep failed-save feedback reachable even after the editing UI closes.
+  // Controllers retain dirty state and own the retry; never expose raw errors.
+  Column {
+    anchors.left: parent.left
+    anchors.bottom: parent.bottom
+    anchors.margins: root.outerGap + Style.spacing.controlPaddingX
+    spacing: Style.spacing.controlGap
+    z: 201
+
+    Button {
+      objectName: "layoutSaveRetry"
+      visible: !!(root.layoutController && root.layoutController.saveError)
+      text: "Layout not saved · Retry"
+      onClicked: root.layoutController.persist()
+    }
+
+    Button {
+      objectName: "launcherSaveRetry"
+      visible: !!(root.launcherController && root.launcherController.saveError)
+      text: "Applications not saved · Retry"
+      onClicked: root.launcherController.persist()
+    }
+  }
+
   Button {
     visible: root.layoutController && root.layoutController.editMode
     anchors.top: parent.top
