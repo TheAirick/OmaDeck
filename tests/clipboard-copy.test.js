@@ -15,6 +15,7 @@ function harness(text) {
   const owner = { history: [{ type: "text", text }] }
   const sent = []
   const context = { ClipboardDeletePolicy: policy, clipboardNotice: "", clipboardCopyText: "",
+    clipboardCopyStartTimer: { stop() {}, restart() {} },
     clipboardCopyProcess: { running: false, stdinEnabled: false, write: value => sent.push(value) },
     clipboardOwner: () => owner, noticeTimer: { restart() {} }, refreshTimer: { restart() {} },
     Quickshell: { execDetached: command => sent.push(command) } }
@@ -73,7 +74,9 @@ test("image copy propagates wl-copy failure instead of helper's success exit", (
   const { context, owner } = harness("")
   const image = { type: "image", path: "/synthetic/image ' name.png", mime: "image/png" }
   owner.history = [image]
+  context.clipboardCopyText = "synthetic previous pending text"
   context.copyClipboard({ ...image, historyIndex: 0 })
+  assert.equal(context.clipboardCopyText, "")
   const command = context.clipboardCopyProcess.command
   assert.ok(command.includes('exec /usr/bin/wl-copy --type "$1" < "$2"'))
   assert.deepEqual(Array.from(command.slice(-2)), [image.mime, image.path])

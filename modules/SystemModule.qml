@@ -93,6 +93,7 @@ Item {
     }
     entry = owner.history[entry.historyIndex]
     if (entry.type === "image") {
+      clipboardCopyText = ""
       // Fixed shell redirection, positional data, and wl-copy's real status.
       clipboardCopyProcess.command = [
         "/usr/bin/env", "PATH=/usr/bin:/usr/share/omarchy/bin",
@@ -115,11 +116,14 @@ Item {
     clipboardCopyProcess.running = true
   }
   function startClipboardCopy() {
+    clipboardCopyStartTimer.stop()
     clipboardCopyProcess.write(clipboardCopyText)
     clipboardCopyProcess.stdinEnabled = false
     clipboardCopyText = ""
   }
   function finishClipboardCopy(exitCode, exitStatus) {
+    clipboardCopyStartTimer.stop()
+    clipboardCopyProcess.stdinEnabled = false
     clipboardCopyText = ""
     clipboardNotice = exitCode === 0 && exitStatus === 0 ? "Copied" : "Copy failed"
     noticeTimer.restart()
@@ -230,8 +234,21 @@ Item {
 
   Process {
     id: clipboardCopyProcess
+    // FailedToStart emits runningChanged(false), but no exited in QS 0.3.1.
+    // Defer failure one tick so a normal exited can supply the real status.
+    onRunningChanged: {
+      if (!running && root.clipboardNotice === "Copying…") clipboardCopyStartTimer.restart()
+    }
     onStarted: root.startClipboardCopy()
     onExited: function(exitCode, exitStatus) { root.finishClipboardCopy(exitCode, exitStatus) }
+  }
+
+  Timer {
+    id: clipboardCopyStartTimer
+    interval: 1
+    onTriggered: {
+      if (!clipboardCopyProcess.running) root.finishClipboardCopy(-1, 1)
+    }
   }
 
   Process {
