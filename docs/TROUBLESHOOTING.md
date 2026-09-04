@@ -1,5 +1,22 @@
 # Troubleshooting
 
+## Development rescan still shows old controls
+
+First verify the live plugin resolves to the intended checkout, then rescan and
+check a visibly changed control. Omarchy 4.0.2 / Quickshell 0.3.1 can retain old
+QML across `omarchy-shell shell rescanPlugins`; a successful ping only proves
+health, not that new code loaded. If the visible marker remains old, save work
+and explicitly approve one `omarchy restart shell` before running it. This
+briefly removes the bar and OmaDeck. Verify the marker, doctor, and logs afterward;
+do not routinely restart as a substitute for diagnosing a failed reload.
+
+## Layout or applications report “not saved”
+
+The current edit is retained in memory while storage is unavailable. Restore
+write access/free disk space, then use the visible **Retry** button. The
+controller also retries at a bounded interval. Avoid restarting before the
+notice clears: unsaved changes are not durable across shell recreation.
+
 ## OmaDeck does not appear
 
 Confirm the plugin is enabled in `~/.config/omarchy/shell.json` and that the
