@@ -52,6 +52,7 @@ Item {
 
   function startTray() {
     if (unloading || pluginDir === "" || !hardwareStore.loaded || trayController.running) return
+    trayController.launchPending = true
     trayController.running = true
   }
 
@@ -122,8 +123,21 @@ Item {
     id: trayController
     command: [root.pluginDir + "/scripts/run-tray", root.pluginDir,
               root.targetScreen, root.primaryMonitor].concat(root.touchDeviceNames)
-    onStarted: trayStableDelay.restart()
-    onExited: function(exitCode, exitStatus) {
+    property bool launchPending: false
+    onStarted: {
+      launchPending = false
+      trayStableDelay.restart()
+    }
+    // Quickshell 0.3.1 reports FailedToStart only via runningChanged.
+    onRunningChanged: {
+      if (!running && launchPending) {
+        launchPending = false
+        finishAttempt(-1)
+      }
+    }
+    onExited: function(exitCode, exitStatus) { finishAttempt(exitCode) }
+    function finishAttempt(exitCode) {
+      launchPending = false
       trayStableDelay.stop()
       trayForceStopDelay.stop()
       if (root.unloading || root.pluginDir === "") return

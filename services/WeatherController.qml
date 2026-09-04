@@ -35,6 +35,8 @@ Item {
     refreshQueued = false
     requestActive = true
     weatherProcess.requestGeneration = generation
+    weatherProcess.launchStarted = false
+    weatherOutput.reset()
     weatherProcess.running = true
   }
 
@@ -153,11 +155,18 @@ Item {
     id: weatherProcess
     command: [root.pluginDir + "/scripts/run-weather"]
     property int requestGeneration: -1
+    property bool launchStarted: false
+    // FailedToStart has no exited signal in Quickshell 0.3.1.
+    onRunningChanged: {
+      if (!running && !launchStarted && root.requestActive)
+        root.finishRequest(-1)
+    }
     stdout: BoundedOutputParser {
       id: weatherOutput
       maxBytes: 16 * 1024
     }
     onStarted: {
+      launchStarted = true
       weatherOutput.reset()
       weatherLifecycleBackstop.restart()
     }

@@ -13,6 +13,13 @@ Item {
   property int revision: 0
   property bool loaded: false
   property bool directoryReady: false
+  // Pending includes debounce, in-flight writes and failed unsaved edits.
+  property bool savePending: false
+  property string saveError: ""
+  property bool saveInFlight: false
+  property int savingRevision: -1
+  property string savedText: ""
+  property string savingText: ""
   property bool editMode: false
   property string selectedPath: ""
 
@@ -36,6 +43,8 @@ Item {
   }
 
   function load(raw) {
+    if (savePending || saveInFlight) return
+    savedText = raw
     try {
       var parsed = LayoutPolicy.parseLayout(raw)
       if (!parsed) throw new Error("unsupported layout")
@@ -130,21 +139,63 @@ Item {
   }
 
   function scheduleSave() {
-    if (!directoryReady) return
-    saveDelay.restart()
+    savePending = true
+    if (directoryReady) saveDelay.restart()
   }
 
   function persist() {
-    if (!directoryReady) return
-    layoutFile.setText(JSON.stringify(layout, null, 2) + "\n")
+    if (!directoryReady) {
+      if (!mkdirProcess.running) {
+        mkdirProcess.launchPending = true
+        mkdirProcess.running = true
+      }
+      return
+    }
+    if (!savePending || saveInFlight) return
+    saveDelay.stop()
+    savingText = JSON.stringify(layout, null, 2) + "\n"
+    if (saveError === "" && savingText === savedText) {
+      savePending = false
+      return
+    }
+    savingRevision = revision
+    saveInFlight = true
+    // Failed writes remain cached by FileView 0.3.1; an identical retry would
+    // otherwise silently do nothing. Unload before retrying the same payload.
+    if (saveError !== "") {
+      layoutFile.path = ""
+      layoutFile.path = layoutPath
+    }
+    try {
+      layoutFile.setText(savingText)
+    } catch (error) {
+      saveInFlight = false
+      saveError = String(error)
+    }
   }
 
   Process {
     id: mkdirProcess
     command: ["/usr/bin/mkdir", "-p", root.configDir]
-    onExited: {
-      root.directoryReady = true
-      layoutFile.reload()
+    property bool launchPending: true
+    onStarted: launchPending = false
+    onRunningChanged: {
+      if (!running && launchPending) finishDirectory(-1)
+    }
+    onExited: function(exitCode) { finishDirectory(exitCode) }
+    function finishDirectory(exitCode) {
+      launchPending = false
+      root.directoryReady = exitCode === 0
+      if (!root.directoryReady) {
+        root.loaded = true
+        root.saveError = "Settings directory unavailable"
+        return
+      }
+      if (root.savePending) saveDelay.restart()
+      else {
+        root.saveError = ""
+        layoutFile.reload()
+      }
     }
   }
 
@@ -154,11 +205,23 @@ Item {
     watchChanges: true
     atomicWrites: true
     printErrors: false
+    onSaved: {
+      root.savedText = root.savingText
+      root.saveInFlight = false
+      root.savePending = root.revision !== root.savingRevision
+      root.saveError = ""
+      if (root.savePending) saveDelay.restart()
+    }
+    onSaveFailed: function(error) {
+      root.saveInFlight = false
+      root.saveError = String(error)
+    }
     onLoaded: root.load(text())
     onLoadFailed: {
+      root.savedText = ""
       if (!root.directoryReady) return
       root.loaded = true
-      root.persist()
+      root.scheduleSave()
     }
     onFileChanged: reload()
   }
@@ -167,6 +230,13 @@ Item {
     id: saveDelay
     interval: 180
     repeat: false
+    onTriggered: root.persist()
+  }
+
+  Timer {
+    interval: 5000
+    running: root.saveError !== "" && !root.saveInFlight
+    repeat: true
     onTriggered: root.persist()
   }
 

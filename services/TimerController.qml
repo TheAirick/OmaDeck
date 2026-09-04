@@ -65,6 +65,12 @@ Item {
     var previous = timerState
     timerState = candidate
     lastSaveSucceeded = false
+    // 0.3.1 retains failed write text in its comparison cache. Invalidate it
+    // before retrying the identical claim, otherwise setText emits no signal.
+    if (lastSaveError !== "") {
+      timerFile.path = ""
+      timerFile.path = timerPath
+    }
     lastSaveError = ""
     try {
       timerFile.setText(JSON.stringify(timerState, null, 2) + "\n")
@@ -161,6 +167,9 @@ Item {
   function reconcileDue(actionTime) {
     var next = TimerPolicy.completeIfDue(timerState, actionTime)
     if (next === timerState) return false
+    // The elapsed deadline is authoritative even if claiming the alert fails.
+    // Keep it completed/unclaimed so recovery uses the slow retry, not 100 ms ticks.
+    timerState = next
     var claim = TimerPolicy.claimCompletion(next)
     if (persistCandidate(claim.state) && claim.shouldNotify)
       startCompletionEffects()
@@ -284,6 +293,16 @@ Item {
     loaded = true
     if (timerState.status === "completed" && !timerState.notificationSent)
       deliverCompletion()
+  }
+
+  // Restored overdue timers are already completed, so the active clock no
+  // longer ticks. Retry only unclaimed completions, at a bounded I/O cadence.
+  Timer {
+    interval: 5000
+    running: root.loaded && root.directoryReady && root.completed
+             && !root.timerState.notificationSent
+    repeat: true
+    onTriggered: root.deliverCompletion()
   }
 
   Process {
