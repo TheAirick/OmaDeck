@@ -118,7 +118,7 @@ Item {
       return false
     }
     notificationService.setDoNotDisturb(value)
-    showNotice("Saved")
+    showNotice("Requested")
     return true
   }
 
@@ -129,7 +129,7 @@ Item {
       return false
     }
     nightlightService.setNightlight(value)
-    showNotice("Saved")
+    showNotice("Requested")
     return true
   }
 
@@ -140,7 +140,7 @@ Item {
       return false
     }
     idleService.setIdleEnabled(!value)
-    showNotice("Saved")
+    showNotice("Requested")
     return true
   }
 
@@ -178,7 +178,8 @@ Item {
       return false
     }
     shell.mutateShellConfig(mutator)
-    showNotice("Saved")
+    // The host owns asynchronous persistence; its void API is not a save receipt.
+    showNotice("Requested")
     return true
   }
 
@@ -428,9 +429,11 @@ Item {
               PreferenceChoice {
                 objectName: "preferencesClockStyle"
                 width: parent.width
-                height: Style.space(68)
-                label: "Clock style"
-                description: "Choose how prominently the current time is presented"
+                height: implicitHeight
+                enabled: false
+                opacity: 0.45
+                label: "Clock style (legacy)"
+                description: "Retained for compatibility; the current Clock always uses Compact"
                 value: root.appearanceController ? root.appearanceController.clockStyle : "hero"
                 options: [
                   { value: "hero", label: "Hero" },
@@ -484,7 +487,7 @@ Item {
               PreferenceChoice {
                 objectName: "preferencesWeatherStyle"
                 width: parent.width
-                height: Style.space(68)
+                height: implicitHeight
                 enabled: root.appearanceController && root.appearanceController.showWeather
                 opacity: enabled ? 1 : 0.45
                 label: "Weather visual"
@@ -501,7 +504,7 @@ Item {
               PreferenceChoice {
                 objectName: "preferencesWeatherDetail"
                 width: parent.width
-                height: Style.space(68)
+                height: implicitHeight
                 enabled: root.appearanceController && root.appearanceController.showWeather
                 opacity: enabled ? 1 : 0.45
                 label: "Weather detail"
@@ -518,7 +521,7 @@ Item {
               PreferenceChoice {
                 objectName: "preferencesTemperatureUnit"
                 width: parent.width
-                height: Style.space(68)
+                height: implicitHeight
                 enabled: root.appearanceController && root.appearanceController.showWeather
                 opacity: enabled ? 1 : 0.45
                 label: "Temperature"
@@ -558,7 +561,7 @@ Item {
               PreferenceChoice {
                 objectName: "preferencesTimerSound"
                 width: parent.width
-                height: Style.space(68)
+                height: implicitHeight
                 enabled: root.timerController && root.timerController.soundSettingsLoaded
                 opacity: enabled ? 1 : 0.45
                 label: "Completion sound"
@@ -747,7 +750,7 @@ Item {
                 PreferenceChoice {
                   objectName: "preferencesBarPosition"
                   width: parent.width
-                  height: Style.space(68)
+                  height: implicitHeight
                   label: "Position"
                   description: "Place the Omarchy bar on any screen edge"
                   value: root.barPosition
@@ -821,7 +824,7 @@ Item {
                 PreferenceChoice {
                   objectName: "preferencesScreensaverTimeout"
                   width: parent.width
-                  height: Style.space(68)
+                  height: implicitHeight
                   label: "Screensaver"
                   description: "Start after this much inactivity"
                   value: String(root.idleService ? root.idleService.screensaverTimeoutSeconds : 150)
@@ -838,7 +841,7 @@ Item {
                 PreferenceChoice {
                   objectName: "preferencesLockTimeout"
                   width: parent.width
-                  height: Style.space(68)
+                  height: implicitHeight
                   label: "Automatic lock"
                   description: "Lock after this much inactivity"
                   value: String(root.idleService ? root.idleService.lockTimeoutSeconds : 300)
@@ -884,7 +887,7 @@ Item {
                 PreferenceChoice {
                   objectName: "preferencesTargetScreen"
                   width: parent.width
-                  height: Style.space(68)
+                  height: implicitHeight
                   enabled: root.hardwareController && root.hardwareController.loaded
                     && root.screenOptions.length > 0
                   opacity: enabled ? 1 : 0.45
@@ -898,7 +901,7 @@ Item {
                 PreferenceChoice {
                   objectName: "preferencesPrimaryMonitor"
                   width: parent.width
-                  height: Style.space(68)
+                  height: implicitHeight
                   enabled: root.hardwareController && root.hardwareController.loaded
                     && root.screenOptions.length > 0
                   opacity: enabled ? 1 : 0.45
@@ -948,7 +951,7 @@ Item {
                 PreferenceChoice {
                   objectName: "preferencesTouchDevice"
                   width: parent.width
-                  height: Style.space(68)
+                  height: implicitHeight
                   enabled: root.hardwareController && root.hardwareController.loaded
                     && root.touchOptions.length > 0
                   opacity: enabled ? 1 : 0.45
@@ -1163,7 +1166,7 @@ Item {
                   objectName: "preferencesConfig"
                   width: parent.width
                   label: "Configuration files"
-                  description: "Open Omarchy's validated configuration routes"
+                  description: "Open Omarchy's configuration files in an editor"
                   iconText: ""
                   actionText: "Open"
                   onClicked: root.openOmarchyMenu("setup.config")

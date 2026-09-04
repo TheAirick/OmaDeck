@@ -12,7 +12,7 @@ Item {
 
   implicitHeight: Math.max(Style.space(68), content.implicitHeight)
 
-  Row {
+  Grid {
     id: content
     anchors.left: parent.left
     anchors.right: parent.right
@@ -20,10 +20,10 @@ Item {
     anchors.leftMargin: 0
     anchors.rightMargin: 0
     spacing: Style.spacing.panelGap
+    columns: root.width >= Style.space(600) ? 2 : 1
 
     Column {
-      width: Math.max(Style.space(190), parent.width - choiceRow.implicitWidth - parent.spacing)
-      anchors.verticalCenter: parent.verticalCenter
+      width: content.columns === 2 ? content.width * 0.4 : content.width
       spacing: Style.spacing.xs
 
       Text {
@@ -33,7 +33,7 @@ Item {
         font.family: Style.font.family
         font.pixelSize: Style.font.subtitle
         font.bold: true
-        elide: Text.ElideRight
+        wrapMode: Text.Wrap
       }
 
       Text {
@@ -43,13 +43,13 @@ Item {
         color: Color.muted
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
-        elide: Text.ElideRight
+        wrapMode: Text.Wrap
       }
     }
 
-    Row {
+    Flow {
       id: choiceRow
-      anchors.verticalCenter: parent.verticalCenter
+      width: content.columns === 2 ? content.width * 0.6 - content.spacing : content.width
       spacing: Style.spacing.labelGap
 
       Repeater {
@@ -59,8 +59,9 @@ Item {
           id: choiceOption
           required property var modelData
           readonly property bool selected: root.value === modelData.value
-          width: Math.max(Style.space(48), optionLabel.implicitWidth + Style.spacing.controlPaddingX * 1.5)
-          height: Style.space(48)
+          width: Math.min(choiceRow.width, Math.max(Style.space(48),
+            optionLabel.implicitWidth + Style.spacing.controlPaddingX * 1.5))
+          height: Math.max(Style.space(48), optionLabel.implicitHeight + Style.spacing.controlPaddingY * 2)
           Accessible.role: Accessible.Button
           Accessible.name: modelData.label
           Accessible.checked: selected
@@ -78,6 +79,9 @@ Item {
           Text {
             id: optionLabel
             anchors.centerIn: parent
+            width: parent.width - Style.spacing.controlPaddingX * 1.5
+            wrapMode: Text.Wrap
+            horizontalAlignment: Text.AlignHCenter
             text: choiceOption.modelData.label
             color: choiceOption.selected ? Color.accent : Color.muted
             font.family: Style.font.family
