@@ -60,17 +60,18 @@ OmaDeck does not duplicate Omarchy's package discovery or configuration-file
 editors. Settings with more complex validation remain owned by Omarchy and are
 opened on demand from the touch-friendly Preferences index.
 
-These choices are saved atomically to
+OmaDeck's Clock and Weather appearance choices (not the Omarchy settings above)
+are saved atomically to
 `~/.config/omadeck/appearance.json`. Removing that file restores the defaults.
 The selected weather detail is a maximum: OmaDeck temporarily removes forecast,
 location, or secondary stats when a drawer or edited split leaves too little
 room, then restores them automatically as the card expands.
 
-The Clock leaf always keeps a compact Clock above one lower companion. Weather
-occupies that lower region while the countdown is idle; tapping the Clock opens
-Timer setup there, and active, paused, and completed timers remain there until
-cancelled or dismissed. A direct Clock/Command Center split may render the Clock
-at a `0.36` minimum share for touch-safe companion geometry. This is a
+The Clock leaf keeps a Clock above one lower companion. Weather occupies that
+lower region by default; tapping the Clock opens Timer setup or controls there.
+Starting a timer returns to Weather, with ambient progress in the Clock; tapping
+the Clock reopens controls. A direct Clock/Command Center split may render the Clock
+at a `0.50` minimum share for touch-safe companion geometry. This is a
 presentation guard only: a narrower saved ratio and the exact `layout.json`
 topology remain unchanged.
 
@@ -167,9 +168,9 @@ When the optional native integration is built, OmaDeck launches a small
 system-tray controller with the service. Click its
 icon from the primary desktop to open the OmaDeck Control Center, inspect touch
 and monitor health, copy a sanitized report, request a touch reconnect, or
-restart the Omarchy shell. Its context menu also owns the single
-**Clock & weather settings…** panel; the deck surface does not duplicate those
-controls. This path does not require the deck touchscreen.
+restart the Omarchy shell. Its context menu exposes **Clock & weather settings…**,
+using the same controller as **Preferences → OmaDeck**. This path does not
+require the deck touchscreen.
 
 The tray is intentionally absent in standard mode. If you want it, run
 `scripts/build-native` and restart the shell.
@@ -217,7 +218,8 @@ overlay closes.
 
 ## Monitor input commands
 
-`modules/MonitorInputModule.qml` expects executable scripts at:
+`modules/MonitorInputModule.qml` is an optional source-level module, not a
+standard Command Center action. It expects executable scripts at:
 
 ```text
 ~/.local/bin/alienware-to-omarchy

@@ -58,8 +58,8 @@ the device during the brief gap between bridge instances. A healthy restart
 logs `[OmaDeckTouch] grabbed` and `closeOnExec true`.
 
 If Quickshell itself dumped core during an audio-device change, inspect it with
-`coredumpctl info quickshell`. OmaDeck keeps its per-stream repeater model fixed
-so PipeWire node removal does not regenerate Qt delegates during node teardown.
+`coredumpctl info quickshell`. OmaDeck snapshots playback streams and uses fixed
+category controls instead of regenerating per-stream delegates during node teardown.
 
 ## The OmaDeck tray icon is missing
 
@@ -93,8 +93,10 @@ layer surface intentionally never requests keyboard focus.
 
 ## A launcher opens another copy
 
-Inspect the live class with `hyprctl clients`, then add it to the launcher's
-`classes` array in `modules/AppLauncherModule.qml`.
+Compare the live application's class with its installed desktop-entry identity.
+Matching is owned by `services/LauncherPolicy.js` and `scripts/focus-or-launch`,
+not a user-editable `classes` array in the launcher module. Report the desktop
+entry ID and class (without private window titles) when they do not match.
 
 ## Media metadata or seeking is unavailable
 
@@ -114,8 +116,9 @@ by `sensors` as `Tctl`. Other System features continue working without them.
 
 ## Weather says unavailable
 
-Open the Clock/Weather gear and tap **Refresh**. If automatic IP location is not
-available, choose **Set in Omarchy** and save a city, or configure one directly:
+Open **Preferences → OmaDeck** and tap **Refresh weather**. If automatic IP
+location is not available, use the optional tray's **Weather location…** action,
+or configure one directly:
 
 ```bash
 omarchy-weather-location --set "Seattle" "47.6062,-122.3321"
@@ -141,8 +144,10 @@ is monitor-specific and the scripts are not shipped by OmaDeck.
 ## Diagnostics
 
 ```bash
-journalctl --user --since "10 minutes ago" | grep -i omadeck
-omarchy debug --no-sudo --print
+omarchy version
+omarchy-shell shell ping
+hyprctl configerrors
+journalctl --user _COMM=quickshell --since "10 minutes ago" --no-pager -n 100
 ```
 
 Reports should include the OmaDeck commit, Omarchy version, monitor names,

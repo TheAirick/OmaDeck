@@ -26,7 +26,9 @@ live system information.
 - Responsively simplifies dense modules while space is constrained, restoring
   their selected detail as panels expand.
 - Controls MPRIS media with artwork, seeking, and transport controls.
-- Mixes PipeWire output, microphone, categories, and individual app streams.
+- Controls PipeWire output and microphone volume, with Media, Games, Voice,
+  and Other aggregate playback categories. Individual app sliders and EQ presets
+  are not part of this release.
 - Focuses an existing Hyprland window before launching another copy.
 - Switches workspaces on the primary monitor without moving touch focus there.
 - Exposes live CPU, GPU, memory, temperature, network, and storage information.
@@ -132,7 +134,8 @@ different hardware.
 
 Tap the dashboard Clock to set or control one countdown; its normal date line becomes the
 remaining-time status while the wall clock stays primary. Clock and weather
-appearance remains available from the OmaDeck taskbar icon. The Applications
+appearance is available in **Preferences → OmaDeck**, and from the optional
+OmaDeck taskbar icon. The Applications
 button opens an editable launcher inside Command Center. Horizontal drawers
 resize the dashboard through one shared animated boundary; vertical gestures
 leave its geometry and drawer state untouched.

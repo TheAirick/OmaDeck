@@ -230,9 +230,10 @@ artifacts, and writes a local integrity record. Generated build artifacts and
 that record are deliberately not stored in Git because they are tied to the
 local Qt and Quickshell ABI.
 
-The audio mixer snapshots live PipeWire streams before presenting them. Its
-per-stream delegates use a fixed repeater model so `PwNode` removal never asks
-Qt to regenerate a `QQuickRepeater` while Quickshell is unbinding that node.
+The audio mixer snapshots live PipeWire streams before presenting aggregate
+category controls. Output, microphone, and category controls are statically
+instantiated; there is no individual-stream repeater or category drill-down in
+the current UI. Preserve this stable presentation boundary during node teardown.
 
 ## IPC
 
