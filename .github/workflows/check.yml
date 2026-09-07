@@ -11,7 +11,11 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    container: archlinux:base
+    container:
+      image: archlinux:base
+      # Deadline tests kill entire process groups. Reap orphaned children just
+      # as the real host's init does; a bare container PID 1 does not do this.
+      options: --init
     timeout-minutes: 15
     steps:
       - name: Install Arch test dependencies
