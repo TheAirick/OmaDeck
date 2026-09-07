@@ -62,7 +62,9 @@ Item {
 
     TapHandler {
       enabled: root.interactionEnabled
-      onTapped: root.setupRequested()
+      // Match the containing tile's edit gesture across platform style hints.
+      longPressThreshold: 0.5
+      onTapped: if (root.interactionEnabled) root.setupRequested()
     }
 
     Rectangle {

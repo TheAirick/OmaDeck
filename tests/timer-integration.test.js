@@ -159,7 +159,7 @@ test("Clock timer UI is hidden while idle and preserves long-press editing", () 
 
   assert.match(tile, /longPressThreshold:\s*0\.5/)
   assert.match(tile, /onLongPressed:\s*root\.controller\.beginEdit\(root\.path\)/)
-  assert.match(clock, /TapHandler\s*\{[\s\S]*onTapped:\s*root\.setupRequested\(\)/)
+  assert.match(clock, /TapHandler\s*\{[\s\S]*onTapped:\s*if \(root\.interactionEnabled\) root\.setupRequested\(\)/)
   assert.match(clock, /onSetupRequested:\s*companionModule\.openTimer\(\)/)
   assert.match(clock, /TimerModule\s*\{[\s\S]*id:\s*timerPresenter/)
   assert.match(timerModule, /visible:\s*root\.open/)

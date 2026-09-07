@@ -10,6 +10,20 @@ import "DrawerGesture.js" as DrawerGesture
 PanelWindow {
   id: root
 
+  readonly property string lockServiceId: shell && shell.pluginRegistry
+    && typeof shell.pluginRegistry.resolveEnabledId === "function"
+    ? shell.pluginRegistry.resolveEnabledId("omarchy.lock") : "omarchy.lock"
+  readonly property var lockService: shell && typeof shell.serviceFor === "function"
+    ? shell.serviceFor(lockServiceId) : null
+  // Unknown state fails closed, including recovery of an orphaned session lock.
+  readonly property bool interactionAllowed: !!lockService && lockService.locked === false
+    && lockService.strandedLockResolved === true && lockService.strandedLock === false
+  Binding {
+    target: root.contentItem
+    property: "enabled"
+    value: root.interactionAllowed
+  }
+
   property var serviceHost: null
   property var shell: null
   property string pluginDir: ""
@@ -93,6 +107,13 @@ PanelWindow {
 
   function drawerDiagnostics() {
     return {
+      interactionAllowed: interactionAllowed,
+      lockServiceAvailable: !!lockService,
+      lockResolved: lockService ? lockService.strandedLockResolved : false,
+      systemRefreshActive: systemDrawer.active,
+      systemLastUpdatedMs: systemDrawer.lastUpdatedMs,
+      systemUpdateFailed: systemDrawer.statsError !== "",
+      audioRefreshActive: volumeDrawer.active,
       openDrawer: openDrawer,
       openOverlay: openOverlayName,
       commandCenterPage: commandCenterPage,
@@ -261,6 +282,7 @@ PanelWindow {
 
     VolumeModule {
       id: volumeDrawer
+      active: leftDrawer.open && root.interactionAllowed
       anchors.fill: parent
     }
   }
@@ -279,6 +301,7 @@ PanelWindow {
 
     SystemModule {
       id: systemDrawer
+      active: rightDrawer.open && root.interactionAllowed
       anchors.fill: parent
       shell: root.shell
       pluginDir: root.pluginDir

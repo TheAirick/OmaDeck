@@ -69,6 +69,7 @@ test('installed Quickshell retries real failed writes and failed starts in a pri
     assert.match(output, /RECOVERED/, output)
     assert.equal((output.match(/TEST_ALERT/g) || []).length, 1, output)
     assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'timer.json'))).notificationSent, true)
+    assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'timer-settings.json'))).eventId, 'bell')
     assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'layout.json'))).root.ratio, 0.6)
     assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'launcher.json'))).entries.length, 1)
     assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'appearance.json'))).use24Hour, true)

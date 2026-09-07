@@ -9,6 +9,60 @@ import "ClipboardDeletePolicy.js" as ClipboardDeletePolicy
 Item {
   id: root
 
+  property bool active: false
+  property double lastUpdatedMs: 0
+  property double statusNowMs: Date.now()
+  property bool statsBusy: false
+  property string statsError: ""
+  property int statsFailures: 0
+  readonly property bool statsStale: lastUpdatedMs === 0 || statusNowMs - lastUpdatedMs > 6000
+  readonly property string updatedLabel: lastUpdatedMs === 0 ? "No snapshot yet"
+    : "Updated " + Math.max(0, Math.floor((statusNowMs - lastUpdatedMs) / 1000)) + "s ago"
+  readonly property string statsStatus: statsError !== "" ? "Update failed · " + updatedLabel
+    : statsBusy && lastUpdatedMs === 0 ? "Loading system status…"
+    : (statsStale ? "Stale · " : "") + updatedLabel
+
+  function requestStats() {
+    if (!active || statsProcess.running) return
+    statsBusy = true
+    statsProcess.launchPending = true
+    statsProcess.running = true
+  }
+  function failStats() {
+    statsBusy = false
+    statsError = "System status unavailable"
+    statsFailures = Math.min(statsFailures + 1, 4)
+    statusNowMs = Date.now()
+  }
+  function finishStats(exitCode) {
+    statsBusy = false
+    try {
+      if (exitCode !== 0 || statsOutput.truncated) throw new Error("snapshot failed")
+      var next = JSON.parse(statsOutput.text)
+      if (!next || !next.performance || !next.network || !next.storage
+          || !Array.isArray(next.clients) || !Array.isArray(next.clipboard)) throw new Error("invalid snapshot")
+      stats = next
+      cpuHistory = appendSample(cpuHistory, next.performance.cpu)
+      gpuHistory = appendSample(gpuHistory, next.performance.gpu)
+      memoryHistory = appendSample(memoryHistory, next.performance.memory)
+      downloadHistory = appendSample(downloadHistory, next.network.down)
+      uploadHistory = appendSample(uploadHistory, next.network.up)
+      lastUpdatedMs = Date.now()
+      statusNowMs = lastUpdatedMs
+      statsError = ""
+      statsFailures = 0
+    } catch (error) { failStats() }
+  }
+  onActiveChanged: if (active) {
+    statusNowMs = Date.now()
+    // Do not draw a continuous history across a period without samples.
+    if (statsStale) {
+      cpuHistory = []; gpuHistory = []; memoryHistory = []
+      downloadHistory = []; uploadHistory = []
+    }
+    requestStats()
+  }
+
   property var shell: null
   property string pluginDir: ""
   property string selectedSection: ""
@@ -253,25 +307,20 @@ Item {
 
   Process {
     id: statsProcess
-    command: [root.pluginDir + "/scripts/system-stats"]
+    objectName: "systemStatsProcess"
+    // The deadline includes file locks and all producers, not just each child.
+    command: ["/usr/bin/timeout", "--signal=TERM", "--kill-after=1s", "12s",
+              root.pluginDir + "/scripts/system-stats"]
+    property bool launchPending: false
     stdout: BoundedOutputParser {
       id: statsOutput
       maxBytes: 256 * 1024
     }
-    onStarted: statsOutput.reset()
-    onExited: function(exitCode) {
-      try {
-        if (exitCode !== 0 || statsOutput.truncated)
-          throw new Error("system helper failed or exceeded its output limit")
-        var next = JSON.parse(statsOutput.text)
-        root.stats = next
-        root.cpuHistory = root.appendSample(root.cpuHistory, next.performance.cpu)
-        root.gpuHistory = root.appendSample(root.gpuHistory, next.performance.gpu)
-        root.memoryHistory = root.appendSample(root.memoryHistory, next.performance.memory)
-        root.downloadHistory = root.appendSample(root.downloadHistory, next.network.down)
-        root.uploadHistory = root.appendSample(root.uploadHistory, next.network.up)
-      } catch (error) { console.warn("OmaDeck system stats:", error) }
+    onStarted: { launchPending = false; statsOutput.reset() }
+    onRunningChanged: {
+      if (!running && launchPending) { launchPending = false; root.failStats() }
     }
+    onExited: function(exitCode) { launchPending = false; root.finishStats(exitCode) }
   }
 
   FileView {
@@ -288,14 +337,21 @@ Item {
   }
 
   Timer {
-    interval: 2000
-    running: true
+    id: statsRefreshTimer
+    objectName: "systemStatsRefreshTimer"
+    interval: Math.min(30000, 2000 * Math.pow(2, root.statsFailures))
+    running: root.active
     repeat: true
-    triggeredOnStart: true
-    onTriggered: if (!statsProcess.running) statsProcess.running = true
+    onTriggered: root.requestStats()
   }
-
-  Timer { id: refreshTimer; interval: 250; onTriggered: if (!statsProcess.running) statsProcess.running = true }
+  Timer {
+    interval: 1000
+    running: root.active
+    repeat: true
+    onTriggered: root.statusNowMs = Date.now()
+  }
+  Component.onCompleted: if (active) requestStats()
+  Timer { id: refreshTimer; interval: 250; onTriggered: root.requestStats() }
   Timer { id: noticeTimer; interval: 2400; onTriggered: root.clipboardNotice = "" }
   Timer { id: killTimer; interval: 2500; onTriggered: root.forceKillArmed = false }
 
@@ -338,8 +394,41 @@ Item {
   }
 
   Item {
+    id: snapshotStatusBar
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: parent.top
+    height: Style.space(48)
+    Text {
+      objectName: "systemSnapshotStatus"
+      anchors.left: parent.left
+      anchors.right: retrySnapshot.left
+      anchors.rightMargin: Style.spacing.controlGap
+      anchors.verticalCenter: parent.verticalCenter
+      text: root.statsStatus
+      color: root.statsError !== "" ? Color.urgent : Color.muted
+      font.family: Style.font.family
+      font.pixelSize: Style.font.caption
+      elide: Text.ElideRight
+    }
+    Button {
+      id: retrySnapshot
+      objectName: "retrySystemSnapshot"
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      width: Style.space(72)
+      height: Style.space(48)
+      text: "Retry"
+      visible: root.statsError !== ""
+      enabled: root.active && !root.statsBusy
+      onClicked: root.requestStats()
+    }
+  }
+
+  Item {
     id: overview
     anchors.fill: parent
+    anchors.topMargin: snapshotStatusBar.height + Style.spacing.labelGap
     opacity: root.selectedSection === "" ? 1 : 0
     x: root.selectedSection === "" ? 0 : -Style.space(28)
     visible: opacity > 0
@@ -358,7 +447,7 @@ Item {
     Text {
       anchors.right: parent.right
       anchors.baseline: overviewTitle.baseline
-      text: "Live overview"
+      text: root.statsStale || root.statsError !== "" ? "Last snapshot" : "Live overview"
       color: Color.muted
       font.family: Style.font.family
       font.pixelSize: Style.font.caption
@@ -381,6 +470,7 @@ Item {
   Item {
     id: detail
     anchors.fill: parent
+    anchors.topMargin: snapshotStatusBar.height + Style.spacing.labelGap
     opacity: root.selectedSection !== "" ? 1 : 0
     x: root.selectedSection !== "" ? 0 : Style.space(28)
     visible: opacity > 0

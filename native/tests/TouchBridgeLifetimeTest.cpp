@@ -1,6 +1,8 @@
 #include <QEvent>
 #include <QQuickItem>
 #include <QQuickWindow>
+#include <QQmlComponent>
+#include <QQmlEngine>
 #include <QtTest>
 
 #include <initializer_list>
@@ -77,6 +79,8 @@ private slots:
     void directTouchContactIsExposedUntilSyntheticHoverLeaves();
     void touchTransitionsSurviveReadBoundaries();
     void droppedStreamClearsSyntheticPointer();
+    void disabledDeckCancelsContact_data();
+    void disabledDeckCancelsContact();
 };
 
 void TouchBridgeLifetimeTest::deviceSelectionRequiresConfiguredIdentity()
@@ -290,6 +294,62 @@ void TouchBridgeLifetimeTest::droppedStreamClearsSyntheticPointer()
     bridge.m_fd = -1;
     ::close(descriptors[0]);
     ::close(descriptors[1]);
+}
+
+void TouchBridgeLifetimeTest::disabledDeckCancelsContact_data()
+{
+    QTest::addColumn<QByteArray>("control");
+    QTest::addColumn<bool>("targetItem");
+    QTest::newRow("mouse-area") << QByteArray("MouseArea { anchors.fill: parent; onClicked: root.clicks++ }") << false;
+    QTest::newRow("tap-handler") << QByteArray("TapHandler { onTapped: root.clicks++ }") << false;
+    QTest::newRow("nested-item") << QByteArray("TapHandler { onTapped: root.clicks++ }") << true;
+}
+
+void TouchBridgeLifetimeTest::disabledDeckCancelsContact()
+{
+    QFETCH(QByteArray, control);
+    QFETCH(bool, targetItem);
+    QQmlEngine engine;
+    QQmlComponent component(&engine);
+    component.setData("import QtQuick\nItem { id: root; width: 100; height: 100; property int clicks: 0; "
+                      + control + " }", QUrl());
+    QVERIFY2(component.isReady(), qPrintable(component.errorString()));
+    QQuickWindow window;
+    window.resize(100, 100);
+    auto *item = qobject_cast<QQuickItem *>(component.create());
+    QVERIFY(item);
+    item->setParentItem(window.contentItem());
+    item->setParent(window.contentItem());
+    window.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&window));
+    TouchBridge bridge;
+    bridge.setWindow(targetItem ? static_cast<QObject *>(item) : &window);
+    QQuickItem *inputRoot = targetItem ? item : window.contentItem();
+    bridge.m_xMax = bridge.m_yMax = 100;
+    bridge.m_inputState.process(inputEvent(EV_ABS, ABS_X, 25), false);
+    bridge.m_inputState.process(inputEvent(EV_ABS, ABS_Y, 25), false);
+
+    bridge.dispatch(true, false);
+    QVERIFY(bridge.touchInProgress());
+    inputRoot->setEnabled(false);
+    QVERIFY(!bridge.touchInProgress());
+    QVERIFY(!bridge.m_pointerDown);
+    bridge.dispatch(false, true);
+    QCOMPARE(item->property("clicks").toInt(), 0);
+    bridge.dispatch(true, false); // a new touch while locked
+    inputRoot->setEnabled(true);
+    bridge.dispatch(false, false); // motion across unlock cannot resume it
+    bridge.dispatch(false, true);
+    QCOMPARE(item->property("clicks").toInt(), 0);
+    bridge.dispatch(true, false); // only a fresh unlocked contact may act
+    bridge.dispatch(false, true);
+    QCOMPARE(item->property("clicks").toInt(), 1);
+
+    bridge.dispatch(true, false);
+    inputRoot->setEnabled(false);
+    inputRoot->setEnabled(true); // lock/unlock before next frame
+    bridge.dispatch(false, true);
+    QCOMPARE(item->property("clicks").toInt(), 1);
 }
 
 QTEST_MAIN(TouchBridgeLifetimeTest)

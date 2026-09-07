@@ -2,22 +2,31 @@ const assert = require("node:assert/strict")
 const fs = require("node:fs")
 const os = require("node:os")
 const path = require("node:path")
-const { spawnSync } = require("node:child_process")
+const { spawnSync, execFileSync } = require("node:child_process")
 const test = require("node:test")
 
 const root = path.resolve(__dirname, "..")
 
-test("real Quickshell controllers persist settings across isolated process recreation", () => {
+// The marketplace/default-branch snapshot, deliberately pinned for rollback coverage.
+const priorRelease = "36578b3ba701db709b69ac6dccb32e61d53e34a0"
+for (const upgrade of [false, true]) test(upgrade
+  ? "published settings survive upgrade to candidate and rollback without data loss"
+  : "real Quickshell controllers persist settings across isolated process recreation", () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "omadeck-settings-"))
   try {
     for (const directory of [".config", ".cache", ".local/state", "runtime"])
       fs.mkdirSync(path.join(home, directory), { recursive: true, mode: 0o700 })
     const fixture = path.join(home, "fixture")
     fs.mkdirSync(path.join(fixture, "services"), { recursive: true })
-    for (const file of ["AppearanceController.qml", "HardwareController.qml", "HardwarePolicy.js",
-      "LayoutController.qml", "LayoutPolicy.js", "LauncherController.qml", "LauncherPolicy.js",
-      "TimerController.qml", "TimerPolicy.js"])
-      fs.copyFileSync(path.join(root, "services", file), path.join(fixture, "services", file))
+    function installControllers(ref) {
+      for (const file of ["AppearanceController.qml", "HardwareController.qml", "HardwarePolicy.js",
+        "LayoutController.qml", "LayoutPolicy.js", "LauncherController.qml", "LauncherPolicy.js",
+        "TimerController.qml", "TimerPolicy.js"])
+        if (ref) fs.writeFileSync(path.join(fixture, "services", file),
+          execFileSync("git", ["show", `${ref}:services/${file}`], { cwd: root }))
+        else fs.copyFileSync(path.join(root, "services", file), path.join(fixture, "services", file))
+    }
+    installControllers(upgrade ? priorRelease : null)
     fs.writeFileSync(path.join(fixture, "shell.qml"),
       fs.readFileSync(path.join(root, "tests/qml/real-settings/shell.qml"), "utf8")
         .replace('"../../../services"', '"./services"'))
@@ -63,7 +72,18 @@ test("real Quickshell controllers persist settings across isolated process recre
     const settings = path.join(home, ".config/omadeck")
     for (const file of ["appearance.json", "hardware.json", "layout.json", "launcher.json", "timer-settings.json"])
       assert.doesNotThrow(() => JSON.parse(fs.readFileSync(path.join(settings, file), "utf8")))
-    assert.deepEqual(run("read"), written)
+    assert.deepEqual(run(upgrade ? "snapshot" : "read"), written)
+    if (upgrade) {
+      const files = fs.readdirSync(settings).filter(file => file.endsWith(".json"))
+      const saved = Object.fromEntries(files.map(file => [file, fs.readFileSync(path.join(settings, file), "utf8")]))
+      installControllers(null)
+      assert.deepEqual(run("read"), written, "candidate must read published settings")
+      assert.deepEqual(run("write"), written, "candidate must save compatible settings")
+      installControllers(priorRelease)
+      assert.deepEqual(run("snapshot"), written, "published controllers must read candidate settings")
+      for (const file of files) assert.deepEqual(JSON.parse(fs.readFileSync(path.join(settings, file), "utf8")),
+        JSON.parse(saved[file]), `rollback preserves ${file}`)
+    }
   } finally {
     fs.rmSync(home, { recursive: true, force: true })
   }

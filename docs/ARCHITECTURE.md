@@ -235,6 +235,41 @@ category controls. Output, microphone, and category controls are statically
 instantiated; there is no individual-stream repeater or category drill-down in
 the current UI. Preserve this stable presentation boundary during node teardown.
 
+## Interaction and refresh hardening
+
+The deck binds its content's enabled state to the installed `omarchy.lock`
+service, resolving any enabled user clone through the plugin registry. A
+requested/active lock, unresolved orphan-lock recovery, or missing
+lock service disables interaction. The native bridge also checks the effective
+enabled state of its target item and backing window, clears its synthetic
+contact when disabled, and ignores motion/release from a contact begun before
+unlock. Qt cancels the descendant pointer grabs; no synthetic release is used
+to complete an action during lock. The bridge retains device ownership while
+locked, so this protection does not change compositor input configuration.
+
+Now Playing sends transport actions with the displayed player's exact Omarchy
+key and verifies that the key still resolves to that object before dispatch.
+It never falls back to another player when its displayed source disappears.
+Play/pause follows the source's current capabilities. Status text distinguishes
+playing, paused/stopped, unavailable controls, no player, and unavailable media
+service. This remains an MPRIS presenter; unmatched audio streams are still
+shown only in the mixer.
+
+System snapshots run only while the System drawer is open and interaction is
+allowed. Opening it requests a fresh snapshot; failed requests retain the last
+good data and expose its age, a failure message, and Retry. An outer twelve-second
+deadline covers locks and the complete helper, with one-second kill escalation.
+Automatic retries back off from the normal two-second cadence to thirty seconds.
+The mixer resolves its physical output when opened and every five seconds while
+open; default-output changes invalidate the old selection, and results for a
+superseded output are discarded. The stable PipeWire model remains mounted.
+
+`scripts/check` runs the complete offscreen suite, including private native
+build/CTest, real Quickshell recovery fixtures, and two synthetic MPRIS players
+on a private D-Bus session. It requires an ordinary user and rejects skipped
+tests. The GitHub Actions workflow runs the same command in an Arch container;
+it does not install or reload a desktop plugin.
+
 ## IPC
 
 The `pretty.omadeck` target exposes navigation and layout methods useful for

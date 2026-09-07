@@ -83,11 +83,11 @@ void TouchBridge::setWindow(QObject *window)
     if (m_target)
         disconnect(m_target.data(), nullptr, this, nullptr);
     m_target = window;
-    m_window.clear();
+    setBackingWindow(nullptr);
     if (m_target) {
         connect(m_target.data(), &QObject::destroyed, this, [this] {
             m_target.clear();
-            m_window.clear();
+            setBackingWindow(nullptr);
             emit windowChanged();
         });
     }
@@ -95,17 +95,48 @@ void TouchBridge::setWindow(QObject *window)
     if (!quickWindow) {
         if (auto *item = qobject_cast<QQuickItem *>(window)) {
             quickWindow = item->window();
+            connect(item, &QQuickItem::enabledChanged, this, [this] {
+                if (!inputAllowed()) {
+                    m_pointerDown = false;
+                    setTouchInProgress(false);
+                }
+            });
             connect(item, &QQuickItem::windowChanged, this, [this](QQuickWindow *attachedWindow) {
-                m_window = attachedWindow;
+                setBackingWindow(attachedWindow);
                 qInfo() << "[OmaDeckTouch] target window attached" << m_window
                         << (m_window ? m_window->size() : QSize());
             });
         }
     }
-    m_window = quickWindow;
+    setBackingWindow(quickWindow);
     qInfo() << "[OmaDeckTouch] target window" << m_window
             << (m_window ? m_window->size() : QSize());
     emit windowChanged();
+}
+
+void TouchBridge::setBackingWindow(QQuickWindow *window)
+{
+    disconnect(m_inputEnabledConnection);
+    m_window = window;
+    m_pointerDown = false;
+    setTouchInProgress(false);
+    if (!window)
+        return;
+    // Qt cancels descendant grabs when the content item is disabled. Clear our
+    // synthetic contact too, even if unlock occurs before the next evdev frame.
+    m_inputEnabledConnection = connect(window->contentItem(), &QQuickItem::enabledChanged,
+                                       this, [this] {
+        if (!inputAllowed()) {
+            m_pointerDown = false;
+            setTouchInProgress(false);
+        }
+    });
+}
+
+bool TouchBridge::inputAllowed() const
+{
+    const auto *item = qobject_cast<QQuickItem *>(m_target.data());
+    return m_window && m_window->contentItem()->isEnabled() && (!item || item->isEnabled());
 }
 
 QString TouchBridge::findTouchscreen(QStringList *detectedNames)
@@ -327,7 +358,7 @@ void TouchBridge::closeDevice(const QString &status)
     const int descriptor = m_fd;
     m_fd = -1;
     const QPointer<QQuickWindow> window = m_window;
-    const bool sendRelease = m_pointerDown && window;
+    const bool sendRelease = m_pointerDown && window && inputAllowed();
     const QPointF releasePosition = m_lastPosition;
     m_pointerDown = false;
     delete m_notifier;
@@ -398,13 +429,14 @@ void TouchBridge::readEvents()
 void TouchBridge::dispatch(bool pressed, bool released)
 {
     const QPointer<QQuickWindow> window = m_window;
-    if (!window) {
-        if (released) {
-            m_pointerDown = false;
-            setTouchInProgress(false);
-        }
+    if (!window || !inputAllowed()) {
+        m_pointerDown = false;
+        setTouchInProgress(false);
         return;
     }
+    // A contact begun or cancelled while locked must never resume on unlock.
+    if (!pressed && !m_pointerDown)
+        return;
     // A multitouch tracking ID is cleared before the release SYN_REPORT.  At
     // that point there is no active slot to read, so keep the position from
     // the preceding report instead of falling back to the zeroed single-touch

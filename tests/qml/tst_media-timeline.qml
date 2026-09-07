@@ -25,6 +25,11 @@ TestCase {
       property bool lengthSupported: true
       property bool canGoPrevious: true
       property bool canGoNext: true
+      property string dbusName: "org.mpris.MediaPlayer2.fixture"
+      property bool canPlay: true
+      property bool canPause: true
+      property bool canTogglePlaying: true
+      property int playbackState: 1
       property bool isPlaying: false
       property real position: 42
       property real length: 180

@@ -1,0 +1,33 @@
+name: Check
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    container: archlinux:base
+    timeout-minutes: 15
+    steps:
+      - name: Install Arch test dependencies
+        run: >-
+          pacman -Syu --noconfirm --needed base-devel cmake git nodejs python
+          python-dbus python-gobject dbus jq quickshell qt6-declarative qt6-svg
+          ttf-dejavu procps-ng
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Prepare unprivileged test user
+        run: |
+          useradd --create-home omadeck-check
+          chown -R omadeck-check:omadeck-check "$GITHUB_WORKSPACE"
+      - name: Run isolated checks and native tests
+        run: >-
+          runuser -u omadeck-check -- bash -c 'cd "$1" && ./scripts/check'
+          check "$GITHUB_WORKSPACE"

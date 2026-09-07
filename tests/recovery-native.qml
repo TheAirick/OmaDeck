@@ -24,9 +24,10 @@ Item {
         launcher.remove("terminal")
         appearance.setOption("use24Hour", true)
         hardware.setTargetScreen("fixture-new")
+        countdown.selectSoundId("bell")
       } else if (root.phase === 1 && layout.saveError !== "" && launcher.saveError !== ""
                  && countdown.lastSaveError !== "" && !weather.loading && weather.error !== ""
-                 && appearance.lastSaveError !== "" && hardware.lastSaveError !== "") {
+                 && appearance.lastSaveError !== "" && hardware.lastSaveError !== "" && countdown.soundSaveError !== "") {
         root.phase = 2
         console.log("FAULTS_OBSERVED")
         retrySelections.restart()
@@ -45,7 +46,8 @@ Item {
     onTriggered: {
       var appearanceSaved = appearance.setOption("use24Hour", true)
       var hardwareSaved = hardware.setTargetScreen("fixture-new")
-      root.selectionsRecovered = appearanceSaved && hardwareSaved
+      var soundSaved = countdown.selectSoundId("bell")
+      root.selectionsRecovered = appearanceSaved && hardwareSaved && soundSaved
       if (!root.selectionsRecovered) console.error("SELECTION_RETRY_FAILED")
     }
   }

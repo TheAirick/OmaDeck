@@ -10,6 +10,28 @@ Item {
   property var media: null
   readonly property var player: media ? media.activePlayer : null
   readonly property bool hasPlayer: !!player
+  readonly property string playerKey: player && media && typeof media.playerKey === "function"
+    ? media.playerKey(player) : ""
+  readonly property bool canPlayPause: hasPlayer && !!(player.canTogglePlaying
+    || (player.isPlaying ? player.canPause : player.canPlay))
+  readonly property string playbackStatus: !media ? "Media service unavailable"
+    : !hasPlayer ? "No media player detected"
+    : player.isPlaying ? (canPlayPause ? "Playing" : "Playing · controls unavailable")
+    : player.playbackState === 0 ? "Stopped"
+    : canPlayPause ? "Paused" : "Playback controls unavailable"
+
+  function runTransport(action) {
+    // Omarchy's untargeted action policy can select a different playing source.
+    // Refuse stale identities: its targeted API otherwise falls back globally.
+    var target = player
+    var key = playerKey
+    if (!target || !key || !media || typeof media.playerForKey !== "function"
+        || media.playerForKey(key) !== target || typeof media.runAction !== "function") return false
+    if (action === "playPause" && !canPlayPause) return false
+    if (action === "previous" && !target.canGoPrevious) return false
+    if (action === "next" && !target.canGoNext) return false
+    return media.runAction(action, false, key)
+  }
   readonly property bool canSkip: hasPlayer && player.canSeek && player.positionSupported
   readonly property string trackKey: player ? [player.uniqueId, player.trackTitle || "", player.trackArtist || ""].join("|") : ""
   readonly property real effectiveLength: player && player.lengthSupported && player.length > 0 ? player.length : cachedLength
@@ -241,7 +263,7 @@ Item {
 
           Text {
             width: parent.width
-            text: root.player ? (root.player.trackTitle || "Ready to play") : "Nothing playing"
+            text: root.player ? (root.player.trackTitle || root.playbackStatus) : root.playbackStatus
             color: Color.foreground
             font.family: Style.font.family
             font.pixelSize: Style.font.subtitle
@@ -251,7 +273,8 @@ Item {
           }
           Text {
             width: parent.width
-            text: root.player ? (root.player.trackArtist || root.player.identity || "") : "Start a player and it will appear here."
+            text: root.player ? [root.player.trackArtist || root.player.identity || "", root.playbackStatus].filter(Boolean).join(" · ")
+              : root.media ? "Compatible players appear here." : "Waiting for Omarchy media."
             color: Color.muted
             font.family: Style.font.family
             font.pixelSize: Style.font.body
@@ -284,7 +307,7 @@ Item {
           horizontalPadding: 0; verticalPadding: 0
           color: "transparent"; borderSpec: Border.none()
           enabled: root.player && root.player.canGoPrevious; opacity: enabled ? 1 : 0.35
-          onClicked: root.media.runAction("previous", false)
+          onClicked: root.runTransport("previous")
         }
         Button {
           objectName: "seekBackwardControl"
@@ -305,13 +328,15 @@ Item {
         }
         Button {
           id: playPauseControl
+          objectName: "playPauseControl"
+          tooltipText: root.playbackStatus
           iconText: root.player && root.player.isPlaying ? "󰏤" : "󰐊"
           iconSize: Style.font.displayLarge * 2; foreground: Color.accent
           width: Style.space(72); height: Style.space(72)
           horizontalPadding: 0; verticalPadding: 0
           color: "transparent"; borderSpec: Border.none()
-          enabled: root.hasPlayer; opacity: enabled ? 1 : 0.35
-          onClicked: root.media.runAction("playPause", false)
+          enabled: root.canPlayPause && root.playerKey !== ""; opacity: enabled ? 1 : 0.35
+          onClicked: root.runTransport("playPause")
         }
         Button {
           objectName: "seekForwardControl"
@@ -336,7 +361,7 @@ Item {
           horizontalPadding: 0; verticalPadding: 0
           color: "transparent"; borderSpec: Border.none()
           enabled: root.player && root.player.canGoNext; opacity: enabled ? 1 : 0.35
-          onClicked: root.media.runAction("next", false)
+          onClicked: root.runTransport("next")
         }
       }
     }

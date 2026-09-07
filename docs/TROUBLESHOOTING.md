@@ -121,6 +121,26 @@ OmaDeck uses MPRIS. Some web players omit artwork, duration, or seek support,
 and metadata can briefly reset when tracks change. Missing capabilities are
 hidden or disabled rather than emulated.
 
+Transport controls act only on the player shown on the card. “Media service
+unavailable” means Omarchy's media service is absent; “No media player detected”
+means the service is available but has no source. An application producing
+audio without MPRIS may appear in the mixer without appearing in Now Playing.
+
+## System values look old
+
+System monitoring pauses while its drawer is closed. Opening it refreshes the
+snapshot. The status line shows the age of the last successful update; failed
+updates retain that snapshot and expose **Retry**. Requests are bounded, and
+automatic retries slow down during repeated failures.
+
+## Deck input is disabled after lock or recovery
+
+OmaDeck suppresses input while Omarchy reports a lock or has not finished
+checking for an orphaned lock. A gesture crossing lock/unlock is cancelled;
+lift your finger and start a new touch after unlock. If interaction remains
+disabled, inspect `omarchy-shell lock status` and the bounded Quickshell journal.
+Do not work around this by disabling the lock guard or changing device mapping.
+
 ## Audio sources are missing
 
 Confirm the application is actively producing audio with `wpctl status`.

@@ -156,7 +156,7 @@ test("offscreen actual DeckSurface path renders separate media panels", {
 
     const deckSurface = source("components/DeckSurface.qml")
       .replace(/^import Quickshell.*\n/gm, "")
-      .replace("PanelWindow {", "Rectangle {\n  property var screen: ({ name: \"DP-3\" })")
+      .replace("PanelWindow {", "Rectangle {\n  property var contentItem: this\n  property var screen: ({ name: \"DP-3\" })")
       .replace(/property url nativeTouchSource:.*$/m, 'property url nativeTouchSource: ""')
       .replace(/^  anchors \{ top: true; right: true; bottom: true; left: true \}\n/m, "")
       .replace(/^  exclusionMode:.*\n/m, "")

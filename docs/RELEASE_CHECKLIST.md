@@ -34,6 +34,107 @@ Platform: Omarchy 4.0.2-1, Quickshell 0.3.1-1, Qt base 6.11.2-2.
   changes were made; native build artifacts were installed only in temporary
   test checkouts, not over the live native bridge.
 
+## Hardening follow-up — 2026-09-05
+
+Candidate: uncommitted working-tree changes based on
+`adcc1f8817a0bc8b65ec4a083fa8c917a03f9080`, on `codex/preferences-center`.
+This entry records implementation and verification, not release acceptance.
+
+- Transport commands target the displayed MPRIS player and respect its current
+  capabilities. A private D-Bus integration fixture exercised two real
+  Quickshell player objects, exact-target commands, capability changes, and
+  both players disappearing without affecting desktop playback.
+- The deck resolves the enabled lock implementation through Omarchy's plugin
+  registry, including user clones. Missing/locked/unresolved states disable
+  interaction. Native tests exercise mouse areas, tap handlers, and a nested
+  target item; a gesture cancelled or started while disabled cannot execute
+  after re-enabling input.
+- System monitoring pauses when its drawer is closed; the mixer output helper
+  refreshes only while Volume is open. Failed System updates retain the last
+  good snapshot, show its age and a Retry action, and recover after malformed
+  output or a failed executable launch. An outer deadline covers the complete
+  snapshot helper, including file-lock waits.
+- `scripts/check`: **205 tests passed, zero failures/skips**. Native Release
+  build and **all three CTests** passed; the native artifacts were installed
+  using `scripts/build-native`. An unrelated Clock gesture regression exposed
+  by the headless Qt defaults was fixed by matching the tile's long-press
+  threshold and checking interaction state at dispatch.
+- Live verification included loading the rebuilt bridge, the actual enabled
+  lock clone, System and Volume navigation, and visual inspection at the deck's
+  current geometry. System timestamps advanced while open and stayed unchanged
+  for six seconds while closed. Doctor reported a connected touchscreen, shell
+  ping passed, and Hyprland configuration errors were empty. The previous
+  closed-drawer view was restored.
+- The GitHub Actions workflow and YAML syntax are prepared; hosted CI has not
+  run because this candidate has not been pushed. The local Docker socket was
+  unavailable to the test user, so no container execution is claimed.
+- Still pending: actual locked-session touch acceptance, disruptive USB and
+  suspend/recovery checks, clean-session public installation, upgrade/rollback,
+  human acceptance, and any authorized commit/push/publication. Do not mark the
+  corresponding release gates complete from the isolated fixtures above.
+
+Rollback: restore the prior accepted source, rebuild its native artifacts with
+`scripts/build-native`, then reload the shell when unlocked. These changes do
+not migrate saved settings or change compositor input mapping.
+
+## Unattended follow-up — 2026-09-05
+
+Same uncommitted candidate and base as above. `scripts/check`: **208 tests
+passed, zero failures/skips**, including the private native build and CTests.
+
+- Published snapshot `36578b3ba701db709b69ac6dccb32e61d53e34a0` wrote layout,
+  launcher, hardware, appearance, and timer-sound fixtures. The candidate read
+  and saved those settings; rolling back to the published controllers preserved
+  all JSON values. This is controller/storage compatibility, not full installed
+  UI or native ABI rollback acceptance.
+- A private D-Bus ran 100 cycles of two real MPRIS players appearing and
+  disappearing, with the production Now Playing component recreated each cycle.
+  Each cycle verified exact-player commands, capability changes, missing players,
+  and a missing media service. After warmup, fixture and Quickshell descriptor
+  counts stayed within a two-descriptor band; Quickshell had no helper children.
+  This is a bounded stress test, not proof of indefinite uptime or PipeWire safety.
+- A real Process/Timer fixture rejected a 512 KiB System response at the 256 KiB
+  bound, killed a helper ignoring SIGTERM within the outer deadline, verified
+  that helper was gone, retained the last good snapshot, and recovered on retry.
+  Another fixture exercised rapid output changes and disappearance while the
+  mixer resolver was running; late results were discarded.
+- The rehearsal found a timer-sound persistence defect: an identical FileView
+  write emits no saved signal. Confirmed disk bytes now make reselecting a saved
+  sound succeed. Failed sound saves invalidate the comparison cache before retry.
+  Real read-only-file failure/recovery and upgrade/rollback tests cover this fix.
+- The installed Omarchy add/validate/enable CLI path cloned public `main` into a
+  temporary HOME, validated it without native binaries, and reached the expected
+  enable request. Shell IPC was deliberately stubbed; no live installation or
+  clean-session rendering is claimed. Resolved SHA was
+  `36578b3ba701db709b69ac6dccb32e61d53e34a0`, still older than this candidate.
+- A non-disruptive plugin rescan completed; shell ping and doctor passed,
+  Hyprland configuration errors were empty, and the bounded shell warning
+  journal had no entries. The timer-sound fix was exercised offscreen; no shell
+  restart or human touch acceptance is claimed for this follow-up.
+- CI dependency/history requirements were reviewed; `fetch-depth: 0` is required
+  by the pinned rollback fixture. Hosted/container execution remains pending,
+  as do a clean-session installation and human/hardware acceptance. No changes
+  were committed, pushed, or published during this follow-up.
+
+Marketplace installation status and the existing request are documented in
+[Marketplace installation](MARKETPLACE.md). Do not open a duplicate request or
+mark the clean-install, hardware, or publication gates complete from these checks.
+
+## v0.8.0-rc.1 packaging — 2026-09-06
+
+The release notes in `docs/releases/v0.8.0-rc.1.md` cover the full change since
+v0.7.2: Preferences and installation, timer/presentation improvements, and all
+subsequent hardening. Manifest and weather user-agent versions match the
+candidate. `scripts/check` passed **208 tests with no failures or skips** before
+packaging, including the clean native build and all three CTests.
+
+This is a prerelease while human touch/lock, device recovery, and clean-session
+acceptance remain pending. Hosted CI must pass on the final candidate before
+publishing its tag. Keep the stable/default install path on the existing main
+branch until the accepted candidate is promoted. Record the final SHA and CI
+links in the GitHub release and the existing marketplace request; those external
+records avoid self-referential commit hashes in source files.
+
 ## Automated gates
 
 - [x] `git diff --check` passes.

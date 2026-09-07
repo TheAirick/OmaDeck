@@ -22,6 +22,11 @@ TestCase {
       property string identity: "Fixture Player"
       property string trackArtUrl: ""
       property var metadata: ({})
+      property string dbusName: "org.mpris.MediaPlayer2.fixture"
+      property bool canPlay: true
+      property bool canPause: true
+      property bool canTogglePlaying: true
+      property int playbackState: 1
       property bool isPlaying: true
       property bool canSeek: true
       property bool positionSupported: true
@@ -40,7 +45,9 @@ TestCase {
     QtObject {
       property var activePlayer: null
       property var actions: []
-      function runAction(action, argument) { actions.push(action) }
+      function playerKey(player) { return player.dbusName }
+      function playerForKey(key) { return activePlayer && activePlayer.dbusName === key ? activePlayer : null }
+      function runAction(action, argument, targetKey) { actions.push(action); return true }
     }
   }
 

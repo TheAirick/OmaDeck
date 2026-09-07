@@ -14,6 +14,10 @@ TestCase {
   property var fixtureStreams: []
 
   function init() {
+    lockRegistryFixture.enabledLockId = "omarchy.lock"
+    lockFixture.locked = false
+    lockFixture.strandedLockResolved = true
+    lockFixture.strandedLock = false
     layoutFixture.saveError = ""
     launcherFixture.saveError = ""
     layoutFixture.retryCalls = 0
@@ -104,6 +108,48 @@ TestCase {
     verify(point.y >= 0 && point.y <= deck.height,
       "pointer y " + point.y + " outside 0.." + deck.height)
     mouseClick(item, item.width / 2, item.height / 2)
+  }
+
+  function test_lockDisablesDeckAndUnknownRecoveryFailsClosed() {
+    var deck = createDeck()
+    verify(deck.interactionAllowed)
+    verify(deck.contentItem.enabled)
+    deck.toggleDrawer("right")
+    var system = findChild(deck, "systemStatsRefreshTimer")
+    verify(system.running)
+    lockFixture.locked = true
+    compare(deck.contentItem.enabled, false)
+    compare(system.running, false)
+    lockFixture.locked = false
+    verify(deck.contentItem.enabled)
+    lockFixture.strandedLockResolved = false
+    compare(deck.contentItem.enabled, false)
+    lockFixture.strandedLockResolved = true
+    lockFixture.strandedLock = true
+    compare(deck.contentItem.enabled, false)
+    lockFixture.strandedLock = false
+    verify(deck.contentItem.enabled)
+    lockRegistryFixture.enabledLockId = "fixture.lock"
+    compare(deck.lockServiceId, "fixture.lock")
+    verify(deck.contentItem.enabled)
+    lockFixture.locked = true
+    compare(deck.contentItem.enabled, false)
+    lockFixture.locked = false
+    deck.shell = null
+    compare(deck.contentItem.enabled, false)
+  }
+
+  function test_systemSnapshotsOnlyRefreshInOpenDrawer() {
+    var deck = createDeck()
+    var timer = findChild(deck, "systemStatsRefreshTimer")
+    var process = findChild(deck, "systemStatsProcess")
+    verify(!timer.running)
+    verify(!process.running)
+    deck.toggleDrawer("right")
+    verify(timer.running)
+    verify(process.running)
+    deck.closeDrawer()
+    verify(!timer.running)
   }
 
   function test_saveFailuresRemainVisibleAfterEditingAndRetryTheirOwner() {
@@ -866,7 +912,21 @@ TestCase {
   }
 
   QtObject {
+    id: lockFixture
+    property bool locked: false
+    property bool strandedLockResolved: true
+    property bool strandedLock: false
+  }
+
+  QtObject {
+    id: lockRegistryFixture
+    property string enabledLockId: "omarchy.lock"
+    function resolveEnabledId(id) { return id === "omarchy.lock" ? enabledLockId : id }
+  }
+
+  QtObject {
     id: shellFixture
+    property var pluginRegistry: lockRegistryFixture
     property var shellConfig: ({
       bar: { position: "top", transparent: false },
       idle: { screensaver: 150, lock: 300 }
@@ -876,7 +936,7 @@ TestCase {
     property string lastSummonedId: ""
     property string lastSummonedPayload: ""
 
-    function serviceFor(serviceId) { return serviceId === "omarchy.media" ? mediaFixture : null }
+    function serviceFor(serviceId) { return serviceId === lockRegistryFixture.enabledLockId ? lockFixture : serviceId === "omarchy.media" ? mediaFixture : null }
     function firstPartyServiceFor(serviceId) {
       if (serviceId === "omarchy.notifications") return notificationFixture
       if (serviceId === "omarchy.nightlight") return nightlightFixture
@@ -974,7 +1034,9 @@ TestCase {
     id: mediaFixture
     property var activePlayer: playerFixture
     property var actions: []
-    function runAction(action, argument) { actions.push(action) }
+    function playerKey(player) { return player.dbusName }
+    function playerForKey(key) { return activePlayer && activePlayer.dbusName === key ? activePlayer : null }
+    function runAction(action, argument, targetKey) { actions.push(action); return true }
   }
 
   QtObject {
@@ -985,7 +1047,12 @@ TestCase {
     property string identity: "Fixture Player"
     property string trackArtUrl: ""
     property var metadata: ({})
-    property bool isPlaying: true
+    property string dbusName: "org.mpris.MediaPlayer2.fixture"
+      property bool canPlay: true
+      property bool canPause: true
+      property bool canTogglePlaying: true
+      property int playbackState: 1
+      property bool isPlaying: true
     property bool canSeek: true
     property bool positionSupported: true
     property bool lengthSupported: true

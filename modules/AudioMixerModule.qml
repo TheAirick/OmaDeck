@@ -12,6 +12,7 @@ Item {
   objectName: "audioMixerPresenter"
   clip: true
 
+  property bool active: false
   property string expandedCategory: ""
   property var displayStreams: []
   property string volumeSinkName: ""
@@ -100,7 +101,11 @@ Item {
     var candidate = String(value || "").trim()
     return /^[A-Za-z0-9_.:-]{1,256}$/.test(candidate) ? candidate : ""
   }
-  function resolveVolumeSink() { if (!sinkResolver.running) sinkResolver.running = true }
+  function resolveVolumeSink() {
+    if (!active || sinkResolver.running) return
+    sinkResolver.requestSink = defaultSink ? String(defaultSink.name) : ""
+    sinkResolver.running = true
+  }
   function stopSinkResolver() {
     sinkLifecycleBackstop.stop()
     if (!sinkResolver.running) return
@@ -108,7 +113,8 @@ Item {
     sinkForceStopDelay.restart()
   }
   onLiveStreamsChanged: snapshotTimer.restart()
-  onDefaultSinkChanged: resolveVolumeSink()
+  onDefaultSinkChanged: { volumeSinkName = ""; resolveVolumeSink() }
+  onActiveChanged: if (active) resolveVolumeSink()
   Component.onCompleted: { refreshStreams(); resolveVolumeSink() }
 
   PwObjectTracker { objects: root.liveStreams }
@@ -119,9 +125,11 @@ Item {
     interval: 75
     onTriggered: root.refreshStreams()
   }
-  Timer { interval: 5000; running: true; repeat: true; onTriggered: root.resolveVolumeSink() }
+  Timer { interval: 5000; running: root.active; repeat: true; onTriggered: root.resolveVolumeSink() }
   Process {
     id: sinkResolver
+    objectName: "audioSinkResolver"
+    property string requestSink: ""
     command: ["/usr/bin/env", "PATH=/usr/bin:/usr/share/omarchy/bin",
               "/usr/bin/timeout", "--signal=TERM", "--kill-after=1s", "2s",
               "/usr/bin/omarchy-audio-output-sink"]
@@ -138,6 +146,10 @@ Item {
       sinkForceStopDelay.stop()
       var resolved = exitCode === 0 && !sinkOutput.truncated
         ? root.validSinkName(sinkOutput.text) : ""
+      if (requestSink !== (root.defaultSink ? String(root.defaultSink.name) : "")) {
+        Qt.callLater(root.resolveVolumeSink)
+        return
+      }
       if (resolved !== "") root.volumeSinkName = resolved
     }
   }

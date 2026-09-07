@@ -151,20 +151,8 @@ leave its geometry and drawer state untouched.
 
 ## Development
 
-Clone the repository and link it into the user plugin directory:
-
-```bash
-git clone https://github.com/TheAirick/OmaDeck.git "$HOME/Projects/Omadeck"
-ln -s "$HOME/Projects/Omadeck" "$HOME/.config/omarchy/plugins/pretty.omadeck"
-```
-
-Add `pretty.omadeck` to the top-level `plugins` array in
-`~/.config/omarchy/shell.json`, then reload after edits. Building the native
-components is optional during QML development:
-
-```bash
-./scripts/build-native
-omarchy-shell shell rescanPlugins
-```
+See [Contributing](CONTRIBUTING.md) for development checkout setup, optional
+native compilation, and the isolated test suite. End-user installation is
+covered by [Install](#install) above; a development checkout is not required.
 
 OmaDeck is licensed under the [MIT License](LICENSE).

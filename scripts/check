@@ -1,0 +1,37 @@
+#!/usr/bin/bash
+set -euo pipefail
+
+# Runs offscreen fixtures and a private native build; never installs artifacts or
+# attaches fixture players/clipboard processes to the desktop session.
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
+if (( EUID == 0 )); then
+  printf 'Run checks as an ordinary user; root masks settings permission failures.\n' >&2
+  exit 1
+fi
+for executable in node python3 qs cmake ctest c++ git dbus-run-session jq; do
+  command -v "$executable" >/dev/null || { printf 'Missing test dependency: %s\n' "$executable" >&2; exit 1; }
+done
+[[ -x /usr/lib/qt6/bin/qmltestrunner ]] || { printf 'Missing Qt 6 qmltestrunner\n' >&2; exit 1; }
+python3 -c 'import dbus; from gi.repository import GLib'
+
+check_dir=$(mktemp -d /tmp/omadeck-check.XXXXXXXX)
+trap 'rm -rf -- "$check_dir"' EXIT
+mkdir -m 700 "$check_dir/runtime"
+export QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic
+export QT_QUICK_BACKEND=software QSG_RHI_BACKEND=software QML_DISABLE_DISK_CACHE=1
+export XDG_RUNTIME_DIR="$check_dir/runtime"
+unset DBUS_SESSION_BUS_ADDRESS WAYLAND_DISPLAY DISPLAY QML_IMPORT_PATH QML2_IMPORT_PATH
+unset QS_CONFIG_PATH QS_CONFIG_NAME QS_MANIFEST
+
+git diff --check
+node --test --test-reporter=tap tests/*.test.js tests/*.test.mjs > "$check_dir/tests.tap" 2>&1 || {
+  cat "$check_dir/tests.tap"
+  exit 1
+}
+cat "$check_dir/tests.tap"
+python3 - "$check_dir/tests.tap" <<'PY'
+import pathlib, re, sys
+report = pathlib.Path(sys.argv[1]).read_text()
+if not re.search(r'^# skipped 0$', report, re.M):
+    raise SystemExit('Checks must finish without skipped tests')
+PY

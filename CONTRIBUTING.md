@@ -29,6 +29,18 @@ lifecycle behavior should be verified with a controlled device re-enumeration;
 tray changes should be checked through the live Omarchy system tray and
 `scripts/omadeck-doctor`.
 
+Run `./scripts/check` as an ordinary user for the automated acceptance checks.
+It requires Node, Python with `dbus` and PyGObject, D-Bus, jq, Quickshell,
+Qt 6 Declarative (including `qmltestrunner`), a C++ compiler, CMake, and Git with
+the repository history. It uses private homes, a private media bus, offscreen
+rendering, and a private native build. The rollback fixture uses the pinned
+published snapshot from Git history; shallow checkouts need that history first.
+No desktop playback or clipboard is
+changed. Missing dependencies or skipped tests fail the command. The CI
+workflow documents the corresponding Arch packages. Real touchscreen, lock,
+device reconnect, clean-session installation, and upgrade/rollback acceptance
+remain separate live gates in `docs/RELEASE_CHECKLIST.md`.
+
 Preserve these project rules:
 
 - Use live Omarchy theme and spacing tokens.

@@ -92,7 +92,7 @@ test("compact Clock retains ambient projection and delegates setup opening to Ti
   const companion = source("modules/ClockCompanionModule.qml")
 
   assert.match(timerModule, /function openForCurrentStatus\(\)/)
-  assert.match(clock, /onTapped:\s*root\.setupRequested\(\)/)
+  assert.match(clock, /onTapped:\s*if \(root\.interactionEnabled\) root\.setupRequested\(\)/)
   assert.match(tile, /onSetupRequested:\s*companionModule\.openTimer\(\)/)
   assert.match(companion, /function openTimer\(\) \{ timerPresenter\.openForCurrentStatus\(\) \}/)
   assert.doesNotMatch(clock, /function (?:openTimerControls|openSetup|openControls)\(/)

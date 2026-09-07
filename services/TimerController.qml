@@ -22,6 +22,7 @@ Item {
   property string selectedSoundId: TimerPolicy.DEFAULT_SOUND_ID
   property string completionSoundId: TimerPolicy.DEFAULT_SOUND_ID
   property bool soundSettingsLoaded: false
+  property string soundConfirmedText: ""
   property bool soundSaveSucceeded: false
   property string soundSaveError: ""
   property bool previewRestartPending: false
@@ -85,10 +86,23 @@ Item {
     if (!directoryReady) return false
     var previous = selectedSoundId
     selectedSoundId = TimerPolicy.normalizeSoundId(candidate)
+    var serialized = JSON.stringify(TimerPolicy.soundSettings(selectedSoundId), null, 2) + "\n"
+    // FileView emits no saved signal for identical bytes. Only accept a no-op
+    // against bytes read from disk or acknowledged by a successful write.
+    if (serialized === soundConfirmedText) {
+      soundSaveSucceeded = true
+      soundSaveError = ""
+      return true
+    }
     soundSaveSucceeded = false
+    if (soundSaveError !== "") {
+      soundSettingsFile.path = ""
+      soundSettingsFile.path = soundSettingsPath
+    }
     soundSaveError = ""
     try {
-      soundSettingsFile.setText(JSON.stringify(TimerPolicy.soundSettings(selectedSoundId), null, 2) + "\n")
+      soundSettingsFile.setText(serialized)
+      if (soundSaveSucceeded) soundConfirmedText = serialized
     } catch (error) {
       soundSaveError = String(error)
     }
@@ -346,12 +360,14 @@ Item {
     printErrors: false
     onSaved: root.soundSaveSucceeded = true
     onSaveFailed: function(error) {
+      root.soundConfirmedText = ""
       root.soundSaveSucceeded = false
       root.soundSaveError = String(error)
     }
-    onLoaded: root.loadSoundSettings(text())
+    onLoaded: { root.soundConfirmedText = text(); root.loadSoundSettings(root.soundConfirmedText) }
     onLoadFailed: {
       if (!root.directoryReady) return
+      root.soundConfirmedText = ""
       root.selectedSoundId = TimerPolicy.DEFAULT_SOUND_ID
       root.soundSettingsLoaded = true
       root.persistSoundSettings(root.selectedSoundId)

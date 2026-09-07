@@ -44,6 +44,10 @@ Item {
       }
       if (!appearance.loaded || !hardware.loaded || !layout.loaded
           || !launcher.loaded || !timer.loaded || !timer.soundSettingsLoaded) return
+      if (Quickshell.env("OMADECK_SETTINGS_PHASE") === "snapshot") {
+        root.report()
+        return
+      }
       if (Quickshell.env("OMADECK_SETTINGS_PHASE") === "read") {
         if (!appearance.setOption("use24Hour", appearance.use24Hour)
             || !hardware.setTargetScreen(hardware.targetScreen)) {

@@ -58,6 +58,8 @@ private:
     QString findTouchscreen(QStringList *detectedNames);
     bool openDevice(const QString &path);
     void closeDevice(const QString &status);
+    void setBackingWindow(QQuickWindow *window);
+    bool inputAllowed() const;
     void scheduleReconnect();
     void resetInputState();
     void readEvents();
@@ -67,6 +69,7 @@ private:
 
     QPointer<QObject> m_target;
     QPointer<QQuickWindow> m_window;
+    QMetaObject::Connection m_inputEnabledConnection;
     QSocketNotifier *m_notifier = nullptr;
     QTimer *m_retryTimer = nullptr;
     int m_fd = -1;

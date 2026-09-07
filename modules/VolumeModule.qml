@@ -6,6 +6,8 @@ Item {
   id: root
   objectName: "volumePanelHost"
 
+  property bool active: false
+
   readonly property bool mixerExpanded: !mixer.compact
   readonly property real preferredDrawerWidth: mixer.preferredWidth
     + Style.spacing.panelPadding * 2
@@ -24,6 +26,7 @@ Item {
 
     AudioMixerModule {
       id: mixer
+      active: root.active
       anchors.fill: parent
     }
   }
