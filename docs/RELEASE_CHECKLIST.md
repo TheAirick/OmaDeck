@@ -135,6 +135,32 @@ branch until the accepted candidate is promoted. Record the final SHA and CI
 links in the GitHub release and the existing marketplace request; those external
 records avoid self-referential commit hashes in source files.
 
+## v0.8.0 human acceptance — 2026-09-07
+
+Erik reported that all steps in the supplied v0.8 acceptance pass passed on the
+Corsair Xeneon Edge, and authorized final automated checks and submission.
+The tested candidate was `44c1d2e47f13e75b3ddeb9eabf42d568679de216`.
+This records user-reported acceptance of touch/layout, timer, media/audio,
+System/Clipboard, Preferences persistence, lock/unlock, USB recovery,
+suspend/resume, and fresh-session behavior; it is not an independently observed
+repetition or a claim about other hardware. Final packaging changes only the
+version metadata and release documentation.
+
+The clean public default-branch installation remains a separate verification:
+the install command still resolved to the prior main at the time of acceptance.
+Isolated failure injection and controller upgrade/rollback have automated
+evidence above; a full installed UI/native rollback is not claimed here.
+
+Final automated validation passed on September 7: `scripts/check` completed
+208 tests with zero failures/skips, including its private native Release build
+and three CTests. Installed Omarchy manifest validation passed. On Omarchy
+4.0.2-1, shell ping returned `ok`; doctor reported healthy with a connected
+touchscreen, an active exclusive bridge grab, and matching native artifact
+integrity. Hyprland configuration errors were empty and the bounded Quickshell
+warning journal had no entries. No disruptive tests were repeated by the agent.
+Hosted checks and marketplace analysis are bound to the final published SHA in
+the release and submission, rather than a self-referential SHA in this file.
+
 ## Automated gates
 
 - [x] `git diff --check` passes.

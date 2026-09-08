@@ -56,8 +56,9 @@ analyzer source was retrieved at marketplace commit
 `4e3900bc510556e50b50e01f644f8e1e7a29341a`. This is diagnostic evidence;
 marketplace verification requires its own scan of the published exact SHA.
 
-The prerelease is prepared on `codex/preferences-center` while hardware
-acceptance remains pending. Its release notes cover all changes since v0.7.2.
+Erik accepted the v0.8.0-rc.1 hardware tests on September 7. The final v0.8.0
+package changes only version metadata and documentation from that candidate.
+Its release notes cover all changes since v0.7.2.
 The existing issue should receive the exact final candidate SHA and links to
 its release, PR, and CI. Do not retarget its standard-installation action to a
 commit that is not yet the listed snapshot: the workflow rejects that mismatch.
