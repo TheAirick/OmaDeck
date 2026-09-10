@@ -161,6 +161,31 @@ warning journal had no entries. No disruptive tests were repeated by the agent.
 Hosted checks and marketplace analysis are bound to the final published SHA in
 the release and submission, rather than a self-referential SHA in this file.
 
+## v0.8.1 release verification — 2026-09-10
+
+The current compatibility patch adds the shared MPRIS fallback and synchronous
+native host input guard for Omarchy's restricted plugin API. `scripts/check`
+passed 212 tests with zero failures/skips, including a private native Release
+build and all three CTests. Guard coverage exercises lock phases, conflicting
+publishers, provider unload, deferred QML destruction, and cancellation of
+MouseArea/TapHandler contacts. Real MPRIS fixtures exercise exact-player fallback
+actions and disappearance. Installed Omarchy manifest validation passed.
+
+Live Omarchy version: `4.0.0.r2083.gd504061-1`. The running surface reports
+`inputMode: native`, a present/allowing host input guard, interaction enabled,
+and `mediaProvider: mpris` with an active player. Doctor confirms the active
+exclusive touchscreen grab and matching native artifact integrity; shell ping
+passes, Hyprland configuration errors are empty, and the bounded warning
+journal has no entries. This verifies current live state without changing
+desktop playback or initiating a lock/reconnect/suspend cycle. The prior v0.8.0
+manual acceptance is not claimed as a fresh v0.8.1 hardware test.
+
+The release request authorizes publication of the latest build. Final hosted
+CI and marketplace results are linked to its exact SHA in the release PR and
+submission. The user-owned lock integration remains optional; standard mode
+requires no compilation. Setup documentation now consistently keeps the actual
+touchscreen enabled and mapped for compositor fallback.
+
 ## Automated gates
 
 - [x] `git diff --check` passes.

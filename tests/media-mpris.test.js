@@ -5,7 +5,13 @@ const os = require('node:os')
 const path = require('node:path')
 const { spawnSync } = require('node:child_process')
 
-for (const cycles of [1, 100]) test(cycles === 1
+for (const { cycles, nativeAdapter } of [
+  { cycles: 1, nativeAdapter: false },
+  { cycles: 100, nativeAdapter: false },
+  { cycles: 1, nativeAdapter: true },
+]) test(nativeAdapter
+  ? 'native MPRIS fallback controls the exact displayed player without host service access'
+  : cycles === 1
   ? 'real MPRIS targets the displayed source, respects capabilities and survives player removal'
   : '100 real MPRIS appearance/removal and QML recreation cycles release resources', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'omadeck-mpris-'))
@@ -16,6 +22,7 @@ for (const cycles of [1, 100]) test(cycles === 1
     fs.cpSync(path.join(__dirname, 'qml/imports/qs'), path.join(dir, 'imports/qs'), { recursive: true })
     for (const file of ['NowPlayingModule.qml', 'MediaArtwork.js'])
       fs.copyFileSync(path.join(__dirname, '../modules', file), path.join(dir, file))
+    fs.copyFileSync(path.join(__dirname, '../services/MprisMediaAdapter.qml'), path.join(dir, 'MprisMediaAdapter.qml'))
     fs.copyFileSync(path.join(__dirname, 'fixtures/mpris-players.py'), path.join(dir, 'players.py'))
     fs.writeFileSync(path.join(dir, 'shell.qml'), `import QtQuick
 import Quickshell
@@ -26,7 +33,10 @@ Item {
   property int completed: 0
   readonly property var card: cardLoader.item
   function check(ok, message) { if (!ok) { console.log("FAIL " + message); Qt.exit(1) } }
-  QtObject {
+  ${nativeAdapter ? `MprisMediaAdapter {
+    id: mediaService
+    preferredPlayerKey: "org.mpris.MediaPlayer2.fixtureB"
+  }` : `QtObject {
     id: mediaService
     readonly property var players: Mpris.players.values
     readonly property var activePlayer: playerForKey("org.mpris.MediaPlayer2.fixtureB") || players[0] || null
@@ -44,7 +54,7 @@ Item {
       else if (action === "next") player.next()
       return true
     }
-  }
+  }`}
   Loader {
     id: cardLoader
     sourceComponent: Component { NowPlayingModule { media: mediaService; width: 500; height: 400 } }

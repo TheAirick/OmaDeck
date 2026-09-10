@@ -6,11 +6,12 @@ const path = require('node:path')
 const crypto = require('node:crypto')
 const { execFileSync, spawnSync } = require('node:child_process')
 
-test('native build installs both verified artifacts from tracked source without native/bin', () => {
+test('native build installs both verified artifacts from source without native/bin', () => {
   const root = path.resolve(__dirname, '..')
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'omadeck-clean-build-'))
   try {
-    const files = execFileSync('git', ['ls-files', '-z', 'native', 'scripts/build-native'], {
+    const files = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z',
+      'native', 'scripts/build-native'], {
       cwd: root, encoding: 'utf8'
     }).split('\0').filter(Boolean)
     for (const file of files) {
@@ -33,6 +34,18 @@ test('native build installs both verified artifacts from tracked source without 
       const digest = crypto.createHash('sha256').update(fs.readFileSync(artifact)).digest('hex')
       assert.ok(record.includes(`${digest}  ${name}`), 'installed artifact checksum must match')
     }
+    for (const file of ['integrations/omarchy/NativeInputGuard.qml', 'tests/qml/tst_host-input-guard.qml']) {
+      const target = path.join(dir, file)
+      fs.mkdirSync(path.dirname(target), { recursive: true })
+      fs.copyFileSync(path.join(root, file), target)
+    }
+    const qml = spawnSync('/usr/lib/qt6/bin/qmltestrunner', [
+      '-input', path.join(dir, 'tests/qml/tst_host-input-guard.qml')
+    ], { encoding: 'utf8', timeout: 15000, env: { ...process.env,
+      XDG_RUNTIME_DIR: path.join(dir, 'runtime'), QT_QPA_PLATFORM: 'offscreen',
+      QT_QPA_PLATFORMTHEME: 'basic',
+      QT_QUICK_BACKEND: 'software', QML_DISABLE_DISK_CACHE: '1' } })
+    assert.equal(qml.status, 0, qml.stdout + qml.stderr)
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }

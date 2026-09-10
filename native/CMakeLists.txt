@@ -12,6 +12,8 @@ set(OMADECK_ARTIFACT_ROOT "${CMAKE_BINARY_DIR}/artifacts" CACHE PATH
   "Private staging root for OmaDeck runtime artifacts")
 
 add_library(omadecktouchplugin SHARED
+  HostInputGuard.cpp
+  HostInputGuard.h
   EvdevTouchState.cpp
   EvdevTouchState.h
   TouchBridge.cpp
@@ -49,6 +51,8 @@ if(BUILD_TESTING)
   find_package(Qt6 REQUIRED COMPONENTS Test)
 
   add_executable(touchbridge-lifetime-test
+    HostInputGuard.cpp
+    HostInputGuard.h
     tests/TouchBridgeLifetimeTest.cpp
     EvdevTouchState.cpp
     EvdevTouchState.h

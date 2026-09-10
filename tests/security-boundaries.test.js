@@ -58,7 +58,7 @@ test("a clean checkout keeps native touch and tray integration optional", () => 
   assert.doesNotMatch(surface, /import "\.\.\/native\/OmaDeck\/Touch"/)
   assert.match(surface, /OptionalTouchBridge\s*\{/)
   assert.match(optional, /command: \["\/usr\/bin\/test", "-f", root\.nativeLibraryPath\]/)
-  assert.match(optional, /mode: nativeAvailable \? "native" : "compositor"/)
+  assert.match(optional, /mode: nativeAvailable && routingAllowed \? "native" : "compositor"/)
   assert.match(optional, /active: root\.nativeArtifactPresent/)
   assert.match(native, /import "\.\.\/native\/OmaDeck\/Touch" as NativeTouch/)
   assert.match(runner, /continuing without the optional tray controller/)

@@ -94,6 +94,14 @@ row at the live narrow width. It creates no
 PipeWire model, process, persistence, IPC, settings, or dynamic QML path; those
 concerns remain with the existing service and audio mixer owners.
 
+If the host's scoped plugin API hides `omarchy.media`, `MediaModule` uses
+`services/MprisMediaAdapter.qml` over Quickshell's shared MPRIS discovery model.
+This adds no watcher process, duplicate D-Bus service, or PipeWire model. The
+adapter prefers a playing source, then track metadata, with stable bus-name
+ordering; an explicitly controlled source remains selected until it disappears.
+Transport commands require that displayed source's live bus name and advertised
+capabilities, and never fall back to a different player for a stale key.
+
 ## Layout model
 
 The center uses a recursive binary split tree. Split nodes contain an
@@ -237,15 +245,30 @@ the current UI. Preserve this stable presentation boundary during node teardown.
 
 ## Interaction and refresh hardening
 
-The deck binds its content's enabled state to the installed `omarchy.lock`
-service, resolving any enabled user clone through the plugin registry. A
-requested/active lock, unresolved orphan-lock recovery, or missing
-lock service disables interaction. The native bridge also checks the effective
+When the host exposes its `omarchy.lock` service, the deck binds its content's
+enabled state to that service, resolving enabled user clones through the
+plugin registry. A requested/active lock or unresolved orphan-lock recovery
+disables interaction. Hosts with a capability-scoped plugin API keep
+authentication services private. An optional `HostInputGuard` loader inside the
+enabled user-owned lock clone can publish only a boolean through the native
+library. The lock object, its context and PAM/credentials remain private.
+Native guard state defaults to denied, denies ambiguous multiple publishers,
+and revokes permission synchronously on lock and QML-context teardown, including
+before a Loader's deferred QObject destruction. The bridge rechecks permission
+for every event and cancels existing MouseArea/PointerHandler grabs on revocation.
+This route works independently of compositor pointer capture and window focus.
+See [host integration](../integrations/omarchy/README.md).
+
+Without either synchronous guard, OmaDeck stops direct injection, releases
+the native grab, and uses compositor-managed input, whose session-lock routing
+is enforced by Hyprland. The touchscreen must be enabled and mapped to the deck
+output in Hyprland for that mode. Reconnect cannot acquire a native grab without
+the synchronous lock guard. The native bridge also checks the effective
 enabled state of its target item and backing window, clears its synthetic
 contact when disabled, and ignores motion/release from a contact begun before
 unlock. Qt cancels the descendant pointer grabs; no synthetic release is used
-to complete an action during lock. The bridge retains device ownership while
-locked, so this protection does not change compositor input configuration.
+to complete an action during lock. When direct routing is supported, the bridge
+retains device ownership while locked.
 
 Now Playing sends transport actions with the displayed player's exact Omarchy
 key and verifies that the key still resolves to that object before dispatch.

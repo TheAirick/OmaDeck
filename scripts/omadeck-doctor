@@ -110,6 +110,7 @@ touch_state=""
 touch_state_device=""
 touch_state_active=false
 touch_state_exclusive=false
+touch_compositor_mode=false
 native_touch_built=false
 [[ -f $plugin_dir/native/OmaDeck/Touch/libomadecktouchplugin.so ]] && native_touch_built=true
 
@@ -206,7 +207,8 @@ fi
 if $native_touch_built && [[ -x $OMARCHY_SHELL && -x $JQ ]]; then
   for ((attempt = 1; attempt <= touch_state_attempts; attempt++)); do
     touch_state=$("$OMARCHY_SHELL" pretty.omadeck touchState 2>/dev/null || true)
-    if "$JQ" -e 'type == "object" and .active == true and .exclusiveGrab == true' \
+    if "$JQ" -e 'type == "object" and ((.active == true and .exclusiveGrab == true)
+        or (.mode == "compositor" and .active == false and .exclusiveGrab == false))' \
         <<<"$touch_state" >/dev/null 2>&1; then
       break
     fi
@@ -216,10 +218,20 @@ if $native_touch_built && [[ -x $OMARCHY_SHELL && -x $JQ ]]; then
     touch_state_device=$("$JQ" -r '.devicePath // ""' <<<"$touch_state")
     [[ $("$JQ" -r '.active // false' <<<"$touch_state") == true ]] && touch_state_active=true
     [[ $("$JQ" -r '.exclusiveGrab // false' <<<"$touch_state") == true ]] && touch_state_exclusive=true
+    if "$JQ" -e '.mode == "compositor" and .active == false and .exclusiveGrab == false' \
+        <<<"$touch_state" >/dev/null 2>&1; then
+      touch_compositor_mode=true
+    fi
+    if "$JQ" -e '.interactionAllowed == false' <<<"$touch_state" >/dev/null 2>&1; then
+      warn "Deck interaction is disabled by the lock guard; check lock state before testing touch"
+    fi
   fi
 fi
 
-if $native_touch_built && [[ -n $touch_device ]]; then
+if $touch_compositor_mode; then
+  ok "OmaDeck uses compositor-managed input; no native exclusive grab is expected"
+  warn "Verify the touchscreen is enabled and mapped to $target_screen in Hyprland"
+elif $native_touch_built && [[ -n $touch_device ]]; then
   if $touch_state_active && $touch_state_exclusive && [[ $touch_state_device == "$touch_device" ]]; then
     ok "OmaDeck touch bridge reports an active exclusive grab of $touch_device"
   elif $touch_open; then

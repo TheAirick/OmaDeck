@@ -38,6 +38,33 @@ deliberately refused to grab the other direct touchscreen(s) it found. Reconnect
 the deck device or choose its distinctive evdev name in **Preferences → Input**; do not
 broaden the match to a generic `Touchscreen` value.
 
+## Touch works on the desktop but stops during gameplay
+
+Check `omarchy-shell pretty.omadeck touchState` for `mode: compositor`. On the
+live Hyprland 0.56.2 host, Valheim blocks deck taps during gameplay, while opening
+its Esc menu or switching to another workspace restores touch. This comparison
+was confirmed with physical taps on September 8, 2026; normal desktop touch does
+not establish acceptance for gameplay.
+
+The version-matched compositor source explains the failure: touch-down calls
+[`refocus(TOUCH_COORDS)`](https://github.com/hyprwm/Hyprland/blob/efb50993780079460b0cbed1363e2166a2de1d9f/src/managers/input/Touch.cpp#L39),
+and the shared
+[focus routine](https://github.com/hyprwm/Hyprland/blob/efb50993780079460b0cbed1363e2166a2de1d9f/src/managers/input/InputManager.cpp#L237-L298)
+clears its target and returns early when the focused game constrains the pointer.
+The tap never reaches the deck's Qt controls.
+
+For gameplay-independent touch, use the native bridge with the optional
+[host input guard](../integrations/omarchy/README.md). The user-owned lock clone
+publishes synchronous permission to the bridge without exposing authentication
+objects. This lets native touch bypass game pointer capture while still denying
+input at lock request, during lock/recovery, and when the guard disappears.
+
+Without this integration, the verified workaround for Valheim is
+**Esc → use OmaDeck → resume the game**. Reconnecting USB does not address the
+focus path. Do not disable game pointer constraints globally: the game needs
+them for mouse control. Do not bypass the lock guard or replace it with
+periodically polled lock state.
+
 ## Touch stops after suspend or a USB reset
 
 The optional native bridge automatically closes the dead evdev descriptor and retries once per
@@ -69,10 +96,12 @@ installs verified outputs. If the tray reports an invalid artifact record, do
 not copy an old binary into place; rerun `scripts/build-native` so the executable
 and its local integrity record are regenerated together.
 
-The dedicated touch endpoints must also be disabled in Hyprland as described in
-[Configuration](CONFIGURATION.md#touch-mapping). Otherwise Hyprland can claim
-the device during the brief gap between bridge instances. A healthy restart
-logs `[OmaDeckTouch] grabbed` and `closeOnExec true`.
+Keep the actual touch endpoint enabled and mapped to the deck, and disable only
+the separate mouse-emulation endpoint, as described in
+[Configuration](CONFIGURATION.md#touch-mapping). The native bridge's exclusive
+grab prevents duplicate delivery while active; compositor routing remains
+available during fallback. A healthy native restart logs
+`[OmaDeckTouch] grabbed` and `closeOnExec true`.
 
 If Quickshell itself dumped core during an audio-device change, inspect it with
 `coredumpctl info quickshell`. OmaDeck snapshots playback streams and uses fixed
@@ -122,8 +151,10 @@ and metadata can briefly reset when tracks change. Missing capabilities are
 hidden or disabled rather than emulated.
 
 Transport controls act only on the player shown on the card. “Media service
-unavailable” means Omarchy's media service is absent; “No media player detected”
-means the service is available but has no source. An application producing
+unavailable” on an older OmaDeck build can mean the host's plugin API now hides
+Omarchy's media service. Current OmaDeck falls back to Quickshell's shared MPRIS
+model in that case; `drawerState` reports `mediaProvider: mpris`.
+“No media player detected” means discovery is available but has no source. An application producing
 audio without MPRIS may appear in the mixer without appearing in Now Playing.
 
 ## System values look old
@@ -135,11 +166,28 @@ automatic retries slow down during repeated failures.
 
 ## Deck input is disabled after lock or recovery
 
-OmaDeck suppresses input while Omarchy reports a lock or has not finished
+Inspect both routing and interaction state:
+
+```bash
+omarchy-shell pretty.omadeck touchState
+omarchy-shell pretty.omadeck drawerState
+```
+
+A healthy native grab alone does not prove controls are enabled. Newer Omarchy
+hosts keep the authentication service private. With the optional host input
+guard, `hostInputGuardAvailable: true` enables native routing and
+`hostInputAllowed` controls interaction. Otherwise OmaDeck uses `mode: compositor`
+so Hyprland enforces lock-screen input protection. If upgrading
+from direct routing, enable the touchscreen and map its `output` to the deck
+monitor in Hyprland, following [Configuration](CONFIGURATION.md#touch-mapping).
+The native build can remain installed; **Reconnect touchscreen** will not
+override this routing policy.
+
+When the lock service is available, OmaDeck suppresses input while it reports a lock or has not finished
 checking for an orphaned lock. A gesture crossing lock/unlock is cancelled;
 lift your finger and start a new touch after unlock. If interaction remains
 disabled, inspect `omarchy-shell lock status` and the bounded Quickshell journal.
-Do not work around this by disabling the lock guard or changing device mapping.
+Do not disable the lock guard to restore direct injection.
 
 ## Audio sources are missing
 

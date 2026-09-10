@@ -153,6 +153,7 @@ test("offscreen actual DeckSurface path renders separate media panels", {
       fs.symlinkSync(path.join(repositoryRoot, "components", entry), path.join(generatedComponents, entry))
     }
     fs.symlinkSync(path.join(repositoryRoot, "modules"), path.join(testRoot, "modules"))
+    fs.symlinkSync(path.join(repositoryRoot, "services"), path.join(testRoot, "services"))
 
     const deckSurface = source("components/DeckSurface.qml")
       .replace(/^import Quickshell.*\n/gm, "")
@@ -164,6 +165,8 @@ test("offscreen actual DeckSurface path renders separate media panels", {
     fs.writeFileSync(path.join(generatedComponents, "DeckSurface.qml"), deckSurface, { flag: "wx" })
 
     const generatedTestPath = path.join(testRoot, "tst_deck-surface-media.qml")
+    fs.copyFileSync(path.join(repositoryRoot, "tests/qml/TouchBridgeFixture.qml"),
+      path.join(testRoot, "TouchBridgeFixture.qml"))
     const generatedTest = fs.readFileSync(qmlTestPath, "utf8")
       .replace('import "../../components" as Components', 'import "components" as Components')
     fs.writeFileSync(generatedTestPath, generatedTest, { flag: "wx" })

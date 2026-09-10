@@ -1,4 +1,5 @@
 #include "TouchBridge.h"
+#include "HostInputGuard.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -58,6 +59,13 @@ TouchBridge::TouchBridge(QObject *parent)
     : QObject(parent)
 {
     resetInputState();
+    connect(&HostInputState::instance(), &HostInputState::changed, this, [this] {
+        if (m_requireHostGuard && !hostInputAllowed())
+            cancelContact();
+        emit hostGuardChanged();
+        if (m_requireHostGuard && !hostGuardAvailable())
+            stop();
+    });
     m_retryTimer = new QTimer(this);
     m_retryTimer->setInterval(1000);
     connect(m_retryTimer, &QTimer::timeout, this, [this] {
@@ -136,7 +144,48 @@ void TouchBridge::setBackingWindow(QQuickWindow *window)
 bool TouchBridge::inputAllowed() const
 {
     const auto *item = qobject_cast<QQuickItem *>(m_target.data());
-    return m_window && m_window->contentItem()->isEnabled() && (!item || item->isEnabled());
+    return (!m_requireHostGuard || hostInputAllowed())
+        && m_window && m_window->contentItem()->isEnabled() && (!item || item->isEnabled());
+}
+
+bool TouchBridge::hostGuardAvailable() const
+{
+    return HostInputState::instance().available();
+}
+
+bool TouchBridge::hostInputAllowed() const
+{
+    return HostInputState::instance().allowed();
+}
+
+void TouchBridge::setRequireHostGuard(bool required)
+{
+    if (m_requireHostGuard == required)
+        return;
+    m_requireHostGuard = required;
+    if (required && !hostInputAllowed())
+        cancelContact();
+    if (required && !hostGuardAvailable())
+        stop();
+    emit requireHostGuardChanged();
+}
+
+void TouchBridge::cancelContact()
+{
+    const bool hadContact = m_pointerDown;
+    m_pointerDown = false;
+    setTouchInProgress(false);
+    if (!hadContact || !m_window)
+        return;
+    // Disabling the content cancels both MouseArea and PointerHandler grabs
+    // without delivering a click-producing release. Restore its prior enabled
+    // value synchronously; the QML lock binding owns the lasting UI state.
+    QPointer<QQuickItem> content = m_window->contentItem();
+    if (content && content->isEnabled()) {
+        content->setEnabled(false);
+        if (content)
+            content->setEnabled(true);
+    }
 }
 
 QString TouchBridge::findTouchscreen(QStringList *detectedNames)
@@ -222,6 +271,11 @@ bool TouchBridge::start()
     if (activeBridge && activeBridge != this) {
         qInfo() << "[OmaDeckTouch] releasing stale bridge before reconnect";
         activeBridge->stop();
+    }
+
+    if (m_requireHostGuard && !hostGuardAvailable()) {
+        setStatus(QStringLiteral("Waiting for the host lock input guard"));
+        return false;
     }
 
     if (m_deviceNames.isEmpty()) {

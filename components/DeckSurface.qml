@@ -15,9 +15,14 @@ PanelWindow {
     ? shell.pluginRegistry.resolveEnabledId("omarchy.lock") : "omarchy.lock"
   readonly property var lockService: shell && typeof shell.serviceFor === "function"
     ? shell.serviceFor(lockServiceId) : null
-  // Unknown state fails closed, including recovery of an orphaned session lock.
-  readonly property bool interactionAllowed: !!lockService && lockService.locked === false
-    && lockService.strandedLockResolved === true && lockService.strandedLock === false
+  // Newer hosts keep authentication services private. Their optional native
+  // guard publishes only permission, without exposing the authentication object.
+  // If neither guard exists, release input to the compositor's lock routing.
+  readonly property bool interactionAllowed: !!shell && (lockService
+    ? lockService.locked === false && lockService.strandedLockResolved === true
+      && lockService.strandedLock === false
+    : directTouch.hostGuardAvailable ? directTouch.hostInputAllowed
+    : directTouch.mode === "compositor" && !directTouch.active)
   Binding {
     target: root.contentItem
     property: "enabled"
@@ -89,6 +94,8 @@ PanelWindow {
 
   OptionalTouchBridge {
     id: directTouch
+    objectName: "deckTouchBridge"
+    directRoutingAllowed: !!root.lockService
     pluginDir: root.pluginDir
     nativeSource: root.nativeTouchSource
     deviceNames: root.touchDeviceNames
@@ -108,7 +115,12 @@ PanelWindow {
   function drawerDiagnostics() {
     return {
       interactionAllowed: interactionAllowed,
+      inputMode: directTouch.mode,
+      mediaProvider: staticMedia.hostMedia ? "omarchy" : "mpris",
+      mediaHasPlayer: !!staticMedia.media.activePlayer,
       lockServiceAvailable: !!lockService,
+      hostInputGuardAvailable: directTouch.hostGuardAvailable,
+      hostInputAllowed: directTouch.hostInputAllowed,
       lockResolved: lockService ? lockService.strandedLockResolved : false,
       systemRefreshActive: systemDrawer.active,
       systemLastUpdatedMs: systemDrawer.lastUpdatedMs,
@@ -193,6 +205,9 @@ PanelWindow {
       exclusiveGrab: directTouch.active,
       nativeAvailable: directTouch.nativeAvailable,
       mode: directTouch.mode,
+      hostInputGuardAvailable: directTouch.hostGuardAvailable,
+      hostInputAllowed: directTouch.hostInputAllowed,
+      interactionAllowed: interactionAllowed,
       devicePath: directTouch.devicePath,
       activeDeviceName: directTouch.activeDeviceName,
       availableDeviceNames: directTouch.availableDeviceNames,

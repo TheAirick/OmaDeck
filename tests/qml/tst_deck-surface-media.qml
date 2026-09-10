@@ -152,6 +152,54 @@ TestCase {
     verify(!timer.running)
   }
 
+  function test_privateHostLockServiceUsesCompositorInput() {
+    var deck = createDeck()
+    var bridge = findChild(deck, "deckTouchBridge")
+    verify(bridge.directRoutingAllowed)
+    // This is the installed host's restricted PluginShellApi: no registry,
+    // and serviceFor never returns authentication services.
+    deck.shell = scopedShellFixture
+    compare(deck.lockService, null)
+    compare(bridge.directRoutingAllowed, false)
+    compare(bridge.active, false)
+    compare(bridge.mode, "compositor")
+    verify(deck.contentItem.enabled)
+    var media = findChild(deck, "staticMediaPanel")
+    compare(media.hostMedia, null)
+    verify(media.media !== null)
+    compare(findChild(deck, "nowPlayingPresenter").playbackStatus, "No media player detected")
+    wait(100)
+    var preferences = findByProperty(deck, "label", "Preferences")
+    clickItem(deck, preferences)
+    compare(deck.openOverlayName, "preferences")
+    deck.shell = shellFixture
+    verify(bridge.directRoutingAllowed)
+    lockFixture.locked = true
+    compare(deck.contentItem.enabled, false)
+  }
+
+  function test_privateHostInputGuardControlsNativeTouchAndDeckInteraction() {
+    var deck = createDeck()
+    deck.shell = scopedShellFixture
+    var wrapper = findChild(deck, "deckTouchBridge")
+    wrapper.nativeSource = Qt.resolvedUrl("TouchBridgeFixture.qml")
+    wrapper.nativeArtifactPresent = true
+    tryCompare(wrapper, "nativeAvailable", true)
+    wrapper.bridge.hostGuardAvailable = true
+    compare(wrapper.mode, "native")
+    verify(wrapper.active)
+    verify(!deck.contentItem.enabled)
+    wrapper.bridge.hostInputAllowed = true
+    verify(deck.contentItem.enabled)
+    wrapper.bridge.hostInputAllowed = false
+    verify(!deck.contentItem.enabled)
+    verify(wrapper.active)
+    wrapper.bridge.hostGuardAvailable = false
+    verify(!wrapper.active)
+    compare(wrapper.mode, "compositor")
+    verify(deck.contentItem.enabled) // compositor now owns session-lock routing
+  }
+
   function test_saveFailuresRemainVisibleAfterEditingAndRetryTheirOwner() {
     var deck = createDeck()
     var layoutRetry = findChild(deck, "layoutSaveRetry")
@@ -916,6 +964,12 @@ TestCase {
     property bool locked: false
     property bool strandedLockResolved: true
     property bool strandedLock: false
+  }
+
+  QtObject {
+    id: scopedShellFixture
+    function serviceFor(serviceId) { return null }
+    function firstPartyServiceFor(serviceId) { return null }
   }
 
   QtObject {

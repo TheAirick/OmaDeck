@@ -18,6 +18,9 @@ class TouchBridge : public QObject
     Q_PROPERTY(QObject *window READ window WRITE setWindow NOTIFY windowChanged)
     Q_PROPERTY(bool active READ active NOTIFY activeChanged)
     Q_PROPERTY(bool touchInProgress READ touchInProgress NOTIFY touchInProgressChanged)
+    Q_PROPERTY(bool hostGuardAvailable READ hostGuardAvailable NOTIFY hostGuardChanged)
+    Q_PROPERTY(bool hostInputAllowed READ hostInputAllowed NOTIFY hostGuardChanged)
+    Q_PROPERTY(bool requireHostGuard READ requireHostGuard WRITE setRequireHostGuard NOTIFY requireHostGuardChanged)
     Q_PROPERTY(QString devicePath READ devicePath NOTIFY devicePathChanged)
     Q_PROPERTY(QString activeDeviceName READ activeDeviceName NOTIFY activeDeviceNameChanged)
     Q_PROPERTY(QStringList deviceNames READ deviceNames WRITE setDeviceNames NOTIFY deviceNamesChanged)
@@ -32,6 +35,10 @@ public:
     void setWindow(QObject *window);
     bool active() const { return m_fd >= 0; }
     bool touchInProgress() const { return m_touchInProgress; }
+    bool hostGuardAvailable() const;
+    bool hostInputAllowed() const;
+    bool requireHostGuard() const { return m_requireHostGuard; }
+    void setRequireHostGuard(bool required);
     QString devicePath() const { return m_devicePath; }
     QString activeDeviceName() const { return m_activeDeviceName; }
     QStringList deviceNames() const { return m_deviceNames; }
@@ -47,6 +54,8 @@ signals:
     void windowChanged();
     void activeChanged();
     void touchInProgressChanged();
+    void hostGuardChanged();
+    void requireHostGuardChanged();
     void devicePathChanged();
     void activeDeviceNameChanged();
     void deviceNamesChanged();
@@ -60,6 +69,7 @@ private:
     void closeDevice(const QString &status);
     void setBackingWindow(QQuickWindow *window);
     bool inputAllowed() const;
+    void cancelContact();
     void scheduleReconnect();
     void resetInputState();
     void readEvents();
@@ -87,5 +97,6 @@ private:
     bool m_pointerDown = false;
     bool m_touchInProgress = false;
     bool m_wantsActive = false;
+    bool m_requireHostGuard = true;
     QPointF m_lastPosition;
 };

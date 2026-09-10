@@ -1,4 +1,5 @@
 #include "TouchBridge.h"
+#include "HostInputGuard.h"
 
 #include <QQmlExtensionPlugin>
 #include <qqml.h>
@@ -12,6 +13,7 @@ public:
     void registerTypes(const char *uri) override
     {
         qmlRegisterType<TouchBridge>(uri, 1, 0, "TouchBridge");
+        qmlRegisterType<HostInputGuard>(uri, 1, 0, "HostInputGuard");
     }
 };
 

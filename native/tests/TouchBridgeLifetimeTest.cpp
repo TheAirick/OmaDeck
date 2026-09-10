@@ -8,6 +8,7 @@
 #include <initializer_list>
 #include <linux/input.h>
 #include <unistd.h>
+#include "../HostInputGuard.h"
 
 #define private public
 #include "../TouchBridge.h"
@@ -70,6 +71,8 @@ class TouchBridgeLifetimeTest : public QObject
     Q_OBJECT
 
 private slots:
+    void init();
+    void cleanup();
     void deviceSelectionRequiresConfiguredIdentity();
     void deviceSelectionSupportsConfiguredHardware();
     void destroyingTargetClearsTargetAndWindow();
@@ -81,7 +84,112 @@ private slots:
     void droppedStreamClearsSyntheticPointer();
     void disabledDeckCancelsContact_data();
     void disabledDeckCancelsContact();
+    void hostGuardLifetimeFailsClosed();
+    void hostGuardCancelsContact_data();
+    void hostGuardCancelsContact();
+
+private:
+    std::unique_ptr<HostInputGuard> m_guard;
 };
+
+void TouchBridgeLifetimeTest::init()
+{
+    m_guard = std::make_unique<HostInputGuard>();
+    m_guard->setBlocked(false);
+    m_guard->componentComplete();
+}
+
+void TouchBridgeLifetimeTest::cleanup()
+{
+    m_guard.reset();
+    QVERIFY(!HostInputState::instance().available());
+    QVERIFY(!HostInputState::instance().allowed());
+}
+
+void TouchBridgeLifetimeTest::hostGuardLifetimeFailsClosed()
+{
+    TouchBridge bridge;
+    QVERIFY(bridge.requireHostGuard());
+    QVERIFY(bridge.hostGuardAvailable());
+    QVERIFY(bridge.hostInputAllowed());
+    m_guard.reset();
+    QVERIFY(!bridge.hostGuardAvailable());
+    QVERIFY(!bridge.hostInputAllowed());
+    QVERIFY(!bridge.start());
+    QVERIFY(!bridge.active());
+    HostInputGuard replacement;
+    replacement.setBlocked(false);
+    QVERIFY(!bridge.hostGuardAvailable()); // construction cannot authorize input
+    replacement.setBlocked(true);
+    replacement.componentComplete();
+    QVERIFY(bridge.hostGuardAvailable());
+    QVERIFY(!bridge.hostInputAllowed());
+    replacement.setBlocked(false);
+    QVERIFY(bridge.hostInputAllowed());
+    {
+        HostInputGuard duplicate;
+        duplicate.setBlocked(false);
+        duplicate.componentComplete();
+        QVERIFY(!bridge.hostGuardAvailable());
+        QVERIFY(!bridge.hostInputAllowed());
+    }
+    QVERIFY(bridge.hostInputAllowed());
+}
+
+void TouchBridgeLifetimeTest::hostGuardCancelsContact_data()
+{
+    disabledDeckCancelsContact_data();
+}
+
+void TouchBridgeLifetimeTest::hostGuardCancelsContact()
+{
+    QFETCH(QByteArray, control);
+    QFETCH(bool, targetItem);
+    QQmlEngine engine;
+    QQmlComponent component(&engine);
+    component.setData("import QtQuick\nItem { id: root; width: 100; height: 100; property int clicks: 0; "
+                      + control + " }", QUrl());
+    QVERIFY2(component.isReady(), qPrintable(component.errorString()));
+    QQuickWindow window;
+    window.resize(100, 100);
+    auto *item = qobject_cast<QQuickItem *>(component.create());
+    QVERIFY(item);
+    item->setParentItem(window.contentItem());
+    item->setParent(window.contentItem());
+    window.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&window));
+    TouchBridge bridge;
+    bridge.setWindow(targetItem ? static_cast<QObject *>(item) : &window);
+    bridge.m_xMax = bridge.m_yMax = 100;
+    bridge.m_inputState.process(inputEvent(EV_ABS, ABS_X, 25), false);
+    bridge.m_inputState.process(inputEvent(EV_ABS, ABS_Y, 25), false);
+
+    bridge.dispatch(true, false);
+    QVERIFY(bridge.touchInProgress());
+    m_guard->setBlocked(true); // no QML UI binding needed to stop native dispatch
+    QVERIFY(!bridge.touchInProgress());
+    QVERIFY(!bridge.m_pointerDown);
+    bridge.dispatch(false, true);
+    QCOMPARE(item->property("clicks").toInt(), 0);
+    bridge.dispatch(true, false);
+    m_guard->setBlocked(false);
+    bridge.dispatch(false, false);
+    bridge.dispatch(false, true);
+    QCOMPARE(item->property("clicks").toInt(), 0);
+    bridge.dispatch(true, false);
+    bridge.dispatch(false, true);
+    QCOMPARE(item->property("clicks").toInt(), 1);
+    bridge.dispatch(true, false);
+    m_guard->setBlocked(true);
+    m_guard->setBlocked(false); // lock/unlock before the next input frame
+    bridge.dispatch(false, true);
+    QCOMPARE(item->property("clicks").toInt(), 1);
+    bridge.dispatch(true, false);
+    m_guard.reset(); // provider unload must cancel too
+    bridge.dispatch(false, true);
+    QCOMPARE(item->property("clicks").toInt(), 1);
+    QVERIFY(!bridge.hostInputAllowed());
+}
 
 void TouchBridgeLifetimeTest::deviceSelectionRequiresConfiguredIdentity()
 {

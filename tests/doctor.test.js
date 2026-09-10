@@ -24,6 +24,8 @@ function createFixture({
   hardwareState = null,
   monitorNames = ["DP-3", "DP-1"],
   nativeBuilt = true,
+  touchMode = "native",
+  interactionAllowed = true,
 }) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "omadeck-doctor-"))
   const binDir = path.join(root, "bin")
@@ -65,7 +67,7 @@ function createFixture({
   executable(path.join(binDir, "hyprctl"), `#!/usr/bin/env bash\nprintf '%s\\n' '${JSON.stringify(monitorNames.map(name => ({ name })))}'\n`)
   executable(path.join(binDir, "udevadm"), `#!/usr/bin/env bash\nprintf 'ID_INPUT_TOUCHSCREEN=1\\nID_MODEL=${touchModel}\\n'\n`)
   executable(path.join(binDir, "sleep"), `#!/usr/bin/env bash\nprintf '%s\\n' "$1" >>'${sleepLog}'\n`)
-  executable(path.join(binDir, "omarchy-shell"), `#!/usr/bin/env bash\nif [[ $2 == hardwareState ]]; then\n  printf '%s\\n' '${hardwareState ? JSON.stringify(hardwareState) : ""}'\nfi\nif [[ $2 == touchState ]]; then\n  count=0\n  [[ ! -f '${touchStateCount}' ]] || count=$(<'${touchStateCount}')\n  count=$((count + 1))\n  printf '%s' "$count" >'${touchStateCount}'\n  ((count > ${touchStateFailures})) || exit 1\n  if ((count <= ${touchStateFailures + inactiveTouchStates})); then\n    printf '%s\\n' '${JSON.stringify({ active: false, exclusiveGrab: false, devicePath: "", status: "Direct touch not started" })}'\n  else\n    printf '%s\\n' '${JSON.stringify({ active: bridgeActive, exclusiveGrab: bridgeActive, devicePath: touchDevice, status: bridgeActive ? "Isolated direct touch" : "Direct touch not started" })}'\n  fi\nfi\n`)
+  executable(path.join(binDir, "omarchy-shell"), `#!/usr/bin/env bash\nif [[ $2 == hardwareState ]]; then\n  printf '%s\\n' '${hardwareState ? JSON.stringify(hardwareState) : ""}'\nfi\nif [[ $2 == touchState ]]; then\n  count=0\n  [[ ! -f '${touchStateCount}' ]] || count=$(<'${touchStateCount}')\n  count=$((count + 1))\n  printf '%s' "$count" >'${touchStateCount}'\n  ((count > ${touchStateFailures})) || exit 1\n  if ((count <= ${touchStateFailures + inactiveTouchStates})); then\n    printf '%s\\n' '${JSON.stringify({ active: false, exclusiveGrab: false, devicePath: "", status: "Direct touch not started" })}'\n  else\n    printf '%s\\n' '${JSON.stringify({ active: bridgeActive, exclusiveGrab: bridgeActive, mode: touchMode, interactionAllowed, devicePath: touchMode === "compositor" ? "" : touchDevice, status: bridgeActive ? "Isolated direct touch" : "Direct touch not started" })}'\n  fi\nfi\n`)
   for (const name of ["omarchy", "wpctl"])
     executable(path.join(binDir, name), "#!/usr/bin/env bash\nexit 0\n")
 
@@ -147,6 +149,25 @@ test("doctor treats an unbuilt native layer as a healthy standard install", t =>
   assert.match(result.stdout, /System-tray controller is not built/)
   assert.match(result.stdout, /Overall: healthy with/)
   assert.equal(fs.existsSync(fixture.touchStateCount), false)
+})
+
+test("doctor recognizes compositor fallback with native artifacts still installed", t => {
+  const fixture = createFixture({ bridgeActive: false, shellHasOpenFd: false, touchMode: "compositor" })
+  t.after(fixture.cleanup)
+  const result = runDoctor(fixture)
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.match(result.stdout, /no native exclusive grab is expected/)
+  assert.match(result.stdout, /enabled and mapped to DP-3/)
+  assert.doesNotMatch(result.stdout, /\[FAIL\]/)
+  assert.equal(fs.readFileSync(fixture.touchStateCount, "utf8"), "1")
+})
+
+test("doctor exposes disabled interaction even when the native grab is healthy", t => {
+  const fixture = createFixture({ bridgeActive: true, shellHasOpenFd: true, interactionAllowed: false })
+  t.after(fixture.cleanup)
+  const result = runDoctor(fixture)
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.match(result.stdout, /Deck interaction is disabled by the lock guard/)
 })
 
 test("doctor uses the live persisted hardware selection when arguments are omitted", t => {

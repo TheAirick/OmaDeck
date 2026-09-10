@@ -106,8 +106,31 @@ Standard installs use compositor-managed touch and need no local compilation.
 Map the touchscreen to the selected output through Hyprland when its default
 mapping is not correct.
 
+Omarchy versions with a capability-scoped plugin API use this compositor
+mode unless the optional [host input guard](../integrations/omarchy/README.md)
+is installed in the enabled user-owned lock clone. It shares synchronous input
+permission without exposing authentication services. Check `omarchy-shell
+pretty.omadeck touchState` for `mode: compositor`. On Hyprland's Lua configuration,
+the Xeneon Edge mapping can be set in `~/.config/hypr/input.lua`:
+
+```lua
+hl.device({ name = "wch.cn-touchscreen", enabled = true, output = "DP-3" })
+-- Disable the separate mouse-emulation endpoint to avoid duplicate input.
+hl.device({ name = "wch.cn-touchscreen-1", enabled = false })
+```
+
+Use the live device names from `hyprctl devices` and output from `hyprctl
+monitors`; distinguish the `touch` endpoint from any companion `mice` endpoint.
+Replace the older `enabled = false` rule for the actual touchscreen,
+then run `hyprctl reload` and check `hyprctl configerrors`.
+
+Compositor mode can lose deck taps while a game captures the mouse on Hyprland
+0.56.2. For the verified Valheim workaround and optional native integration,
+see [gameplay touch troubleshooting](TROUBLESHOOTING.md#touch-works-on-the-desktop-but-stops-during-gameplay).
+
 The optional native integration provides stricter dedicated-screen routing.
-Build it with `scripts/build-native` and restart the shell before using the
+It requires a synchronous lock-service guard or the optional host input guard. Build it with
+`scripts/build-native` and restart the shell before using the
 device selector and exclusive mapping below.
 
 OmaDeck's native bridge discovers a direct touchscreen whose evdev name contains
@@ -143,14 +166,16 @@ To diagnose a custom identity directly, repeat `--touch-device-name` as needed:
 The bridge automatically retries once per second when suspend or a USB reset
 temporarily removes the device.
 
-For a dedicated Xeneon Edge, disconnect both of its normalized libinput views
-from Hyprland so the compositor cannot race the bridge after a shell restart.
-Add the names reported by `hyprctl devices` to `~/.config/hypr/input.lua`:
+Keep the actual touch endpoint enabled and mapped to the deck so compositor
+fallback remains usable if the native bridge or lock guard is unavailable.
+Disable only its separate mouse-emulation endpoint. Use the names reported by
+`hyprctl devices` in `~/.config/hypr/input.lua`:
 
 ```lua
 hl.device({
   name = "wch.cn-touchscreen",
-  enabled = false,
+  enabled = true,
+  output = "DP-3",
 })
 
 hl.device({
@@ -160,7 +185,8 @@ hl.device({
 ```
 
 Reload with `hyprctl reload` and confirm `hyprctl configerrors` is empty. Other
-touchscreen models can use different normalized names.
+touchscreen models can use different normalized names. An active native bridge
+holds an exclusive grab, preventing duplicate delivery to the compositor.
 
 ## System tray
 

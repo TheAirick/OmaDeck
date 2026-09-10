@@ -103,6 +103,14 @@ fresh private directory, verified, and atomically installed into the plugin
 checkout; generated binaries and their integrity record remain local to that
 checkout.
 
+On Omarchy hosts that keep the lock service private, independent native touch
+also needs the optional [host input guard](integrations/omarchy/README.md) in
+the enabled user-owned lock clone. Without a synchronous lock guard, OmaDeck
+releases native touch to Hyprland's compositor-managed routing. Keep the actual
+touchscreen enabled and mapped as described in [Configuration](docs/CONFIGURATION.md#touch-mapping).
+Compositor touch can be affected by game mouse capture; the guarded native
+route operates independently of it.
+
 After an update, standard mode is immediately available. If you use the
 optional native integration, rebuild it after updating:
 

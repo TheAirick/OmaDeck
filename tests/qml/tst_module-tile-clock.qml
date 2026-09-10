@@ -276,6 +276,18 @@ TestCase {
     comparePersistent(persistentSnapshot(), stateBefore, "timer lifecycle", true)
   }
 
+  function test_compositorTouchOpensClockTimer() {
+    var tile = makeTile(530, 380)
+    var fixture = panelFixture(tile)
+    var events = touchEvent(fixture.clock)
+    events.press(0, fixture.clock, fixture.clock.width / 2, fixture.clock.height / 2).commit()
+    wait(80)
+    events.release(0, fixture.clock, fixture.clock.width / 2, fixture.clock.height / 2).commit()
+    tryCompare(fixture.timer, "visible", true)
+    compare(fixture.weather.visible, false)
+    compare(editCalls, 0)
+  }
+
   function test_ordinaryModuleRetainsOneGenericCard() {
     var tile = makeTile(530, 380)
     layoutController.moduleId = "workspaces"
