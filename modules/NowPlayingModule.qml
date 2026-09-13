@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import "../theme"
 import qs.Ui
 import "MediaArtwork.js" as MediaArtwork
 
@@ -181,7 +182,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         width: Style.space(44)
         text: root.formatTime(root.displayedPosition)
-        color: Color.muted
+        color: DeckColors.secondaryText
         horizontalAlignment: Text.AlignRight
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
@@ -202,7 +203,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         width: Style.space(44)
         text: root.effectiveLength > 0 ? root.formatTime(root.effectiveLength) : "—:—"
-        color: Color.muted
+        color: DeckColors.secondaryText
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
       }
@@ -251,8 +252,7 @@ Item {
         anchors.margins: artwork.borderLeft
         height: Math.min(parent.height,
           metadataColumn.implicitHeight + Style.spacing.controlGap * 2)
-        color: Qt.rgba(Color.popups.background.r, Color.popups.background.g,
-          Color.popups.background.b, 0.86)
+        color: DeckColors.surface
         z: 2
 
         Column {
@@ -275,7 +275,7 @@ Item {
             width: parent.width
             text: root.player ? [root.player.trackArtist || root.player.identity || "", root.playbackStatus].filter(Boolean).join(" · ")
               : root.media ? "Compatible players appear here." : "Waiting for Omarchy media."
-            color: Color.muted
+            color: DeckColors.secondaryText
             font.family: Style.font.family
             font.pixelSize: Style.font.body
             maximumLineCount: 1
@@ -302,6 +302,7 @@ Item {
         spacing: Style.spacing.labelGap
 
         Button {
+          Accessible.name: "Previous track"
           iconText: "󰒮"; iconSize: Style.font.iconLarge * 2.2; foreground: Color.accent
           width: Style.space(52); height: Style.space(72)
           horizontalPadding: 0; verticalPadding: 0
@@ -312,7 +313,7 @@ Item {
         Button {
           objectName: "seekBackwardControl"
           foreground: Color.accent
-          tooltipText: "Seek backward"
+          Accessible.name: "Seek backward 10 seconds"
           width: Style.space(52); height: Style.space(72)
           horizontalPadding: 0; verticalPadding: 0
           color: "transparent"; borderSpec: Border.none()
@@ -329,7 +330,9 @@ Item {
         Button {
           id: playPauseControl
           objectName: "playPauseControl"
-          tooltipText: root.playbackStatus
+          // Status already lives on the artwork. Native touch is delivered as
+          // mouse events, so hover tooltips can outlive the finger contact.
+          Accessible.name: root.player && root.player.isPlaying ? "Pause" : "Play"
           iconText: root.player && root.player.isPlaying ? "󰏤" : "󰐊"
           iconSize: Style.font.displayLarge * 2; foreground: Color.accent
           width: Style.space(72); height: Style.space(72)
@@ -341,7 +344,7 @@ Item {
         Button {
           objectName: "seekForwardControl"
           foreground: Color.accent
-          tooltipText: "Seek forward"
+          Accessible.name: "Seek forward 10 seconds"
           width: Style.space(52); height: Style.space(72)
           horizontalPadding: 0; verticalPadding: 0
           color: "transparent"; borderSpec: Border.none()
@@ -356,6 +359,7 @@ Item {
           }
         }
         Button {
+          Accessible.name: "Next track"
           iconText: "󰒭"; iconSize: Style.font.iconLarge * 2.2; foreground: Color.accent
           width: Style.space(52); height: Style.space(72)
           horizontalPadding: 0; verticalPadding: 0

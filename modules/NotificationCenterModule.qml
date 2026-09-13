@@ -4,6 +4,7 @@ import Quickshell.Bluetooth
 import Quickshell.Io
 import Quickshell.Networking
 import qs.Commons
+import "../theme"
 import qs.Ui
 import "../components"
 import "NotificationHistory.js" as NotificationHistory
@@ -250,7 +251,7 @@ Item {
 
         Text {
           text: "Open"
-          color: Color.muted
+          color: DeckColors.secondaryText
           font.family: Style.font.family
           font.pixelSize: Style.font.caption
           font.bold: true
@@ -398,7 +399,7 @@ Item {
                 width: parent.width
                 text: notificationDelegate.modelData.body || notificationDelegate.modelData.app
                 textFormat: Text.PlainText
-                color: Color.muted
+                color: DeckColors.secondaryTextOn(notificationCard.color)
                 font.family: Style.font.family
                 font.pixelSize: Style.font.caption
                 elide: Text.ElideRight
@@ -411,7 +412,7 @@ Item {
               anchors.rightMargin: Style.spacing.panelGap
               anchors.verticalCenter: parent.verticalCenter
               text: root.timeLabel(notificationDelegate.modelData.timestamp)
-              color: Color.muted
+              color: DeckColors.secondaryTextOn(notificationCard.color)
               font.family: Style.font.family
               font.pixelSize: Style.font.caption
             }
@@ -425,7 +426,7 @@ Item {
           anchors.centerIn: parent
           visible: root.entries.length === 0
           text: "󰂚   No recent notifications"
-          color: Color.muted
+          color: DeckColors.secondaryText
           font.family: Style.font.family
           font.pixelSize: Style.font.display
         }

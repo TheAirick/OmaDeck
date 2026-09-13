@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import "../theme"
 
 Item {
   id: root
@@ -45,7 +46,7 @@ Item {
       visible: root.description !== ""
       width: parent.width
       text: root.description
-      color: Color.muted
+      color: DeckColors.secondaryText
       font.family: Style.font.family
       font.pixelSize: Style.font.caption
       elide: Text.ElideRight

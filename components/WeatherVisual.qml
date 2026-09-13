@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import "../theme"
 
 Item {
   id: root
@@ -71,7 +72,7 @@ Item {
     visible: !root.available
     anchors.centerIn: parent
     text: root.loading ? "󰔟  Updating weather…" : "󰖪  Weather unavailable"
-    color: Color.muted
+    color: DeckColors.secondaryText
     font.family: Style.font.family
     font.pixelSize: Style.font.body
   }
@@ -206,7 +207,7 @@ Item {
           Text {
             anchors.verticalCenter: parent.verticalCenter
             text: ""
-            color: Color.muted
+            color: DeckColors.secondaryText
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
           }
@@ -214,7 +215,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             width: Math.max(0, parent.width - x - highLow.width - Style.spacing.controlGap)
             text: String(root.weather.location || "Current location").toUpperCase()
-            color: Color.muted
+            color: DeckColors.secondaryText
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
             font.letterSpacing: 0.8
@@ -224,7 +225,7 @@ Item {
             id: highLow
             anchors.verticalCenter: parent.verticalCenter
             text: "H " + root.temp(root.weather.highC, false) + "   L " + root.temp(root.weather.lowC, false)
-            color: Color.muted
+            color: DeckColors.secondaryText
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
           }
@@ -280,7 +281,7 @@ Item {
                   spacing: Style.space(2)
                   Text {
                     text: root.dayName(modelData.date)
-                    color: Color.muted
+                    color: DeckColors.secondaryText
                     font.family: Style.font.family
                     font.pixelSize: Style.font.caption
                     font.letterSpacing: 0.8
@@ -351,7 +352,7 @@ Item {
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             text: "  " + String(root.weather.location || "Current location").toUpperCase()
-            color: Color.muted
+            color: DeckColors.secondaryText
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
             font.letterSpacing: 0.7
@@ -428,7 +429,7 @@ Item {
                   spacing: Style.space(2)
                   Text {
                     text: root.dayName(modelData.date)
-                    color: Color.muted
+                    color: DeckColors.secondaryText
                     font.family: Style.font.family
                     font.pixelSize: Style.font.caption
                     font.letterSpacing: 0.7
@@ -474,14 +475,14 @@ Item {
         }
         Text {
           text: root.weather.conditionLabel + (root.effectiveDetail === "compact" ? "" : "  ·  " + root.weather.location)
-          color: Color.muted
+          color: DeckColors.secondaryText
           font.family: Style.font.family
           font.pixelSize: Style.font.body
         }
         Text {
           visible: root.effectiveDetail === "full"
           text: "Feels " + root.temp(root.weather.feelsLikeC, true) + "  ·  " + root.wind(root.weather.windKph) + "  ·  " + Math.round(Number(root.weather.humidity || 0)) + "% humidity"
-          color: Color.muted
+          color: DeckColors.secondaryText
           font.family: Style.font.family
           font.pixelSize: Style.font.caption
         }
@@ -514,7 +515,7 @@ Item {
       Text {
         anchors.verticalCenter: parent.verticalCenter
         text: root.weather.conditionLabel
-        color: Color.muted
+        color: DeckColors.secondaryText
         font.family: Style.font.family
         font.pixelSize: Style.font.body
       }
@@ -522,7 +523,7 @@ Item {
         visible: root.effectiveDetail !== "compact"
         anchors.verticalCenter: parent.verticalCenter
         text: "H " + root.temp(root.weather.highC, false) + "  L " + root.temp(root.weather.lowC, false)
-        color: Color.muted
+        color: DeckColors.secondaryText
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
       }
@@ -536,7 +537,7 @@ Item {
 
     Text {
       text: parent.label
-      color: Color.muted
+      color: DeckColors.secondaryText
       font.family: Style.font.family
       font.pixelSize: Style.font.caption
       font.letterSpacing: 0.8

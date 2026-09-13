@@ -77,39 +77,13 @@ test("Preferences projects OmaDeck appearance controls through the same controll
   assert.match(preferencesModule, /appearanceController\.setOption\(key, value\)/)
   assert.doesNotMatch(preferencesModule, /FileView|Process\s*\{|writeAdapter|JSON\.stringify/)
   for (const key of [
-    "clockStyle", "use24Hour", "showSeconds", "showWeather",
+    "use24Hour", "showSeconds", "showWeather",
     "weatherStyle", "weatherDetail", "temperatureUnit",
   ]) assert.match(preferencesModule, new RegExp(`applyAppearance\\("${key}"`))
 })
 
-test("Preferences delegates Shell controls to Omarchy's existing services", () => {
-  for (const serviceId of ["omarchy.notifications", "omarchy.nightlight", "omarchy.idle"])
-    assert.match(preferencesModule, new RegExp(`firstPartyServiceFor\\("${serviceId.replace(".", "\\.")}"\\)`))
-  assert.match(preferencesModule, /notificationService\.setDoNotDisturb\(value\)/)
-  assert.match(preferencesModule, /nightlightService\.setNightlight\(value\)/)
-  assert.match(preferencesModule, /idleService\.setIdleEnabled\(!value\)/)
-  assert.doesNotMatch(preferencesModule, /FileView|Process\s*\{|execDetached|persistShellConfig/)
-})
-
-test("Preferences uses the host-owned config mutator for direct bar and idle settings", () => {
-  assert.match(preferencesModule, /shell\.mutateShellConfig\(mutator\)/)
-  assert.match(preferencesModule, /config\.bar\.position = value/)
-  assert.match(preferencesModule, /config\.bar\.transparent = value === true/)
-  assert.match(preferencesModule, /\[60, 150, 300, 600, 900\]/)
-  assert.match(preferencesModule, /\[300, 600, 900, 1800, 3600\]/)
-  assert.match(preferencesModule, /config\.idle\[key\] = seconds/)
-  assert.doesNotMatch(preferencesModule, /FileView|Process\s*\{|execDetached|persistShellConfig/)
-})
-
-test("Preferences hands complex settings to installed Omarchy panels and menus", () => {
-  assert.match(preferencesModule, /shell\.summon\("omarchy\.menu"/)
-  for (const route of [
-    "style.theme", "style.background", "style.font", "trigger.toggle",
-    "learn.keybindings", "setup.monitors", "trigger.hardware", "setup.input",
-    "setup.default", "apps", "system", "setup.plugin", "setup.config", "update",
-  ]) assert.match(preferencesModule, new RegExp(route.replace(".", "\\.")))
-  for (const panel of ["omarchy.monitor", "omarchy.audio", "omarchy.bluetooth", "omarchy.power"])
-    assert.match(preferencesModule, new RegExp(panel.replace(".", "\\.")))
+test("Preferences has no system-wide configuration or menu routes", () => {
+  assert.doesNotMatch(preferencesModule, /firstPartyServiceFor|mutateShellConfig|shell\.summon|openOmarchy|FileView|Process\s*\{|execDetached/)
 })
 
 test("Preferences delegates detected hardware choices to one validated controller", () => {

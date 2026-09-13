@@ -24,11 +24,22 @@ a web server, Electron process, or separate system daemon.
   so persisted data cannot introduce an arbitrary command vector.
 - `services/TimerController.qml` owns the Clock's single deadline-based
   countdown, separate atomic sound preference, and claimed notification/
-  three-chime completion effects. Static allowlisted Canberra commands share
-  the default PipeWire route, and the controller serializes preview and
+  three-chime completion effects. Ocean is the default, bundled unchanged with
+  its CC-BY-SA-4.0 attribution under `assets/sounds/`. Its full 6.15-second clip
+  has an eight-second playback deadline; legacy system events retain three
+  seconds. A running player always blocks the next chime. Allowlisted Canberra
+  event/file commands share the default PipeWire route, and the controller serializes preview and
   completion players under one lifecycle.
 - `services/WeatherController.qml` owns refresh state and normalizes provider
   condition codes for the UI.
+
+`theme/DeckColors.qml` derives OmaDeck's opaque panel backing and secondary-text
+role from live Omarchy colors. `TextContrast.js` preserves readable muted colors
+and otherwise mixes toward the foreground to reach 4.5:1 sRGB contrast. If the
+foreground itself cannot meet that floor, it uses the stronger black/white
+endpoint. Color quantization is included in the check. Bindings react to theme
+changes without polling or writing theme files; labels on control fills can
+request `secondaryTextOn(background)` for their actual backing.
 
 Weather presentation has a separate, lifecycle-free boundary:
 `modules/WeatherModule.qml` adapts the service-owned `WeatherController` state
@@ -83,6 +94,14 @@ slim edge chevron again restores the narrow strip without reserving a full
 button column. The stable PipeWire snapshot remains
 the presentation model authority while category changes fan out to currently
 live member streams.
+The expanded mixer's Output and Mic rows open an in-drawer device picker.
+`services/AudioDeviceController.qml` observes the shared PipeWire graph and
+defers scalar device snapshots before rebuilding the picker. Selection checks
+both the current node ID and name, serializes a bounded installed Omarchy
+audio-switch command, and confirms the actual default from PipeWire before
+returning to the mixer. It adds no persisted routing state or discovery process.
+Both device lists remain mounted while the picker is open; Output/Mic tab taps
+change visibility immediately without recreating the themed row controls.
 `modules/NowPlayingModule.qml` owns only the active-player projection, local
 duration/position and same-track artwork caches, transport controls, metadata,
 and timeline. Its presentation centers bounded artwork at the top, overlays the
@@ -140,18 +159,11 @@ dispatch language.
 The Command Center is a small page host. Its six controls expose Volume, System,
 Notifications, Overview, Applications, and Preferences. Applications replaces
 the home controls in place with `AppLauncherModule`; Home returns without changing
-the center layout. Preferences opens a full-surface category browser. Its first
-functional page owns OmaDeck layout entry points, Clock/Weather controls, and
-the timer sound selector, all delegated to the existing validated controllers.
-The Shell page projects Do Not Disturb, Night Light, and Keep Awake directly
-from the installed first-party notification, nightlight, and idle services.
-Appearance and Desktop expose the small settings for which the shell already
-owns live state and validated persistence—bar position/transparency and idle
-timeouts—through `shell.mutateShellConfig`. Richer Appearance, Desktop,
-Displays, Input, Sound, Applications, Power, and Advanced actions summon the
-installed Omarchy menu or first-party panel that owns the setting. Preferences
-therefore neither spawns helpers nor writes `shell.json`, Hyprland files, or
-application defaults itself. Launcher entries may be added from Omarchy's filtered live
+the center layout. Preferences opens a full-surface browser with Dashboard, Timer,
+Display & touch, and Launcher categories. These delegate layout, appearance,
+sound, hardware, and launcher choices to OmaDeck's existing validated
+controllers. Preferences has no system-wide shell configuration mutators or
+Omarchy settings-menu routes. Launcher entries may be added from Omarchy's filtered live
 application library or a curated shortcut catalog, removed, and moved left or
 right. The service-owned launcher controller saves only stable IDs.
 
@@ -212,7 +224,10 @@ plugin checkout therefore never fails its keep-loaded service import.
 OmaDeck also contains two optional native Qt components:
 
 - `TouchBridge` exclusively reads the direct touchscreen evdev node and injects
-  pointer events only into the OmaDeck window. An explicit list of distinctive,
+  pointer events only into the OmaDeck window. Each contact primes Qt's local
+  hover chain with a move before the press, so the release's Leave event clears
+  MouseArea highlights even when the finger never moved. The compositor's mouse
+  cursor is unaffected. An explicit list of distinctive,
   case-insensitive device-name substrings authorizes the exclusive grab; an
   absent match fails closed without selecting another direct touchscreen. It
   exposes the bounded set of readable direct-touch device names to Preferences

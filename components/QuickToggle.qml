@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import "../theme"
 import qs.Ui
 
 BorderSurface {
@@ -54,7 +55,7 @@ BorderSurface {
     Text {
       width: parent.width
       text: root.available ? root.status : "Unavailable"
-      color: Color.muted
+      color: DeckColors.secondaryTextOn(root.color)
       font.family: Style.font.family
       font.pixelSize: Style.font.caption
       horizontalAlignment: Text.AlignHCenter

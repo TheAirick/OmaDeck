@@ -6,8 +6,9 @@ var MAX_SECONDS = 59
 var MAX_DURATION_MS = (MAX_HOURS * 3600 + MAX_MINUTES * 60 + MAX_SECONDS) * 1000
 var CHIME_ATTEMPT_LIMIT = 3
 var CHIME_INTERVAL_MS = 4000
-var DEFAULT_SOUND_ID = "complete"
+var DEFAULT_SOUND_ID = "ocean"
 var TIMER_SOUNDS = [
+  { label: "Ocean", eventId: "ocean" },
   { label: "Silent", eventId: "" },
   { label: "Alarm", eventId: "alarm-clock-elapsed" },
   { label: "Complete", eventId: "complete" },
@@ -60,10 +61,16 @@ function restoreSoundSettings(raw) {
   }
 }
 
-function playbackCommand(eventId) {
+function playbackCommand(eventId, oceanPath) {
+  var soundId = normalizeSoundId(eventId)
   var prefix = ["/usr/bin/timeout", "--signal=TERM", "--kill-after=1s", "3s",
                 "/usr/bin/canberra-gtk-play"]
-  switch (normalizeSoundId(eventId)) {
+  switch (soundId) {
+  case "ocean":
+    if (typeof oceanPath !== "string" || oceanPath.charAt(0) !== "/") return null
+    // Ocean lasts 6.15 seconds; allow the full decay while bounding a stuck player.
+    return ["/usr/bin/timeout", "--signal=TERM", "--kill-after=1s", "8s",
+            "/usr/bin/canberra-gtk-play", "-f", oceanPath, "-d", "OmaDeck timer sound"]
   case "": return null
   case "alarm-clock-elapsed":
     return prefix.concat(["-i", "alarm-clock-elapsed", "-d", "OmaDeck timer sound"])

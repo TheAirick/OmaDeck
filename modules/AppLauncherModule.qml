@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import qs.Commons
+import "../theme"
 import qs.Ui
 
 Item {
@@ -289,7 +290,7 @@ Item {
       anchors.centerIn: parent
       visible: root.entries.length === 0
       text: root.catalogOpen ? "Everything is already pinned" : "Tap Add to pin an application or shortcut"
-      color: Color.muted
+      color: DeckColors.secondaryText
       font.family: Style.font.family
       font.pixelSize: Style.font.body
     }

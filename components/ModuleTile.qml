@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import "../theme"
 import "../modules"
 
 Item {
@@ -78,7 +79,7 @@ Item {
     anchors.bottom: parent.bottom
     anchors.margins: Style.spacing.controlPaddingX
     text: root.selected ? "DRAG OR TAP A TARGET" : "TAP TO SWAP"
-    color: root.selected ? Color.accent : Color.muted
+    color: root.selected ? Color.accent : DeckColors.secondaryText
     font.family: Style.font.family
     font.pixelSize: Style.font.caption
     font.bold: true

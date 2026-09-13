@@ -154,6 +154,7 @@ test("offscreen actual DeckSurface path renders separate media panels", {
     }
     fs.symlinkSync(path.join(repositoryRoot, "modules"), path.join(testRoot, "modules"))
     fs.symlinkSync(path.join(repositoryRoot, "services"), path.join(testRoot, "services"))
+    fs.symlinkSync(path.join(repositoryRoot, "theme"), path.join(testRoot, "theme"))
 
     const deckSurface = source("components/DeckSurface.qml")
       .replace(/^import Quickshell.*\n/gm, "")

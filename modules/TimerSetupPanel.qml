@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import "../theme"
 import qs.Ui
 import "../components"
 
@@ -64,7 +65,7 @@ Item {
       Text {
         height: root.touchTarget
         text: ":"
-        color: Color.muted
+        color: DeckColors.secondaryText
         font.family: Style.font.family
         font.pixelSize: Style.font.title
         font.bold: true
@@ -86,7 +87,7 @@ Item {
       Text {
         height: root.touchTarget
         text: ":"
-        color: Color.muted
+        color: DeckColors.secondaryText
         font.family: Style.font.family
         font.pixelSize: Style.font.title
         font.bold: true

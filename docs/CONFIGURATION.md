@@ -9,9 +9,6 @@ Open **Preferences** from OmaDeck's Command Center, or open the OmaDeck
 taskbar icon's menu on the primary desktop and choose **Clock & weather
 settings…**. Both surfaces use the same validated controller for:
 
-- The saved Hero, Split, or Compact clock preference (retained for rollback and
-  compatibility); the Clock + Weather/Timer companion surface currently uses
-  the accepted compact Clock presentation
 - 12- or 24-hour time and optional seconds
 - Weather visibility and manual refresh. Choosing **Hidden** is a privacy
   opt-out: OmaDeck stops weather refreshes, retry work, and location polling,
@@ -24,44 +21,22 @@ The OmaDeck Preferences page also selects and previews the timer completion
 sound through the timer's existing allowlisted, atomically persisted sound
 controller.
 
-## Omarchy preferences
+## OmaDeck preferences
 
-The **Shell** category in OmaDeck Preferences projects three live Omarchy
-services without duplicating their state or editing `shell.json` directly:
+Preferences contains four app-specific categories:
 
-- **Do Not Disturb** uses the persistent `omarchy.notifications` service.
-- **Night Light** uses the current `omarchy.nightlight` service and remains
-  unavailable until that service has detected the active temperature.
-- **Keep Awake** uses `omarchy.idle`, including its existing persistent state,
-  to temporarily suspend the configured screensaver and automatic lock cycle.
+- **Dashboard**: layout editing, clock format, weather visibility, style, detail,
+  units, and refresh.
+- **Timer**: completion sound selection and preview. **Ocean** is the default.
+- **Display & touch**: OmaDeck's display, the monitor used for its application
+  and workspace actions, and touchscreen selection/reconnection.
+- **Launcher**: add, remove, and rearrange Command Center applications.
 
-The other categories combine direct, host-owned controls with links into the
-installed Omarchy interface:
+System themes, bar settings, keybindings, power, and broader Omarchy configuration
+remain in Omarchy's own interface. The Command Center retains its everyday
+Volume, System, Notifications, Overview, and Applications controls.
 
-- **Appearance** changes bar position and transparency through Omarchy's shell
-  configuration mutator, and opens Omarchy's theme, background, and font
-  selectors.
-- **Desktop** changes the screensaver and lock timeouts through that same
-  mutator, exposes Keep Awake, and opens Omarchy's workspace/window toggles and
-  keybinding browser.
-- **Displays** chooses OmaDeck and primary workspace monitors before offering
-  Omarchy's monitor controls. **Input** chooses and reconnects the authorized
-  direct touchscreen before opening Omarchy's broader hardware/input routes.
-  **Sound** opens the installed audio and Bluetooth surfaces plus OmaDeck's
-  touch mixer.
-- **Applications** opens OmaDeck's editable launcher, Omarchy's default-app
-  selector, and its complete application library.
-- **Power** opens Omarchy's battery/profile panel and session actions, while
-  retaining the live Keep Awake control.
-- **Advanced** opens Omarchy's plugin, configuration, update, and recovery
-  routes.
-
-OmaDeck does not duplicate Omarchy's package discovery or configuration-file
-editors. Settings with more complex validation remain owned by Omarchy and are
-opened on demand from the touch-friendly Preferences index.
-
-OmaDeck's Clock and Weather appearance choices (not the Omarchy settings above)
-are saved atomically to
+OmaDeck's Clock and Weather choices are saved atomically to
 `~/.config/omadeck/appearance.json`. Removing that file restores the defaults.
 The selected weather detail is a maximum: OmaDeck temporarily removes forecast,
 location, or secondary stats when a drawer or edited split leaves too little
@@ -91,7 +66,7 @@ providers when weather is enabled.
 
 ## Monitor names
 
-Open **Preferences → Displays**. **OmaDeck screen** chooses the connected output
+Open **Preferences → Display & touch**. **OmaDeck screen** chooses the connected output
 that displays the dashboard; changing it moves OmaDeck immediately. **Primary
 workspace monitor** chooses where workspace and application actions are sent.
 The selectors use Quickshell's connected-screen model, so a stale or invented
@@ -141,7 +116,7 @@ other touchscreens untouched instead of falling back to one of them. This
 prevents touch from moving the desktop mouse pointer or activating windows on
 another monitor without risking an unrelated laptop or pen display touchscreen.
 
-Open **Preferences → Input** to choose from direct touchscreens that the native
+Open **Preferences → Display & touch** to choose from direct touchscreens that the native
 bridge can currently open and verify. Saving a device records its exact evdev
 name and reconnects the bridge. The initial fallback identities are `WCH.CN`
 and `XENEON`; they allow first-run discovery without authorizing an unrelated
@@ -195,7 +170,7 @@ system-tray controller with the service. Click its
 icon from the primary desktop to open the OmaDeck Control Center, inspect touch
 and monitor health, copy a sanitized report, request a touch reconnect, or
 restart the Omarchy shell. Its context menu exposes **Clock & weather settings…**,
-using the same controller as **Preferences → OmaDeck**. This path does not
+using the same controller as **Preferences → Dashboard**. This path does not
 require the deck touchscreen.
 
 The tray is intentionally absent in standard mode. If you want it, run
@@ -207,6 +182,15 @@ Now Playing is a permanent dashboard card beside Clock/Weather and Command
 Center. Pull right from the left edge to reveal the separate Volume drawer;
 reverse-swipe its inner edge to hide it. Expanding Volume changes only the
 drawer width and never removes or recreates the Now Playing presenter.
+
+Tap the Volume drawer's chevron to expand it. The **Output** and **Mic** rows
+show the current system devices; tap either row to choose a connected device.
+The checkmark follows the actual system default, including changes made outside
+OmaDeck. Output and microphone are selected independently. **Back** returns to
+the mixer without switching. Device choices use Omarchy's native audio routing
+commands, including moving current application streams; volumes and mute states
+are left as they are. Applications that pin their own device may still require
+their in-app audio setting. WirePlumber owns the saved defaults.
 
 ## Application launcher
 
@@ -280,13 +264,31 @@ The Clock's single countdown is stored atomically in
 after a plugin rescan or shell recreation. Removing the file while no timer is
 needed resets the countdown to idle; invalid state also fails closed to idle.
 
-The timer's selected Freedesktop sound event is stored independently and
-atomically in `~/.config/omadeck/timer-settings.json`. Missing, corrupt, or
-unsupported settings are repaired to **Complete** without changing countdown
-state. The setup sheet only accepts OmaDeck's curated events; **Silent** stores
+The timer's selected sound ID is stored independently and atomically in
+`~/.config/omadeck/timer-settings.json`. Missing, corrupt, or
+unsupported settings are repaired to **Ocean** without changing countdown
+state. Existing valid selections, including Silent, are preserved. Ocean plays
+the bundled KDE Ocean `alarm-clock-elapsed.oga`; the other audible choices use
+Freedesktop sound events from the system theme. See the bundled
+[sound attribution and license](../assets/sounds/README.md).
+The setup sheet only accepts OmaDeck's curated sound IDs; **Silent** stores
 an empty event ID and suppresses completion playback.
 
 ## Theme behavior
 
 OmaDeck consumes Omarchy's live `Color`, `Style`, and `Border` tokens. Changing
 the Omarchy theme updates OmaDeck automatically; there is no separate theme.
+
+Secondary labels use a shared contrast floor of **4.5:1** against their OmaDeck
+panel. Already-readable muted colors retain the theme's choice; faint colors
+move toward its foreground just enough to reach the floor. This brightens text
+on dark themes and darkens it on light themes, updating immediately when the
+theme changes. Cards and the media caption band use a solid backing derived
+from the popup/background palette, so wallpaper and artwork cannot wash out
+those labels. Disabled controls and decorative dividers retain their separate
+visual states. This changes OmaDeck only, not the system theme.
+
+The contrast target follows [WCAG's normal-text guidance](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html).
+Regression checks cover captured light/dark palettes, arbitrary custom colors,
+and existing QML labels during live palette changes. Physical screen brightness,
+viewing angle, and very thin fonts still affect perceived readability.

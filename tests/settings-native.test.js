@@ -60,6 +60,10 @@ for (const upgrade of [false, true]) test(upgrade
       assert.ok(match, output)
       return JSON.parse(match[1])
     }
+    if (!upgrade) {
+      assert.equal(run("snapshot").timerSound, "ocean", "fresh settings default to Ocean")
+      assert.equal(run("snapshot").timerSound, "ocean", "Ocean survives controller recreation")
+    }
     const written = run("write")
     assert.equal(written.appearance.use24Hour, true)
     assert.equal(written.appearance.temperatureUnit, "celsius")

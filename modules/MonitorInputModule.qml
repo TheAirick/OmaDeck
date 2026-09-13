@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import "../theme"
 import qs.Ui
 
 BorderSurface {
@@ -79,7 +80,7 @@ BorderSurface {
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: "󰍹"
-      color: Color.muted
+      color: DeckColors.secondaryTextOn(root.color)
       font.family: Style.font.family
       font.pixelSize: Style.font.icon
     }
@@ -87,7 +88,7 @@ BorderSurface {
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: root.statusText || "Alienware"
-      color: root.statusText.indexOf("Failed") === 0 ? Color.urgent : Color.muted
+      color: root.statusText.indexOf("Failed") === 0 ? Color.urgent : DeckColors.secondaryTextOn(root.color)
       font.family: Style.font.family
       font.pixelSize: Style.font.caption
       font.bold: root.statusText !== ""

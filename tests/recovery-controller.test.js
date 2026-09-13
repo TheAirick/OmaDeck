@@ -9,7 +9,7 @@ test('actual QML controllers recover from injected I/O failures', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'omadeck-recovery-'))
   const root = path.resolve(__dirname, '..')
   try {
-    for (const folder of ['services', 'components'])
+    for (const folder of ['services', 'components', 'theme'])
       fs.cpSync(path.join(root, folder), path.join(dir, folder), { recursive: true })
     fs.cpSync(path.join(__dirname, 'qml/imports'), path.join(dir, 'imports'), { recursive: true })
     fs.cpSync(path.join(__dirname, 'recovery'), dir, { recursive: true })

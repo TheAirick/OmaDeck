@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import "../theme"
 
 Item {
   id: root
@@ -54,7 +55,7 @@ Item {
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
         text: root.timerSummary()
-        color: root.timerStatus !== "idle" ? Color.accent : Color.muted
+        color: root.timerStatus !== "idle" ? Color.accent : DeckColors.secondaryText
         font.family: Style.font.family
         font.pixelSize: Style.font.body
       }

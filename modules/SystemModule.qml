@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import "../theme"
 import qs.Ui
 import "../components"
 import "ClipboardDeletePolicy.js" as ClipboardDeletePolicy
@@ -406,7 +407,7 @@ Item {
       anchors.rightMargin: Style.spacing.controlGap
       anchors.verticalCenter: parent.verticalCenter
       text: root.statsStatus
-      color: root.statsError !== "" ? Color.urgent : Color.muted
+      color: root.statsError !== "" ? Color.urgent : DeckColors.secondaryText
       font.family: Style.font.family
       font.pixelSize: Style.font.caption
       elide: Text.ElideRight
@@ -448,7 +449,7 @@ Item {
       anchors.right: parent.right
       anchors.baseline: overviewTitle.baseline
       text: root.statsStale || root.statsError !== "" ? "Last snapshot" : "Live overview"
-      color: Color.muted
+      color: DeckColors.secondaryText
       font.family: Style.font.family
       font.pixelSize: Style.font.caption
     }
@@ -489,9 +490,9 @@ Item {
         spacing: Style.spacing.controlGap
 
         BreadcrumbPart { label: "System"; navigable: true; onTriggered: root.returnToSystem() }
-        Text { text: "󰅂"; color: Color.muted; font.family: Style.font.family; font.pixelSize: Style.font.body }
+        Text { text: "󰅂"; color: DeckColors.secondaryText; font.family: Style.font.family; font.pixelSize: Style.font.body }
         BreadcrumbPart { label: root.sectionTitle(root.selectedSection); navigable: root.hasLeaf(); onTriggered: root.returnToSection() }
-        Text { visible: root.hasLeaf(); text: "󰅂"; color: Color.muted; font.family: Style.font.family; font.pixelSize: Style.font.body }
+        Text { visible: root.hasLeaf(); text: "󰅂"; color: DeckColors.secondaryText; font.family: Style.font.family; font.pixelSize: Style.font.body }
         BreadcrumbPart { visible: root.hasLeaf(); label: root.leafTitle(); navigable: false }
       }
     }
@@ -525,9 +526,9 @@ Item {
     Text { id: stripIcon; anchors.left: parent.left; anchors.leftMargin: Style.spacing.panelGap; anchors.verticalCenter: parent.verticalCenter; text: strip.iconText; color: Color.accent; font.family: Style.font.family; font.pixelSize: Style.font.display }
     Column { anchors.left: stripIcon.right; anchors.leftMargin: Style.spacing.panelGap; anchors.right: stripArrow.left; anchors.rightMargin: Style.spacing.controlGap; anchors.verticalCenter: parent.verticalCenter; spacing: Style.spacing.labelGap
       Text { width: parent.width; text: strip.title; color: Color.foreground; font.family: Style.font.family; font.pixelSize: Style.font.body; font.bold: true }
-      Text { width: parent.width; text: strip.summary; color: Color.muted; font.family: Style.font.family; font.pixelSize: Style.font.caption; elide: Text.ElideRight }
+      Text { width: parent.width; text: strip.summary; color: DeckColors.secondaryText; font.family: Style.font.family; font.pixelSize: Style.font.caption; elide: Text.ElideRight }
     }
-    Text { id: stripArrow; visible: strip.navigable; anchors.right: parent.right; anchors.rightMargin: Style.spacing.panelGap; anchors.verticalCenter: parent.verticalCenter; text: "󰅂"; color: Color.muted; font.family: Style.font.family; font.pixelSize: Style.font.body }
+    Text { id: stripArrow; visible: strip.navigable; anchors.right: parent.right; anchors.rightMargin: Style.spacing.panelGap; anchors.verticalCenter: parent.verticalCenter; text: "󰅂"; color: DeckColors.secondaryText; font.family: Style.font.family; font.pixelSize: Style.font.body }
     HoverHandler { id: stripHover; enabled: strip.navigable }
     TapHandler { id: stripTap; enabled: strip.navigable; onTapped: strip.triggered() }
   }
@@ -560,7 +561,7 @@ Item {
     property real value: 0
     height: Style.space(42)
     Text { id: meterLabel; text: meter.label; color: Color.foreground; font.family: Style.font.family; font.pixelSize: Style.font.body; font.bold: true }
-    Text { anchors.right: parent.right; text: meter.valueText; color: Color.muted; font.family: Style.font.family; font.pixelSize: Style.font.caption }
+    Text { anchors.right: parent.right; text: meter.valueText; color: DeckColors.secondaryText; font.family: Style.font.family; font.pixelSize: Style.font.caption }
     Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: Style.space(4); radius: height / 2; color: Style.normalFill
       Rectangle { width: parent.width * root.percent(meter.value) / 100; height: parent.height; radius: parent.radius; color: Color.accent; Behavior on width { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } } }
     }
@@ -580,7 +581,7 @@ Item {
 
     Text { anchors.left: parent.left; anchors.leftMargin: Style.spacing.panelGap; anchors.top: parent.top; anchors.topMargin: Style.spacing.controlGap; text: chart.label; color: Color.foreground; font.family: Style.font.family; font.pixelSize: Style.font.body; font.bold: true }
     Text { anchors.right: parent.right; anchors.rightMargin: Style.spacing.panelGap; anchors.top: parent.top; anchors.topMargin: Style.spacing.controlGap; text: chart.valueText; color: Color.accent; font.family: Style.font.family; font.pixelSize: Style.font.body; font.bold: true }
-    Text { anchors.right: parent.right; anchors.rightMargin: Style.spacing.panelGap; anchors.bottom: parent.bottom; anchors.bottomMargin: Style.spacing.labelGap; text: chart.peakText; color: Color.muted; font.family: Style.font.family; font.pixelSize: Style.font.caption }
+    Text { anchors.right: parent.right; anchors.rightMargin: Style.spacing.panelGap; anchors.bottom: parent.bottom; anchors.bottomMargin: Style.spacing.labelGap; text: chart.peakText; color: DeckColors.secondaryText; font.family: Style.font.family; font.pixelSize: Style.font.caption }
 
     Canvas {
       id: canvas
@@ -651,7 +652,7 @@ Item {
         ActionButton { width: parent.width * 0.66; iconText: "󰓅"; label: "Run speed test"; onTriggered: root.summon("omarchy.speedtest") }
         BorderSurface { width: parent.width - x; height: Style.space(48); color: Style.normalFill; radius: Style.cornerRadius; borderSpec: Border.controlSpec("normal", Color.foreground, Color.accent, Color.urgent)
           Column { anchors.centerIn: parent; spacing: Style.spacing.labelGap
-            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Interface"; color: Color.muted; font.family: Style.font.family; font.pixelSize: Style.font.caption }
+            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Interface"; color: DeckColors.secondaryText; font.family: Style.font.family; font.pixelSize: Style.font.caption }
             Text { anchors.horizontalCenter: parent.horizontalCenter; text: root.stats.network.interface || "Offline"; color: Color.foreground; font.family: Style.font.family; font.pixelSize: Style.font.body; font.bold: true }
           }
         }
@@ -681,7 +682,7 @@ Item {
     color: Style.normalFill; radius: Style.cornerRadius
     borderSpec: Border.controlSpec("normal", Color.foreground, Color.accent, Color.urgent)
     Column { anchors.centerIn: parent; spacing: Style.spacing.labelGap
-      Text { anchors.horizontalCenter: parent.horizontalCenter; text: metric.label; color: Color.muted; font.family: Style.font.family; font.pixelSize: Style.font.caption }
+      Text { anchors.horizontalCenter: parent.horizontalCenter; text: metric.label; color: DeckColors.secondaryText; font.family: Style.font.family; font.pixelSize: Style.font.caption }
       Text { anchors.horizontalCenter: parent.horizontalCenter; text: metric.valueText; color: Color.foreground; font.family: Style.font.family; font.pixelSize: Style.font.body; font.bold: true }
     }
   }
@@ -695,7 +696,7 @@ Item {
           Text { id: appIcon; anchors.left: parent.left; anchors.leftMargin: Style.spacing.panelGap; anchors.verticalCenter: parent.verticalCenter; text: root.applicationIcon(inspector.client); color: Color.accent; font.family: Style.font.family; font.pixelSize: Style.font.displayLarge }
           Column { anchors.left: appIcon.right; anchors.leftMargin: Style.spacing.panelGap; anchors.right: parent.right; anchors.rightMargin: Style.spacing.panelGap; anchors.verticalCenter: parent.verticalCenter; spacing: Style.spacing.labelGap
             Text { width: parent.width; text: inspector.client ? (inspector.client.class || "Application") : "Application closed"; color: Color.foreground; font.family: Style.font.family; font.pixelSize: Style.font.subtitle; font.bold: true; elide: Text.ElideRight }
-            Text { width: parent.width; text: inspector.client ? (inspector.client.title || "Untitled") : "The process is no longer running"; color: Color.muted; font.family: Style.font.family; font.pixelSize: Style.font.caption; elide: Text.ElideRight }
+            Text { width: parent.width; text: inspector.client ? (inspector.client.title || "Untitled") : "The process is no longer running"; color: DeckColors.secondaryText; font.family: Style.font.family; font.pixelSize: Style.font.caption; elide: Text.ElideRight }
           }
         }
         Row { width: parent.width; spacing: Style.spacing.controlGap
@@ -737,9 +738,9 @@ Item {
             Text { id: clipboardIcon; anchors.left: parent.left; anchors.leftMargin: Style.spacing.panelGap; anchors.verticalCenter: parent.verticalCenter; text: clipboardRow.modelData.type === "image" ? "󰋩" : "󰅇"; color: Color.accent; font.family: Style.font.family; font.pixelSize: Style.font.display }
             Column { anchors.left: clipboardIcon.right; anchors.leftMargin: Style.spacing.panelGap; anchors.right: clipboardArrow.left; anchors.rightMargin: Style.spacing.controlGap; anchors.verticalCenter: parent.verticalCenter; spacing: Style.spacing.labelGap
               Text { width: parent.width; text: root.clipboardPreview(clipboardRow.modelData); color: Color.foreground; font.family: Style.font.family; font.pixelSize: Style.font.body; elide: Text.ElideRight }
-              Text { width: parent.width; text: "Tap to inspect  ·  hold to copy"; color: Color.muted; font.family: Style.font.family; font.pixelSize: Style.font.caption }
+              Text { width: parent.width; text: "Tap to inspect  ·  hold to copy"; color: DeckColors.secondaryText; font.family: Style.font.family; font.pixelSize: Style.font.caption }
             }
-            Text { id: clipboardArrow; anchors.right: parent.right; anchors.rightMargin: Style.spacing.panelGap; anchors.verticalCenter: parent.verticalCenter; text: "󰅂"; color: Color.muted; font.family: Style.font.family; font.pixelSize: Style.font.body }
+            Text { id: clipboardArrow; anchors.right: parent.right; anchors.rightMargin: Style.spacing.panelGap; anchors.verticalCenter: parent.verticalCenter; text: "󰅂"; color: DeckColors.secondaryText; font.family: Style.font.family; font.pixelSize: Style.font.body }
             HoverHandler { id: clipboardHover }
             TapHandler { id: clipboardTap
               onLongPressed: { clipboardRow.copiedByHold = true; root.copyClipboard(clipboardRow.modelData) }

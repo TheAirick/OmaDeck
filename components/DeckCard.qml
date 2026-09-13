@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import "../theme"
 import qs.Ui
 
 BorderSurface {
@@ -13,7 +14,7 @@ BorderSurface {
 
   readonly property real headerWidth: width - contentLeftInset - contentRightInset
 
-  color: Color.popups.background
+  color: DeckColors.surface
   radius: Style.cornerRadius
   padding: Style.spacing.panelPadding
   borderSpec: active
@@ -50,7 +51,7 @@ BorderSurface {
         visible: root.headerWidth >= titleText.implicitWidth + implicitWidth + headerRow.spacing
         width: parent.width - x
         text: root.subtitle
-        color: Color.muted
+        color: DeckColors.secondaryText
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
         elide: Text.ElideRight

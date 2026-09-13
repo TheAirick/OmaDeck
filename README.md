@@ -9,7 +9,7 @@ live system information.
 > OmaDeck is an early release built for wide secondary touchscreens such as the
 > Corsair Xeneon Edge. On first run it prefers `DP-3`, then falls back to a
 > connected secondary display; monitor and touch choices can be changed in
-> **Preferences → Displays** and **Preferences → Input**.
+> **Preferences → Display & touch**.
 
 <p align="center">
   <img src="assets/omadeck-drawers.gif" alt="OmaDeck Volume and System drawer animations" width="100%">
@@ -63,7 +63,7 @@ live system information.
 
 ### Preferences
 
-![Touch-friendly OmaDeck and Omarchy preferences](assets/screenshots/preferences.png)
+![OmaDeck application preferences](assets/screenshots/preferences.png)
 
 ### Workspaces and scratchpad
 
@@ -142,7 +142,7 @@ different hardware.
 
 Tap the dashboard Clock to set or control one countdown; its normal date line becomes the
 remaining-time status while the wall clock stays primary. Clock and weather
-appearance is available in **Preferences → OmaDeck**, and from the optional
+appearance is available in **Preferences → Dashboard**, and from the optional
 OmaDeck taskbar icon. The Applications
 button opens an editable launcher inside Command Center. Horizontal drawers
 resize the dashboard through one shared animated boundary; vertical gestures

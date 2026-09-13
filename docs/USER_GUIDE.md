@@ -10,7 +10,7 @@
 
 On first run OmaDeck prefers `DP-3` and `DP-1`, then selects connected displays
 when those names are unavailable. If the automatic choice is not right, change
-it in **Preferences → Displays**.
+it in **Preferences → Display & touch**.
 
 ## Starting OmaDeck
 
@@ -42,15 +42,16 @@ visual uses Omarchy's recognizable condition glyphs, current-condition stats,
 and a multi-day forecast. When the provider is unreachable, the clock remains
 usable and the weather area reports that it is unavailable.
 
-Use **Preferences → OmaDeck** to change time format, weather treatment, detail,
+Use **Preferences → Dashboard** to change time format, weather treatment, detail,
 visibility, or units. The optional tray's **Clock & weather settings…** exposes
 the same persisted appearance settings. The current Clock uses a fixed
 presentation; the legacy clock-style setting does not change it.
 
 Tap the Clock card to set a countdown. Choose hours, minutes, and seconds. The
 setup sheet's **Sound** row cycles through
-Silent, Alarm, Complete, Bell, Ring, and Warning; **Preview** plays the current
-choice once. Tap **Start** to begin and return the lower companion to Weather;
+Ocean (the default), Silent, Alarm, Complete, Bell, Ring, and Warning.
+**Preferences → Timer** shows the named choices and lets you preview a sound once.
+Tap **Start** to begin and return the lower companion to Weather;
 the Clock shows timer progress. Tap the Clock again to open pause, resume,
 add-five, restart, and cancel controls. Completed state remains available until
 you dismiss it. Audible choices play three non-overlapping completion chimes; Silent keeps

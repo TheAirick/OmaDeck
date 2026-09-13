@@ -38,7 +38,7 @@ test("claimed completion starts one bounded non-overlapping chime sequence", () 
   assert.match(controller, /TimerPolicy\.nextChimeAttempt\(chimePlayCount, completionChime\.running,\s*chimeIntervalElapsed\)/)
   assert.match(controller, /if \(decision\.shouldPlay\)[\s\S]*completionChime\.running = true/)
   assert.match(controller, /Timer\s*\{[\s\S]*id:\s*chimeSchedule[\s\S]*interval:\s*TimerPolicy\.CHIME_INTERVAL_MS[\s\S]*repeat:\s*false[\s\S]*onTriggered:[\s\S]*chimeIntervalElapsed = true[\s\S]*advanceChimeSequence\(\)/)
-  assert.match(controller, /Process\s*\{[\s\S]*id:\s*completionChime[\s\S]*command:\s*TimerPolicy\.playbackCommand\(root\.completionSoundId\) \|\| \[\][\s\S]*onExited:\s*root\.advanceChimeSequence\(\)/)
+  assert.match(controller, /Process\s*\{[\s\S]*id:\s*completionChime[\s\S]*command:\s*root\.soundCommand\(root\.completionSoundId\) \|\| \[\][\s\S]*onExited:\s*root\.advanceChimeSequence\(\)/)
 })
 
 test("dismiss and controller destruction terminate owned completion audio", () => {
@@ -91,7 +91,7 @@ test("preview replacement and completion playback are mutually exclusive", () =>
   const preview = controller.match(/function previewSelectedSound\(\)[\s\S]*?\n  }\n\n  function stopPreview/)
 
   assert.ok(preview)
-  assert.match(preview[0], /TimerPolicy\.playbackCommand\(selectedSoundId\)/)
+  assert.match(preview[0], /soundCommand\(selectedSoundId\)/)
   for (const blocker of ["completionEffectsPending", "completionPending", "chimeSequenceActive", "completionChime.running"]) {
     assert.match(preview[0], new RegExp(blocker.replace(".", "\\.")), blocker)
   }
@@ -108,8 +108,8 @@ test("Silent completion launches no player and all owned audio is cleaned up", (
   assert.match(controller, /function stopAllAudio\(\)[\s\S]*completionPending = false[\s\S]*stopPreview\(\)[\s\S]*stopChimeSequence\(\)/)
   assert.match(controller, /function dismiss\(\)[\s\S]*stopAllAudio\(\)/)
   assert.match(controller, /Component\.onDestruction:\s*root\.stopAllAudio\(\)/)
-  assert.match(controller, /id:\s*completionChime[\s\S]*command:\s*TimerPolicy\.playbackCommand\(root\.completionSoundId\) \|\| \[\]/)
-  assert.match(controller, /id:\s*previewChime[\s\S]*command:\s*TimerPolicy\.playbackCommand\(root\.selectedSoundId\) \|\| \[\]/)
+  assert.match(controller, /id:\s*completionChime[\s\S]*command:\s*root\.soundCommand\(root\.completionSoundId\) \|\| \[\]/)
+  assert.match(controller, /id:\s*previewChime[\s\S]*command:\s*root\.soundCommand\(root\.selectedSoundId\) \|\| \[\]/)
   assert.doesNotMatch(controller, /command:\s*\[[^\]]*selectedSoundId/)
 })
 

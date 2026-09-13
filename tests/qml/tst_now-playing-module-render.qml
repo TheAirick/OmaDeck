@@ -124,6 +124,13 @@ TestCase {
     compare(JSON.stringify(fixture.media.actions), JSON.stringify(["playPause", "previous", "next"]))
 
     compare(JSON.stringify(fixture.player.seeks), JSON.stringify([-10, 10]))
+    // Native touch can leave a synthetic mouse hover behind after release.
+    // These controls must remain tooltip-free in either playback state.
+    for (var controlName of ["playPauseControl", "seekBackwardControl", "seekForwardControl"])
+      compare(findChild(module, controlName).tooltipText, "")
+    fixture.player.isPlaying = false
+    compare(findChild(module, "playPauseControl").Accessible.name, "Play")
+    compare(findChild(module, "playPauseControl").tooltipText, "")
     module.seekTo(95)
     compare(fixture.player.position, 42)
     compare(JSON.stringify(fixture.player.seeks), JSON.stringify([-10, 10, 53]))

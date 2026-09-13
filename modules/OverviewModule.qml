@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import qs.Commons
+import "../theme"
 import qs.Ui
 import "../components"
 
@@ -83,7 +84,7 @@ Item {
         Text {
           width: parent.width
           text: "Show parked windows on " + root.primaryMonitor + " or send the last focused window there."
-          color: Color.muted
+          color: DeckColors.secondaryText
           font.family: Style.font.family
           font.pixelSize: Style.font.caption
           wrapMode: Text.WordWrap

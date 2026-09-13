@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Hyprland
 import qs.Commons
+import "../theme"
 import qs.Ui
 
 Item {
@@ -77,7 +78,7 @@ Item {
           text: workspaceTile.workspaceId === 10 ? "0" : String(workspaceTile.workspaceId)
           color: workspaceTile.focused
             ? Style.selectedStateColor(Color.foreground, Color.accent, Color.urgent)
-            : workspaceTile.occupied ? Color.foreground : Color.muted
+            : workspaceTile.occupied ? Color.foreground : DeckColors.secondaryText
           opacity: workspaceTile.focused || workspaceTile.occupied ? 1 : 0.58
           font.family: Style.font.family
           font.pixelSize: Style.font.body

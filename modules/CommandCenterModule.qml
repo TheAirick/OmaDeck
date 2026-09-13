@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import "../theme"
 import "../components"
 
 Item {
@@ -106,7 +107,7 @@ Item {
     text: root.controller && root.controller.editMode
       ? "Edit mode · drag modules or dividers · tap Done when finished"
       : "Pull down notifications · pull up overview"
-    color: Color.muted
+    color: DeckColors.secondaryText
     font.family: Style.font.family
     font.pixelSize: Style.font.caption
   }

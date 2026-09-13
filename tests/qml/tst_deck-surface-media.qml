@@ -26,10 +26,10 @@ TestCase {
     var sinkAudio = createTemporaryObject(audioComponent, testCase, { volume: 0.7 })
     var sourceAudio = createTemporaryObject(audioComponent, testCase, { volume: 0.5 })
     var sink = createTemporaryObject(nodeComponent, testCase, {
-      name: "fixture-sink", isSink: true, audio: sinkAudio
+      id: 31, name: "fixture-sink", description: "QR65 speakers", isSink: true, audio: sinkAudio
     })
     var source = createTemporaryObject(nodeComponent, testCase, {
-      name: "fixture-source", audio: sourceAudio
+      id: 32, name: "fixture-source", description: "Alias Pro mic", audio: sourceAudio
     })
     var streams = []
     for (var index = 0; index < 4; index++) {
@@ -47,7 +47,7 @@ TestCase {
     fixtureStreams = streams
     Pw.Pipewire.defaultAudioSink = sink
     Pw.Pipewire.defaultAudioSource = source
-    Pw.Pipewire.nodes.values = streams
+    Pw.Pipewire.nodes.values = streams.concat([sink, source])
   }
 
   function createDeck(width, height) {
@@ -357,17 +357,22 @@ TestCase {
 
     var omaDeckList = findChild(preferences, "omaDeckPreferencesList")
     verify(omaDeckList !== null)
-    omaDeckList.contentY = Math.max(0, omaDeckList.contentHeight - omaDeckList.height)
-    wait(0)
+    clickItem(deck, findChild(preferences, "preferenceCategory:timer"))
+    compare(findChild(preferences, "preferencesPresenter").selectedCategory, "timer")
+    wait(30)
     var bellOption = findByProperty(timerSound, "text", "Bell")
     verify(bellOption !== null)
     clickItem(deck, bellOption)
     compare(timerFixture.selectedSoundId, "bell")
+    var oceanOption = findByProperty(timerSound, "text", "Ocean")
+    clickItem(deck, oceanOption)
+    compare(timerFixture.selectedSoundId, "ocean")
+    grabImage(preferences).save("/tmp/omadeck-preferences-timer.png")
     clickItem(deck, previewTimerSound)
     compare(timerFixture.previewCalls, 1)
 
-    omaDeckList.contentY = 0
-    wait(0)
+    clickItem(deck, findChild(preferences, "preferenceCategory:omadeck"))
+    wait(30)
     clickItem(deck, editDashboard)
     wait(280)
     compare(layoutFixture.editMode, true)
@@ -375,95 +380,20 @@ TestCase {
     compare(deck.openOverlayName, "")
   }
 
-  function test_preferencesShellPageUsesLiveOmarchyServices() {
-    notificationFixture.doNotDisturb = false
-    nightlightFixture.enabled = false
-    nightlightFixture.applyCalls = 0
-    idleFixture.idleEnabled = true
-    idleFixture.applyCalls = 0
-
-    var deck = createDeck()
-    deck.openOverlay("preferences")
-    wait(280)
-    var overlay = findChild(deck, "preferencesOverlay")
-    var preferences = findChild(overlay, "preferencesPresenter")
-    verify(preferences !== null)
-    preferences.selectedCategory = "shell"
-    wait(0)
-
-    var dnd = findChild(preferences, "preferencesDoNotDisturb")
-    var nightlight = findChild(preferences, "preferencesNightlight")
-    var keepAwake = findChild(preferences, "preferencesKeepAwake")
-    verify(dnd !== null && nightlight !== null && keepAwake !== null)
-    verify(dnd.visible && nightlight.visible && keepAwake.visible)
-
-    clickItem(deck, dnd)
-    compare(notificationFixture.doNotDisturb, true)
-    clickItem(deck, nightlight)
-    compare(nightlightFixture.enabled, true)
-    compare(nightlightFixture.applyCalls, 1)
-    clickItem(deck, keepAwake)
-    compare(idleFixture.idleEnabled, false)
-    compare(idleFixture.applyCalls, 1)
-    grabImage(overlay).save("/tmp/omadeck-preferences-shell.png")
-  }
-
-  function test_preferencesNativeCategoriesUseHostSettingsAndPanels() {
+  function test_preferencesLauncherOpensAppEditorWithoutHostSettings() {
     shellFixture.resetPreferencesState()
     var deck = createDeck()
     deck.openOverlay("preferences")
     wait(280)
-
-    var overlay = findChild(deck, "preferencesOverlay")
-    var preferences = findChild(overlay, "preferencesPresenter")
-    verify(preferences !== null)
-    preferences.selectedCategory = "appearance"
-    wait(0)
-
-    var barPosition = findChild(preferences, "preferencesBarPosition")
-    var barTransparency = findChild(preferences, "preferencesBarTransparency")
-    var theme = findChild(preferences, "preferencesTheme")
-    verify(barPosition !== null && barTransparency !== null && theme !== null)
-    verify(barPosition.visible && barTransparency.visible && theme.visible)
-
-    barPosition.changed("bottom")
-    compare(shellFixture.shellConfig.bar.position, "bottom")
-    compare(barFixture.position, "bottom")
-    compare(shellFixture.shellMutationCalls, 1)
-
-    barTransparency.clicked()
-    compare(shellFixture.shellConfig.bar.transparent, true)
-    compare(barFixture.requestedTransparent, true)
-    compare(shellFixture.shellMutationCalls, 2)
-
-    theme.clicked()
-    wait(280)
-    compare(shellFixture.lastSummonedId, "omarchy.menu")
-    compare(shellFixture.lastSummonedPayload, '{"menu":"style.theme"}')
-    compare(deck.openOverlayName, "")
-  }
-
-  function test_preferencesDesktopTimeoutsPersistThroughHostConfig() {
-    shellFixture.resetPreferencesState()
-    var deck = createDeck()
-    deck.openOverlay("preferences")
-    wait(280)
-
     var preferences = findChild(deck, "preferencesPresenter")
-    verify(preferences !== null)
-    preferences.selectedCategory = "desktop"
-    wait(0)
-
-    var screensaver = findChild(preferences, "preferencesScreensaverTimeout")
-    var lock = findChild(preferences, "preferencesLockTimeout")
-    verify(screensaver !== null && lock !== null)
-    screensaver.changed("300")
-    compare(shellFixture.shellConfig.idle.screensaver, 300)
-    compare(idleFixture.screensaverTimeoutSeconds, 300)
-    lock.changed("1800")
-    compare(shellFixture.shellConfig.idle.lock, 1800)
-    compare(idleFixture.lockTimeoutSeconds, 1800)
-    compare(shellFixture.shellMutationCalls, 2)
+    clickItem(deck, findChild(preferences, "preferenceCategory:launcher"))
+    compare(preferences.selectedCategory, "launcher")
+    wait(30)
+    clickItem(deck, findChild(preferences, "preferencesLauncherApps"))
+    wait(280)
+    compare(deck.commandCenterPage, "applications")
+    compare(deck.openOverlayName, "")
+    compare(shellFixture.shellMutationCalls, 0)
   }
 
   function test_preferencesHardwareSelectorsUseDetectedControllerChoices() {
@@ -474,7 +404,7 @@ TestCase {
 
     var preferences = findChild(deck, "preferencesPresenter")
     verify(preferences !== null)
-    preferences.selectedCategory = "displays"
+    preferences.selectedCategory = "hardware"
     wait(0)
 
     var target = findChild(preferences, "preferencesTargetScreen")
@@ -487,7 +417,6 @@ TestCase {
     compare(hardwareFixture.primaryMonitor, "DP-3")
     compare(hardwareFixture.applyCalls, 1)
 
-    preferences.selectedCategory = "input"
     wait(0)
     var touch = findChild(preferences, "preferencesTouchDevice")
     verify(touch !== null)
@@ -512,8 +441,8 @@ TestCase {
     settingsList.contentY = bottom
     wait(0)
 
-    var timerSound = findChild(settingsList, "preferencesTimerSound")
-    var completeLabel = findByProperty(timerSound, "text", "Complete")
+    var unitChoice = findChild(settingsList, "preferencesTemperatureUnit")
+    var completeLabel = findByProperty(unitChoice, "text", "°F")
     verify(completeLabel !== null)
     var completeOption = completeLabel.parent
     var pointer = completeOption.mapToItem(settingsList,
@@ -796,6 +725,59 @@ TestCase {
     grabImage(deck).save("/tmp/omadeck-media-vertical-expanded.png")
   }
 
+  function test_devicePickerKeepsScaledControlsInsideDrawerAndReturnsToMixer() {
+    var deck = createDeck(1600, 450)
+    deck.setMediaCompact(false)
+    wait(300)
+    var mixer = findChild(deck, "audioMixerPresenter")
+    var route = findChild(deck, "outputDeviceSelector")
+    var inputRoute = findChild(deck, "inputDeviceSelector")
+    verify(route.visible && inputRoute.visible)
+    compare(route.deviceLabel, "QR65 speakers")
+    compare(inputRoute.deviceLabel, "Alias Pro mic")
+    verify(route.height >= 44 && inputRoute.height >= 44)
+    clickItem(deck, route)
+    wait(100)
+    var picker = findChild(deck, "audioDevicePicker")
+    compare(picker.kind, "output")
+    verify(picker.visible)
+    var selected = findChild(picker, "audioDevice:fixture-sink")
+    verify(selected !== null && selected.selected)
+    var bounds = rectIn(selected, mixer)
+    verify(bounds.x >= 0 && bounds.y >= 0)
+    verify(bounds.x + bounds.width <= mixer.width)
+    verify(bounds.y + bounds.height <= mixer.height)
+    var outputTab = findChild(picker, "audioOutputTab")
+    var inputTab = findChild(picker, "audioInputTab")
+    var inputRow = findChild(picker, "audioDevice:fixture-source")
+    verify(inputRow !== null && !inputRow.visible)
+    for (var switchIndex = 0; switchIndex < 10; switchIndex++) {
+      var input = switchIndex % 2 === 0
+      clickItem(deck, input ? inputTab : outputTab)
+      // No wait: selection and list visibility change in the tap's event turn.
+      compare(picker.kind, input ? "input" : "output")
+      compare(inputTab.selected, input)
+      compare(outputTab.selected, !input)
+      compare(inputRow.visible, input)
+      compare(selected.visible, !input)
+      compare(findChild(picker, "audioDevice:fixture-sink"), selected,
+        "tab changes must retain the existing output row")
+      compare(findChild(picker, "audioDevice:fixture-source"), inputRow,
+        "tab changes must retain the existing input row")
+    }
+    clickItem(deck, findChild(picker, "audioInputTab"))
+    compare(picker.kind, "input")
+    verify(findChild(picker, "audioDevice:fixture-source").selected)
+    clickItem(deck, findChild(picker, "audioDeviceBack"))
+    verify(!picker.visible)
+    clickItem(deck, route)
+    compare(picker.kind, "output", "reopening must reset a previously changed tab")
+    clickItem(deck, findChild(picker, "audioDevice:fixture-sink"))
+    verify(!picker.visible, "selecting the current device returns without spawning a switch")
+    compare(findChild(mixer, "audioDeviceSwitchProcess").running, false)
+    verify(route.visible)
+  }
+
   function test_allExpandedCategoryControlsFitTheFullHeightVolumePanel() {
     var deck = createDeck(1600, 450)
     var categoryNames = ["Firefox", "Steam Game", "Discord", "System Audio"]
@@ -948,6 +930,7 @@ TestCase {
   Component {
     id: nodeComponent
     QtObject {
+      property int id: 0
       property string name: ""
       property string description: ""
       property string type: ""
@@ -1229,11 +1212,17 @@ TestCase {
     property string status: "idle"
     property string remainingText: "5:00"
     property real progress: 0
-    property string selectedSoundName: "Complete"
+    property string selectedSoundName: "Ocean"
     property bool soundSettingsLoaded: true
-    property string selectedSoundId: "complete"
+    property var soundOptions: [
+      { eventId: "ocean", label: "Ocean" }, { eventId: "", label: "Silent" },
+      { eventId: "alarm-clock-elapsed", label: "Alarm" }, { eventId: "complete", label: "Complete" },
+      { eventId: "bell", label: "Bell" }, { eventId: "phone-incoming-call", label: "Ring" },
+      { eventId: "dialog-warning", label: "Warning" }
+    ]
+    property string selectedSoundId: "ocean"
     property int previewCalls: 0
-    function resetPreferences() { selectedSoundId = "complete"; previewCalls = 0 }
+    function resetPreferences() { selectedSoundId = "ocean"; previewCalls = 0 }
     function selectSoundId(value) { selectedSoundId = value; return true }
     function start(hours, minutes) { status = "active"; return { ok: true } }
     function stopPreview() {}

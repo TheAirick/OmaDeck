@@ -38,6 +38,14 @@ Item {
   readonly property real progress: TimerPolicy.progress(timerState, nowMs)
   readonly property string selectedSoundName: TimerPolicy.soundLabel(selectedSoundId)
 
+  readonly property var soundOptions: TimerPolicy.soundOptions()
+  readonly property string oceanSoundPath: decodeURIComponent(
+    Qt.resolvedUrl("../assets/sounds/ocean-timer.oga").toString().replace(/^file:\/\//, ""))
+
+  function soundCommand(soundId) {
+    return TimerPolicy.playbackCommand(soundId, oceanSoundPath)
+  }
+
   function actionNow() {
     nowMs = Date.now()
     return nowMs
@@ -152,7 +160,7 @@ Item {
     if (!soundSettingsLoaded || completionEffectsPending || completionPending
         || chimeSequenceActive || completionChime.running)
       return false
-    var command = TimerPolicy.playbackCommand(selectedSoundId)
+    var command = soundCommand(selectedSoundId)
     if (!command) {
       stopPreview()
       return false
@@ -249,7 +257,7 @@ Item {
 
   function startChimeSequence() {
     stopChimeSequence()
-    if (!TimerPolicy.playbackCommand(completionSoundId)) return
+    if (!soundCommand(completionSoundId)) return
     chimePlayCount = 0
     chimeIntervalElapsed = true
     chimeSequenceActive = true
@@ -405,13 +413,13 @@ Item {
 
   Process {
     id: completionChime
-    command: TimerPolicy.playbackCommand(root.completionSoundId) || []
+    command: root.soundCommand(root.completionSoundId) || []
     onExited: root.advanceChimeSequence()
   }
 
   Process {
     id: previewChime
-    command: TimerPolicy.playbackCommand(root.selectedSoundId) || []
+    command: root.soundCommand(root.selectedSoundId) || []
     onExited: {
       if (root.completionPending) {
         root.completionPending = false

@@ -409,7 +409,7 @@ PanelWindow {
     z: 190
     origin: "top"
     overlayId: "preferences"
-    title: "Preferences"
+    title: "OmaDeck preferences"
     subtitle: ""
     outerGap: root.outerGap
     open: root.openOverlayName === "preferences"
@@ -417,7 +417,6 @@ PanelWindow {
 
     PreferencesModule {
       anchors.fill: parent
-      shell: root.shell
       deck: root
       appearanceController: root.appearanceController
       layoutController: root.layoutController
