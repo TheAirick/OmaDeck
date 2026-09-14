@@ -1,96 +1,186 @@
 import QtQuick
-import QtQuick.Layouts
-import Quickshell
-import Quickshell.Hyprland
+import QtQuick.Controls as Controls
 import qs.Commons
-import "../theme"
 import qs.Ui
+import "../theme"
+import "../theme/TextContrast.js" as Contrast
+import "../components"
 
 Item {
   id: root
+  property var controller: null
+  readonly property var workspaceRows: controller ? controller.workspaces : []
+  readonly property int columnCount: Math.max(1, Math.min(5, Math.floor((width + Style.spacing.controlGap) / Style.space(184))))
+  readonly property int rowCount: Math.ceil(workspaceRows.length / columnCount)
+  readonly property real tileWidth: Math.max(0, (width - Style.spacing.controlGap * (columnCount - 1)) / columnCount)
+  readonly property real tileHeight: Math.max(Style.space(210), (height - Style.spacing.controlGap * (rowCount - 1)) / Math.max(1, rowCount))
 
-  property bool compact: false
-  property bool singleRow: false
-  property bool expandToFit: false
-  property string primaryMonitor: "DP-1"
-  readonly property real workspaceScale: Math.min(expandToFit ? 1.85 : 1,
-    Math.max(0, width - Style.spacing.controlGap * 2) / Math.max(1, workspaceGrid.implicitWidth),
-    Math.max(0, height - Style.spacing.controlGap * 2) / Math.max(1, workspaceGrid.implicitHeight))
+  Flickable {
+    id: workspaceScroll
+    anchors.fill: parent
+    contentWidth: width
+    contentHeight: workspaceGrid.height
+    clip: true
+    boundsBehavior: Flickable.StopAtBounds
+    flickableDirection: Flickable.VerticalFlick
+    Controls.ScrollBar.vertical: Controls.ScrollBar { policy: Controls.ScrollBar.AsNeeded }
 
-  function workspaceById(id) {
-    var values = Hyprland.workspaces.values
-    for (var i = 0; i < values.length; i++) if (values[i].id === id) return values[i]
-    return null
-  }
+    Grid {
+      id: workspaceGrid
+      width: parent.width
+      columns: root.columnCount
+      spacing: Style.spacing.controlGap
 
-  function luaString(value) {
-    return "\"" + String(value || "").replace(/\\/g, "\\\\").replace(/\"/g, "\\\"") + "\""
-  }
+      Repeater {
+        model: root.workspaceRows.length
+        BorderSurface {
+          id: workspaceTile
+          required property int index
+          readonly property var modelData: root.workspaceRows[index]
+          objectName: "workspaceCard" + modelData.id
+          readonly property bool occupied: modelData.occupied
+          readonly property bool focused: modelData.focused
+          width: root.tileWidth
+          height: root.tileHeight
+          radius: Style.cornerRadius
+          color: Contrast.hex(Contrast.composite(occupied ? Style.normalFill : DeckColors.surface, DeckColors.surface))
+          borderSpec: focused
+            ? Border.hyprlandActiveSpec(Color.accent, 2)
+            : Border.controlSpec("normal", Color.foreground, Color.accent, Color.urgent)
 
-  function focusWorkspace(id) {
-    Quickshell.execDetached([
-      "/usr/bin/hyprctl", "dispatch",
-      "hl.dsp.focus({ workspace = " + luaString(String(id)) + " })"
-    ])
-  }
+          // Only the app rows own window actions. All remaining card space,
+          // including list padding, belongs to workspace navigation.
+          function pointInWindowList(position) {
+            var local = windowsList.mapFromItem(workspaceTile, position.x, position.y)
+            return local.x >= 0 && local.y >= 0 && local.x < windowsList.width && local.y < windowsList.height
+          }
 
-  GridLayout {
-    id: workspaceGrid
-    anchors.centerIn: parent
-    columns: root.singleRow ? 10 : 5
-    columnSpacing: Style.spacing.controlGap
-    rowSpacing: Style.spacing.controlGap
-    scale: root.workspaceScale
-    transformOrigin: Item.Center
 
-    Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+          TapHandler {
+            id: cardTap
+            property int pressedWorkspace: 0
+            property bool beganOnWindow: false
+            onPressedChanged: if (pressed) {
+              pressedWorkspace = workspaceTile.modelData.id
+              beganOnWindow = workspaceTile.pointInWindowList(point.position)
+            }
+            onTapped: if (!beganOnWindow && !workspaceTile.pointInWindowList(point.position)
+              && pressedWorkspace === workspaceTile.modelData.id && root.controller)
+                root.controller.focusWorkspace(pressedWorkspace)
+          }
 
-    Repeater {
-      model: 10
+          Item {
+            id: workspaceHeader
+            objectName: "workspaceHeader" + workspaceTile.modelData.id
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.margins: Style.spacing.controlGap
+            height: Style.space(68)
+            Accessible.role: Accessible.Button
+            Accessible.name: "Workspace " + workspaceTile.modelData.id + ", " + workspaceTile.modelData.windows.length + " windows"
+            Accessible.onPressAction: if (root.controller) root.controller.focusWorkspace(workspaceTile.modelData.id)
 
-      BorderSurface {
-        id: workspaceTile
-        required property int index
+            Text {
+              id: workspaceNumber
+              anchors.left: parent.left
+              anchors.verticalCenter: parent.verticalCenter
+              text: String(workspaceTile.modelData.id)
+              color: workspaceTile.occupied || workspaceTile.focused ? Color.foreground : DeckColors.secondaryText
+              font.family: Style.font.family
+              font.pixelSize: Style.font.displayLarge
+              font.bold: true
+            }
+            Column {
+              anchors.left: workspaceNumber.right
+              anchors.leftMargin: Style.spacing.controlGap
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+              spacing: Style.spacing.labelGap
+              Text {
+                width: parent.width
+                text: workspaceTile.focused ? "Current" : workspaceTile.occupied
+                  ? workspaceTile.modelData.windows.length + (workspaceTile.modelData.windows.length === 1 ? " window" : " windows") : "Empty"
+                color: DeckColors.secondaryTextOn(workspaceTile.color)
+                font.family: Style.font.family
+                font.pixelSize: Style.font.caption
+                elide: Text.ElideRight
+              }
+              Text {
+                width: parent.width
+                text: workspaceTile.modelData.monitor
+                visible: text !== ""
+                color: DeckColors.secondaryTextOn(workspaceTile.color)
+                font.family: Style.font.family
+                font.pixelSize: Style.font.caption
+                elide: Text.ElideRight
+              }
+            }
+          }
 
-        readonly property int workspaceId: index + 1
-        readonly property var workspace: root.workspaceById(workspaceId)
-        readonly property bool occupied: workspace !== null && workspace.toplevels.values.length > 0
-        readonly property bool focused: Hyprland.focusedWorkspace !== null && Hyprland.focusedWorkspace.id === workspaceId
+          Rectangle {
+            anchors.top: workspaceHeader.bottom
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.margins: Style.spacing.controlGap
+            height: Style.spacing.hairline
+            color: Color.foreground
+            opacity: 0.12
+          }
 
-        implicitWidth: root.compact ? Style.space(38) : Style.space(54)
-        implicitHeight: root.compact ? Style.space(38) : Style.space(54)
-        radius: Style.cornerRadius
-        color: workspaceTap.pressed
-          ? Style.pressedFillFor(Color.foreground, Color.accent)
-          : focused
-          ? Style.selectedFillFor(Color.foreground, Color.accent)
-          : workspaceHover.hovered
-          ? Style.hoverFillFor(Color.foreground, Color.accent)
-          : "transparent"
-        borderSpec: focused
-          ? Border.hyprlandActiveSpec(Color.accent, 2)
-          : workspaceHover.hovered
-          ? Border.controlSpec("hover-cursor", Color.foreground, Color.accent, Color.urgent)
-          : Border.none()
+          ListView {
+            id: windowsList
+            objectName: "workspaceWindows" + workspaceTile.modelData.id
+            anchors.top: workspaceHeader.bottom
+            anchors.topMargin: Style.spacing.controlGap * 2
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.leftMargin: Style.spacing.controlGap
+            anchors.rightMargin: Style.spacing.controlGap
+            anchors.bottomMargin: Style.spacing.controlGap
+            clip: true
+            model: workspaceTile.modelData.windows.length
+            // Flickable receives presses on its unused content area itself.
+            // Handle that area here without stealing app-row taps or drags.
+            TapHandler {
+              property int pressedWorkspace: 0
+              property bool beganOnWindow: false
+              onPressedChanged: if (pressed) {
+                pressedWorkspace = workspaceTile.modelData.id
+                beganOnWindow = windowsList.indexAt(point.position.x + windowsList.contentX,
+                  point.position.y + windowsList.contentY) >= 0
+              }
+              onTapped: if (!beganOnWindow && windowsList.indexAt(point.position.x + windowsList.contentX,
+                point.position.y + windowsList.contentY) < 0 && pressedWorkspace === workspaceTile.modelData.id && root.controller)
+                  root.controller.focusWorkspace(pressedWorkspace)
+            }
+            boundsBehavior: Flickable.StopAtBounds
+            Controls.ScrollBar.vertical: Controls.ScrollBar { policy: Controls.ScrollBar.AsNeeded }
+            delegate: WorkspaceWindowRow {
+              required property int index
+              readonly property var modelData: workspaceTile.modelData.windows[index] || ({})
+              width: windowsList.width
+              windowRow: modelData
+              backingColor: workspaceTile.color
+              onActivated: if (root.controller) root.controller.focusWindow(modelData.address)
+            }
+          }
 
-        Text {
-          anchors.centerIn: parent
-          text: workspaceTile.workspaceId === 10 ? "0" : String(workspaceTile.workspaceId)
-          color: workspaceTile.focused
-            ? Style.selectedStateColor(Color.foreground, Color.accent, Color.urgent)
-            : workspaceTile.occupied ? Color.foreground : DeckColors.secondaryText
-          opacity: workspaceTile.focused || workspaceTile.occupied ? 1 : 0.58
-          font.family: Style.font.family
-          font.pixelSize: Style.font.body
-          font.bold: workspaceTile.focused
-        }
-
-        // HoverHandler ignores non-hovering touchscreens, so a tap cannot
-        // leave the synthetic mouse hover painted until a real mouse moves.
-        HoverHandler { id: workspaceHover }
-        TapHandler {
-          id: workspaceTap
-          onTapped: root.focusWorkspace(workspaceTile.workspaceId)
+          Item {
+            anchors.fill: windowsList
+            visible: !workspaceTile.occupied
+            Text {
+              anchors.centerIn: parent
+              width: parent.width
+              text: "Tap to switch"
+              horizontalAlignment: Text.AlignHCenter
+              color: DeckColors.secondaryText
+              font.family: Style.font.family
+              font.pixelSize: Style.font.caption
+              wrapMode: Text.WordWrap
+            }
+          }
         }
       }
     }

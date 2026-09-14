@@ -23,32 +23,32 @@ controller.
 
 ## OmaDeck preferences
 
-Preferences contains four app-specific categories:
+Preferences contains six app-specific categories:
 
 - **Dashboard**: layout editing, clock format, weather visibility, style, detail,
   units, and refresh.
+- **Workspaces**: optionally close the view after switching to a workspace or window.
 - **Timer**: completion sound selection and preview. **Ocean** is the default.
 - **Display & touch**: OmaDeck's display, the monitor used for its application
   and workspace actions, and touchscreen selection/reconnection.
+- **Monitor switching**: optional monitor detection, input buttons, and connected-device labels.
 - **Launcher**: add, remove, and rearrange Command Center applications.
 
 System themes, bar settings, keybindings, power, and broader Omarchy configuration
 remain in Omarchy's own interface. The Command Center retains its everyday
-Volume, System, Notifications, Overview, and Applications controls.
+Volume, System, Notifications, Workspaces, and Applications controls.
 
-OmaDeck's Clock and Weather choices are saved atomically to
+OmaDeck's Clock, Weather, and Workspaces choices are saved atomically to
 `~/.config/omadeck/appearance.json`. Removing that file restores the defaults.
 The selected weather detail is a maximum: OmaDeck temporarily removes forecast,
 location, or secondary stats when a drawer or edited split leaves too little
 room, then restores them automatically as the card expands.
 
-The Clock leaf keeps a Clock above one lower companion. Weather occupies that
-lower region by default; tapping the Clock opens Timer setup or controls there.
-Starting a timer returns to Weather, with ambient progress in the Clock; tapping
-the Clock reopens controls. A direct Clock/Command Center split may render the Clock
-at a `0.50` minimum share for touch-safe companion geometry. This is a
-presentation guard only: a narrower saved ratio and the exact `layout.json`
-topology remain unchanged.
+Clock and Weather/Timer are separate movable, resizable dashboard panels.
+Weather appears by default; tapping Clock opens Timer setup or controls in the
+Weather panel wherever it is placed. Starting a timer returns to Weather, with
+ambient progress in Clock; tapping Clock reopens controls. Customize uses the
+saved divider ratios directly, bounded from 18% to 82% of each split.
 
 OmaDeck deliberately shares Omarchy's weather location instead of keeping a
 second copy. Choose **Weather location…** from the tray settings panel, or run:
@@ -218,32 +218,97 @@ recorded history. The left control rail exposes native **Focus**, **Wi-Fi**,
 Audio panels. A missing Wi-Fi or Bluetooth adapter is shown as unavailable
 rather than presenting a control that cannot work.
 
-Pull up from the bottom edge to open OmaDeck Overview. The left side focuses
-workspaces on `primaryMonitor`; the right side toggles Omarchy's native
-`special:scratchpad`, parks the last focused window there, or opens clipboard
-controls. Neither overlay changes the dimensions or layout of the dashboard
-underneath it. If the Volume or System drawer was open before the vertical
+Pull up from the bottom edge, or tap **Workspaces** in Command Center. Five
+numbered slots (1–5) are always available. Additional numbered workspaces appear
+when they exist in Hyprland and disappear when removed; OmaDeck does not cap or
+reconfigure the compositor. Occupied slots are brighter, and the focused workspace
+has an accent outline. Moving the pointer onto OmaDeck keeps the main display's
+active numbered workspace highlighted. Each slot lists its windows with application icons and
+names. Tap the header or any unused area of a card to switch workspace, or an
+application row to focus that exact window. App-row taps do not also trigger
+workspace navigation, and dragging the lists does not switch workspaces. Existing workspaces retain their monitor placement and Hyprland rules.
+
+The scratchpad lists windows parked in Omarchy's native `special:scratchpad`.
+Tap its header, app rows, or unused card space to show it; tap again to hide it.
+The themed outline and Showing/Hidden label follow its actual visibility,
+including changes made with keyboard shortcuts. **Return** moves only that window onto the current numbered
+workspace (falling back to the active workspace on `primaryMonitor`). **Park
+focused window** is available only for a live window on a numbered workspace.
+Workspaces stays open after navigation by default. Enable **Preferences →
+Workspaces → Close after switching** to dismiss it when selecting a workspace
+or window. The scratchpad toggle keeps the browser open so you can tap again
+to hide it. Parking and returning windows always update the list in place.
+Clipboard remains available in System.
+
+Overlays block dashboard and drawer input, including monitor switching, from
+opening until the closing animation finishes. They keep the dimensions and layout
+of the dashboard underneath them. If the Volume or System drawer was open before the vertical
 gesture, it remains open behind the overlay and is restored unchanged when the
 overlay closes.
 
-## Monitor input commands
+## Monitor switching
 
-`modules/MonitorInputModule.qml` is an optional source-level module, not a
-standard Command Center action. It expects executable scripts at:
+Monitor input buttons are **off by default**. Open **Preferences → Monitor
+switching** for the three-step setup guide:
 
-```text
-~/.local/bin/alienware-to-omarchy
-~/.local/bin/alienware-to-mac
-```
+1. **Computer:** OmaDeck checks monitor-control software and display access.
+   If needed, **Install monitor support** or **Set up monitor access** opens a
+   terminal setup window. Enter your computer password if asked, wait for the
+   result, and tap **Check again** in OmaDeck. Cancelling or a failed check never
+   marks the computer ready.
+2. **Monitor:** follow the instructions to enable **DDC/CI** in the monitor's
+   own menu, then tap **Find my monitors** and choose yours. The guide explains
+   what to try when a monitor does not respond or does not report input control.
+3. **Inputs:** choose the connected ports and device labels, then tap **Finish
+   setup** to enable the buttons in Command Center. No input is switched during
+   setup. **Set up another monitor** reopens the guide for existing users.
 
-They may call `ddcutil`, a vendor tool, or any monitor-specific command. Exit
-status `0` reports success; another status reports failure.
+Scanning reads capabilities without changing inputs. Choose one to four reported
+inputs for each monitor and label them with their port name or a connected-device
+label such as Desktop, Laptop, Mac, or Console. Command Center's arrows cycle
+through configured monitors; tapping a source requests an input change.
+Input toggles control which ports appear. Under **Button labels**, choose a port
+and its **Connected device** to set the name and icon. Settings keep the physical
+port name visible after renaming. Two inputs use the centered monitor layout on
+wide cards; additional inputs share a row beneath the monitor name.
+
+The computer setup uses Omarchy's package installer for `ddcutil`, loads
+`i2c-dev`, and reloads/reapplies the package's display-access rules. It does not
+change device permissions broadly or add users to hardware-access groups. The
+setup window stays independent of the shell so closing Preferences or reloading
+OmaDeck cannot interrupt a package transaction. Software installation still
+requires internet access and the normal administrator password when applicable.
+See the [ddcutil setup documentation](https://www.ddcutil.com/config_steps/).
+
+This optional feature requires DDC/CI enabled in the monitor's own menu. Unsupported or
+unreachable monitors show an explanation in settings. Some monitors report
+generic capabilities that include ports they do not physically have; choose the
+ports present on your monitor. Unknown vendor input codes retain an explicit
+Input 0xNN label until you assign a device label.
+
+Choices are saved atomically in `~/.config/omadeck/monitors.json`, separate from
+display/touch placement. Records contain a hardware identity, display label,
+and numeric input codes with labels; they never contain executable commands.
+The schema supports custom labels up to 48 characters when edited directly.
+Switch requests resolve the monitor's current EDID identity again rather than
+reusing a display number or bus. Disconnected or ambiguous identities do not
+fall back to another monitor. A successful request says **Input switch requested**;
+the monitor may stop responding to this computer after changing source.
+
+Older personal input-switch scripts are no longer used by the app. Existing
+users can configure the same inputs through these settings; personal scripts
+remain untouched. New installs contain no preselected monitor or computer setup.
 
 ## Saved layout
 
-The center split tree is stored at `~/.config/omadeck/layout.json`. Removing it
-recreates the default Clock/Command Center layout and resets saved positions and
-ratios.
+The complete dashboard split tree is stored at
+`~/.config/omadeck/dashboard-layout.json`. With no saved layout, the default is
+Now Playing, a Clock/Weather column, and Command Center.
+On first load, an existing version 2 `layout.json` is converted to the four-panel
+layout with its previous visual proportions. The original file remains untouched
+for rollback; if present, it is also the fallback when the new file is absent.
+Only **Done** saves a Customize session; **Cancel** or restarting during an edit
+keeps the previous saved layout. Layout edits do not reset other preferences.
 
 Clock and weather preferences are stored separately in
 `~/.config/omadeck/appearance.json`, so rearranging the layout never resets

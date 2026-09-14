@@ -15,10 +15,30 @@ TestCase {
   function test_onlyAppCategoriesAreExposed() {
     var module = createTemporaryObject(preferencesComponent, testCase, { width: 1100, height: 800 })
     compare(module.categories.map(function(entry) { return entry.id }).join(","),
-      "omadeck,timer,hardware,launcher")
+      "omadeck,workspaces,timer,hardware,monitors,launcher")
     for (var name of ["preferencesClockStyle", "preferencesTheme", "preferencesConfig",
       "preferencesDoNotDisturb", "preferencesBarPosition", "preferencesPowerActions"])
       compare(findChild(module, name), null)
+  }
+
+  function test_workspaceCloseSetting() {
+    var saves = []
+    var module = createTemporaryObject(preferencesComponent, testCase, {
+      width: 1100, height: 450, selectedCategory: "workspaces",
+      appearanceController: {
+        workspaceCloseOnActivate: false, use24Hour: false, showSeconds: false,
+        showWeather: true, weatherStyle: "scene", weatherDetail: "standard", temperatureUnit: "fahrenheit",
+        setOption: function(key, value) { saves.push([key, value]); return true }
+      }
+    })
+    wait(30)
+    var control = findChild(module, "preferencesWorkspaceCloseOnActivate")
+    verify(control !== null)
+    mouseClick(control, control.width / 2, control.height / 2)
+    compare(saves.length, 1)
+    compare(saves[0][0], "workspaceCloseOnActivate")
+    compare(saves[0][1], true)
+    compare(module.notice, "Saved")
   }
 
   function test_categoryChangeResetsScrollAndRefreshesTouchDevices() {

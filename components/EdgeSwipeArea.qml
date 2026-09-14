@@ -16,11 +16,13 @@ Item {
 
   DragHandler {
     id: drag
+    enabled: root.enabled
     target: null
 
     property point startPoint: Qt.point(0, 0)
 
     onActiveChanged: {
+      if (!root.enabled) return
       if (active) {
         startPoint = centroid.position
         return

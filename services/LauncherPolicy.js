@@ -8,7 +8,7 @@ var CATALOG = [
   { id: "obsidian", kind: "application", desktopId: "obsidian", name: "Obsidian", iconText: "󰠮", classes: ["md.obsidian.obsidian", "obsidian"] },
   { id: "omawrite", kind: "application", desktopId: "omawrite", name: "Omawrite", iconText: "󰈙", classes: ["omawrite"] },
   { id: "notifications", kind: "shortcut", action: "notifications", name: "Notifications", iconText: "󰂚" },
-  { id: "scratchpad", kind: "shortcut", action: "overview", name: "Overview", iconText: "󰖲" },
+  { id: "scratchpad", kind: "shortcut", action: "overview", name: "Workspaces", iconText: "󰖲" },
   { id: "clipboard", kind: "shortcut", action: "clipboard", name: "Clipboard", iconText: "󰅇" },
   { id: "performance", kind: "shortcut", action: "performance", name: "Performance", iconText: "󰍛" },
   { id: "lock", kind: "shortcut", action: "lock", name: "Lock", iconText: "󰌾" }

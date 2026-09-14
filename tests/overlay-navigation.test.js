@@ -25,7 +25,7 @@ const historySource = source("modules/NotificationHistory.js").replace(/^\.pragm
 const History = vm.runInNewContext(`${historySource}\n;({ parseHistory, merge })`)
 
 test("vertical gestures own overlays and never reserve center height", () => {
-  assert.match(deck, /readonly property real reservedTop:\s*0/)
+  assert.match(deck, /readonly property real reservedTop:\s*customizing \? Style\.space\(68\) : 0/)
   assert.match(deck, /readonly property real reservedBottom:\s*0/)
   assert.equal((deck.match(/EdgeDrawer\s*\{/g) || []).length, 2)
   assert.equal((deck.match(/DeckOverlay\s*\{/g) || []).length, 3)
@@ -61,7 +61,7 @@ test("Command Center owns the editable Applications page", () => {
 test("Command Center hides its gesture hint in the drawer-constrained layout", () => {
   assert.match(commandCenter, /id:\s*interactionHint/)
   assert.match(commandCenter, /visible:\s*root\.page === "home" && root\.useThreeColumns/)
-  assert.match(commandCenter, /Pull down notifications · pull up overview/)
+  assert.match(commandCenter, /Pull down notifications · pull up workspaces/)
 })
 
 test("Command Center opens a full-surface Preferences overlay", () => {
@@ -126,19 +126,10 @@ test("notification history parsing tolerates torn rows and deduplicates live ent
   assert.equal(merged[0].live, true)
 })
 
-test("overview delegates scratchpad actions to Hyprland's native special workspace", () => {
-  assert.match(overview, /hl\.dsp\.workspace\.toggle_special\(\\"scratchpad\\"\)/)
-  assert.match(overview, /workspace = \\"special:scratchpad\\"/)
+test("Workspaces keeps the existing overlay route and delegates to its native controller", () => {
+  assert.match(commandCenter, /label: "Workspaces"/)
+  assert.match(deck, /title: "Workspaces"/)
+  assert.match(overview, /WorkspaceController\s*\{/)
   assert.match(overview, /WorkspaceModule\s*\{/)
-  assert.match(overview, /expandToFit:\s*true/)
-})
-
-test("workspace tiles reserve persistent selection for the focused workspace", () => {
-  assert.match(workspaces, /readonly property bool occupied:/)
-  assert.match(workspaces, /readonly property bool focused:/)
   assert.match(workspaces, /borderSpec:\s*focused[\s\S]*Border\.hyprlandActiveSpec/)
-  assert.match(workspaces, /workspaceTile\.occupied \? Color\.foreground : DeckColors\.secondaryText/)
-  assert.match(workspaces, /HoverHandler\s*\{ id: workspaceHover \}/)
-  assert.match(workspaces, /TapHandler\s*\{/)
-  assert.doesNotMatch(workspaces, /selected:\s*focused/)
 })

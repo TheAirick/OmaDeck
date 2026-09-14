@@ -18,6 +18,7 @@ Item {
 
   y: open ? 0 : closedOffset
   visible: open || Math.abs(y) < height
+  enabled: open
   clip: true
 
   Behavior on y {
@@ -37,6 +38,9 @@ Item {
     title: root.title
     subtitle: root.subtitle
     active: true
+    // Let the close target use the header's surrounding padding as well.
+    headerMinimumHeight: Math.max(Style.font.subtitle, Style.space(48) - 2 * Style.spacing.rowGap)
+    headerTrailingSpace: Style.space(56)
 
     Item {
       id: contentHost
@@ -47,15 +51,14 @@ Item {
   Button {
     id: closeButton
     objectName: "close" + root.overlayId.charAt(0).toUpperCase() + root.overlayId.slice(1) + "Overlay"
-    anchors.top: parent.top
-    anchors.right: parent.right
-    anchors.margins: root.outerGap + Style.spacing.panelPadding
+    x: overlayCard.x + overlayCard.width - overlayCard.contentRightInset - width
+    y: overlayCard.y + overlayCard.contentTopInset + (overlayCard.headerMinimumHeight - height) / 2
     width: Style.space(48)
     height: Style.space(48)
     iconText: "󰅖"
-    iconSize: Style.font.display
-    tooltipText: "Close " + root.title
-    bordered: true
+    iconSize: Style.font.icon
+    Accessible.name: "Close " + root.title
+    bordered: false
     z: 20
     onClicked: root.dismissRequested()
   }

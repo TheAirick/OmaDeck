@@ -264,15 +264,14 @@ else
   warn "System-tray controller is not built; run scripts/build-native"
 fi
 
-for command_path in \
-  "$HOME/.local/bin/alienware-to-omarchy" \
-  "$HOME/.local/bin/alienware-to-mac"; do
-  if [[ -x $command_path ]]; then
-    ok "Monitor input command is executable: $command_path"
+if [[ -f $HOME/.config/omadeck/monitors.json ]] && \
+  "$JQ" -e '.version == 1 and .enabled == true' "$HOME/.config/omadeck/monitors.json" >/dev/null 2>&1; then
+  if [[ -x /usr/bin/ddcutil ]]; then
+    ok "Optional monitor switching backend is available"
   else
-    warn "Monitor input command is missing or not executable: $command_path"
+    warn "Monitor switching is enabled but ddcutil is not installed"
   fi
-done
+fi
 
 required_names=(hyprctl jq omarchy omarchy-shell wpctl)
 required_paths=("$HYPRCTL" "$JQ" "$OMARCHY" "$OMARCHY_SHELL" "$WPCTL")

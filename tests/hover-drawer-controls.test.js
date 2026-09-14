@@ -26,7 +26,7 @@ test("Command Center keeps horizontal drawers and promotes vertical surfaces", (
     ["left", "Volume"],
     ["right", "System"],
     ["top", "Notifications"],
-    ["bottom", "Overview"],
+    ["bottom", "Workspaces"],
     ["page", "Applications"],
     ["preferences", "Preferences"],
   ]) {
@@ -60,7 +60,7 @@ test("drawer controls do not persist a highlight for the open edge", () => {
 
 test("touch edge gestures remain available for drawers and overlays", () => {
   for (const edge of ["left", "right", "top", "bottom"])
-    assert.match(deckSurface, new RegExp(`EdgeSwipeArea \\{ enabled: root\\.openOverlayName === ""; edge: "${edge}"`))
+    assert.match(deckSurface, new RegExp(`EdgeSwipeArea \\{ enabled: root\\.dashboardInputAllowed && !root\\.customizing; edge: "${edge}"`))
   assert.match(deckSurface, /edge: "top"[^\n]*onTriggered: root\.toggleOverlay\("notifications"\)/)
   assert.match(deckSurface, /edge: "bottom"[^\n]*onTriggered: root\.toggleOverlay\("overview"\)/)
 })

@@ -12,6 +12,7 @@ Item {
   property var appearanceController: null
   property var layoutController: null
   property var hardwareController: null
+  property var monitorInputController: null
   property var weatherController: null
   property var timerController: null
   property string selectedCategory: "omadeck"
@@ -46,8 +47,10 @@ Item {
 
   readonly property var categories: [
     { id: "omadeck", label: "Dashboard", icon: "󰇄", description: "Layout, clock, and weather" },
+    { id: "workspaces", label: "Workspaces", icon: "󰖲", description: "Choose what happens after switching windows or workspaces" },
     { id: "timer", label: "Timer", icon: "󰔛", description: "Choose and preview your timer sound" },
     { id: "hardware", label: "Display & touch", icon: "󰍹", description: "Choose where OmaDeck appears and which touchscreen it uses" },
+    { id: "monitors", label: "Monitor switching", icon: "󰍹", description: "Choose your monitors and input buttons" },
     { id: "launcher", label: "Launcher", icon: "󰀻", description: "Customize your Command Center applications" }
   ]
 
@@ -62,6 +65,8 @@ Item {
     noticeDelay.restart()
   }
 
+  function startMonitorSetup() { monitorPreferences.startSetup() }
+
   function applyAppearance(key, value) {
     if (!appearanceController || typeof appearanceController.setOption !== "function") {
       showNotice("OmaDeck settings are not ready")
@@ -74,8 +79,8 @@ Item {
 
   function editDashboard() {
     if (!layoutController || typeof layoutController.beginEdit !== "function") return
-    layoutController.beginEdit("")
-    if (deck) deck.closeOverlay()
+    if (deck && typeof deck.beginCustomize === "function") deck.beginCustomize()
+    else { layoutController.beginEdit(""); if (deck) deck.closeOverlay() }
   }
 
   function refreshWeather() {
@@ -281,6 +286,31 @@ Item {
               width: settingsList.width
               spacing: Style.spacing.controlGap
 
+              MonitorInputPreferences {
+                id: monitorPreferences
+                objectName: "monitorInputPreferences"
+                width: parent.width
+                visible: root.selectedCategory === "monitors"
+                controller: root.monitorInputController
+                onSetupNavigation: settingsList.contentY = 0
+              }
+
+              Column {
+                width: parent.width
+                visible: root.selectedCategory === "workspaces"
+                spacing: Style.spacing.controlGap
+
+                PreferenceToggle {
+                  objectName: "preferencesWorkspaceCloseOnActivate"
+                  width: parent.width
+                  height: Style.space(72)
+                  label: "Close after switching"
+                  description: "Dismiss Workspaces when you select a workspace or window"
+                  checked: root.appearanceController ? root.appearanceController.workspaceCloseOnActivate === true : false
+                  onClicked: root.applyAppearance("workspaceCloseOnActivate", !checked)
+                }
+              }
+
               Column {
                 width: parent.width
                 visible: root.selectedCategory === "omadeck"
@@ -300,7 +330,7 @@ Item {
                   objectName: "preferencesEditDashboard"
                   width: parent.width
                   height: Style.space(58)
-                  text: "Edit dashboard layout"
+                  text: "Customize layout"
                   iconText: "󰆾"
                   iconSize: Style.font.iconLarge
                   leftAlign: true

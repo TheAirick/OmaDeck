@@ -223,8 +223,20 @@ transient provider failure retries after one minute.
 
 ## Monitor input switching fails
 
-Run the configured script directly and inspect its exit code. Input switching
-is monitor-specific and the scripts are not shipped by OmaDeck.
+Open **Preferences → Monitor switching → Set up another monitor** to recheck
+computer support and display access. On a new install, the guide opens directly.
+The setup window reports installation/password failures; return to OmaDeck and
+tap **Check again** afterward. If an update is already running, let it finish.
+Never remove package-manager lock files to force setup through. After a kernel
+update, a computer restart may be needed before display access can be activated.
+
+Use the monitor's own buttons to enable **DDC/CI**, keep it awake, and select the
+input connected to this computer. If discovery still fails, try a direct HDMI
+or DisplayPort cable instead of a dock, adapter, or KVM. Built-in laptop screens
+are not supported. Some monitors report generic or inaccurate port lists;
+enable only real connected ports and adjust their device labels in Preferences.
+OmaDeck sends an input-switch request; the monitor may stop responding after
+changing input, so a sent request is not proof of the resulting picture.
 
 ## Diagnostics
 

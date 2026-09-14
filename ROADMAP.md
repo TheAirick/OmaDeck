@@ -22,18 +22,13 @@ are release gates, not implied by passing unit tests. See
 
 ## Interaction system
 
-- **Needs improvement — timer holds versus layout editing (reported 2026-09-13).**
-  Holding the timer's minute increment control to advance faster instead enters
-  the parent tile's move/swap mode. Add deliberate hold-to-repeat behavior with
-  acceleration for duration controls, and prevent those contacts from starting
-  layout editing. Acceptance: taps change one step; holds repeat predictably and
-  stop on release/cancel; no accidental edit mode or saved layout changes.
-- **Needs improvement — discoverable, reliable module rearrangement (reported
-  2026-09-13).** The user discovered move/swap accidentally and found it awkward
-  to use. Review the explicit entry point, selected module and destination
-  feedback, drag/tap swap behavior, and clear cancel/exit. Verify Clock plus its
-  Weather/Timer companion moves as one group relative to Command Center at the
-  actual touchscreen scale. Recorded for later work; not implemented or accepted.
+- **Implemented, awaiting touchscreen acceptance — explicit layout customization
+  and timer holds (reported 2026-09-13).** Preferences → Dashboard → Customize
+  moves all four panels independently, offers edge placement and tap/drop swaps,
+  resizes dividers, and has Done/Cancel. Normal dashboard long presses no longer
+  enter layout editing. Timer duration buttons repeat and accelerate while held,
+  stopping on release, cancellation, hide, or disable. Validate the feel on the
+  physical touchscreen before release closeout.
 - Pin or float modules inside the split tree
 - Touch-first resizing and placement refinements
 - Contextual modules triggered by media, microphone, timer, or warning state
@@ -52,10 +47,20 @@ are release gates, not implied by passing unit tests. See
 
 - Home Assistant controls
 - Download and transfer status
-- Configurable monitor/DDC profiles
+- **Configurable monitor inputs — in local validation (2026-09-13).** Optional
+  Command Center controls, detected monitor/input choices, device labels, atomic
+  per-user settings, and DDC requests matched to hardware identity. Awaiting
+  owner acceptance and the next release commit.
 - Optional agent integrations without duplicating Omarchy's agent UI
 
 ## Presentation
+
+- **Window previews — feasibility checked 2026-09-13.** Quickshell's native
+  `ScreencopyView` captured a Steam window from another workspace without
+  activating it; live capture also initialized. Preview presentation is not yet
+  implemented. Start with stills refreshed on opening, with optional live mode
+  later. Verify inactive-app update behavior, aspect ratio, GPU cost, window
+  removal, and capture teardown on closing/locking before activation.
 
 - Screenshots across multiple Omarchy themes
 - Versioned releases and changelog

@@ -1,7 +1,9 @@
 import QtQuick
 import QtTest
 import Quickshell.Services.Pipewire as Pw
+import Quickshell.Hyprland as Hl
 import "../../components" as Components
+import "../../services" as Stores
 
 TestCase {
   id: testCase
@@ -14,10 +16,23 @@ TestCase {
   property var fixtureStreams: []
 
   function init() {
+    monitorFixture.requests = []
+    monitorFixture.showControls = true
+    Hl.Hyprland.toplevels.values = []
+    Hl.Hyprland.workspaces.values = []
+    Hl.Hyprland.monitors.values = []
+    Hl.Hyprland.focusedWorkspace = null
+    Hl.Hyprland.activeToplevel = null
+    Hl.Hyprland.requests = []
     lockRegistryFixture.enabledLockId = "omarchy.lock"
     lockFixture.locked = false
     lockFixture.strandedLockResolved = true
     lockFixture.strandedLock = false
+    layoutFixture.layout = layoutFixture.defaultLayout()
+    layoutFixture.revision++
+    layoutFixture.editMode = false
+    layoutFixture.editSnapshot = null
+    layoutFixture.selectedPath = ""
     layoutFixture.saveError = ""
     launcherFixture.saveError = ""
     layoutFixture.retryCalls = 0
@@ -60,11 +75,245 @@ TestCase {
       appearanceController: appearanceFixture,
       launcherController: launcherFixture,
       hardwareController: hardwareFixture,
+      monitorInputController: monitorFixture,
       weatherController: weatherFixture,
       timerController: timerFixture
     })
     verify(deck !== null)
     return deck
+  }
+
+  function test_customizeMovesEveryPanelAndCancelRestores() {
+    var deck = createDeck()
+    var original = JSON.stringify(layoutFixture.layout)
+    deck.showPreferences("omadeck")
+    wait(300)
+    var edit = findChild(deck, "preferencesEditDashboard")
+    verify(edit !== null)
+    mouseClick(edit, edit.width / 2, edit.height / 2)
+    wait(300)
+    verify(deck.customizing)
+    compare(deck.openOverlayName, "")
+    for (var id of ["media", "clock", "weather", "command-center"]) {
+      var tile = findChild(deck, "dashboardTile-" + id)
+      verify(tile !== null && tile.width > 0 && tile.height > 0, id)
+    }
+    // Content is inert while editing, even the monitor-switching row.
+    var inputs = findChild(deck, "monitorInputModule")
+    verify(!inputs.enabled)
+    mouseClick(inputs, inputs.width * 0.75, inputs.height / 2)
+    compare(monitorFixture.requests.length, 0)
+    layoutFixture.selectedPath = ""
+    var media = findChild(deck, "dashboardTile-media")
+    var clock = findChild(deck, "dashboardTile-clock")
+    var oldMediaPath = media.path, oldClockPath = clock.path
+    mouseClick(media, media.width / 2, media.height / 2)
+    mouseClick(clock, clock.width / 2, clock.height / 2)
+    wait(100)
+    compare(layoutFixture.nodeAt(oldMediaPath).moduleId, "clock")
+    compare(layoutFixture.nodeAt(oldClockPath).moduleId, "media")
+    // Changing topology recreates panels but retains the single service owner.
+    layoutFixture.moveModule("weather", "command-center", "bottom")
+    wait(100)
+    verify(findChild(deck, "dashboardTile-weather") !== null)
+    verify(findChild(deck, "staticMediaPanel").media === deck.dashboardMedia)
+    verify(deck.timerCompanion !== null)
+    verify(JSON.stringify(layoutFixture.layout) !== original)
+    var cancel = findChild(deck, "cancelCustomize")
+    mouseClick(cancel, cancel.width / 2, cancel.height / 2)
+    wait(100)
+    compare(JSON.stringify(layoutFixture.layout), original)
+    verify(!deck.customizing)
+    verify(findChild(deck, "monitorInputModule").enabled)
+    deck.openTimerPanel()
+    verify(deck.timerPanelOpen, "Clock can still reach the Weather/Timer panel after moving")
+  }
+
+  function test_customizeDragPlacesPanelAndResizesWithTouch() {
+    var deck = createDeck()
+    deck.beginCustomize()
+    wait(300)
+    var original = JSON.stringify(layoutFixture.layout)
+    var media = findChild(deck, "dashboardTile-media")
+    var command = findChild(deck, "dashboardTile-command-center")
+    var start = media.mapToItem(deck, media.width / 2, media.height / 2)
+    var end = command.mapToItem(deck, command.width / 2, command.height - 35)
+    var gesture = touchEvent(deck)
+    gesture.press(0, deck, start.x, start.y).commit()
+    for (var i = 1; i <= 12; i++) {
+      gesture.move(0, deck, start.x + (end.x - start.x) * i / 12,
+        start.y + (end.y - start.y) * i / 12).commit()
+      wait(20)
+    }
+    verify(media.dragging, "touch motion engages the module drag")
+    grabImage(deck).save("/tmp/omadeck-customize-drag.png")
+    verify(command.dropEdge !== "", "destination receives the drag: " + command.dropEdge)
+    gesture.release(0, deck, end.x, end.y).commit()
+    wait(200)
+    verify(JSON.stringify(layoutFixture.layout) !== original, "touch drop changes topology")
+    media = findChild(deck, "dashboardTile-media")
+    command = findChild(deck, "dashboardTile-command-center")
+    var mediaRect = rectIn(media, deck), commandRect = rectIn(command, deck)
+    verify(mediaRect.y > commandRect.y, "Now Playing moves below Command Center")
+    compare(mediaRect.x, commandRect.x)
+    var divider = findChild(deck, "layoutDivider-")
+    verify(divider.width >= 48)
+    var oldRatio = layoutFixture.layout.root.ratio
+    var point = divider.mapToItem(deck, divider.width / 2, divider.height / 2)
+    gesture.press(0, deck, point.x, point.y).commit()
+    for (var step = 1; step <= 6; step++) {
+      gesture.move(0, deck, point.x + step * 20, point.y).commit()
+      wait(20)
+    }
+    gesture.release(0, deck, point.x + 120, point.y).commit()
+    wait(100)
+    verify(layoutFixture.layout.root.ratio > oldRatio, "touch divider increases left share")
+    verify(Math.abs((layoutFixture.layout.root.ratio - oldRatio)
+      * (deck.usableWidth - deck.innerGap) - 120) < 3, "divider follows the finger without drift")
+    var horizontalDivider = findChild(deck, "layoutDivider-second")
+    verify(horizontalDivider !== null && horizontalDivider.height >= 48)
+    var priorHeight = findChild(deck, "dashboardTile-command-center").height
+    point = horizontalDivider.mapToItem(deck, horizontalDivider.width / 2, horizontalDivider.height / 2)
+    gesture.press(0, deck, point.x, point.y).commit()
+    for (var row = 1; row <= 5; row++) {
+      gesture.move(0, deck, point.x, point.y + row * 10).commit()
+      wait(20)
+    }
+    gesture.release(0, deck, point.x, point.y + 50).commit()
+    wait(100)
+    verify(Math.abs(findChild(deck, "dashboardTile-command-center").height - priorHeight - 50) < 3,
+      "horizontal divider resizes panel height without drift")
+    var edited = JSON.stringify(layoutFixture.layout)
+    var done = findChild(deck, "finishCustomize")
+    mouseClick(done, done.width / 2, done.height / 2)
+    compare(JSON.stringify(layoutFixture.layout), edited)
+    verify(!deck.customizing)
+    grabImage(deck).save("/tmp/omadeck-customized-layout.png")
+  }
+
+  function test_overlayCloseFitsHeader() {
+    var deck = createDeck(1600, 450)
+    deck.openOverlay("overview")
+    wait(300)
+    var overlay = findChild(deck, "omadeckOverviewOverlay")
+    var button = findChild(overlay, "closeOverviewOverlay")
+    var content = findChild(overlay, "deckCardContent")
+    verify(button !== null && content !== null)
+    verify(button.width >= 48 && button.height >= 48)
+    var buttonPos = button.mapToItem(overlay, 0, 0)
+    var contentPos = content.mapToItem(overlay, 0, 0)
+    verify(buttonPos.y + button.height <= contentPos.y, "close control fits above content")
+    verify(buttonPos.y >= 0, "close touch target remains inside the overlay")
+    verify(contentPos.y <= 64, "compact header leaves room for workspace cards")
+    compare(button.bordered, false)
+    mouseClick(button, button.width / 2, button.height / 2)
+    compare(deck.openOverlayName, "")
+  }
+
+  function test_monitorPreferencesRoute() {
+    var deck = createDeck(1600, 450)
+    deck.showPreferences("monitors")
+    compare(deck.openOverlayName, "preferences")
+    compare(findChild(deck, "preferencesPresenter").selectedCategory, "monitors")
+    deck.showPreferences("unknown")
+    compare(findChild(deck, "preferencesPresenter").selectedCategory, "monitors")
+  }
+
+  function test_monitorSetupRouteOpensReadOnlyGuide() {
+    var deck = createDeck(1600, 450)
+    deck.showPreferences("monitor-setup")
+    wait(300)
+    compare(deck.openOverlayName, "preferences")
+    var preferences = findChild(deck, "monitorInputPreferences")
+    compare(preferences.setupStep, "computer")
+    compare(findChild(preferences, "monitorSetupPrimary").text, "Continue")
+    verify(!deck.dashboardInputAllowed)
+    grabImage(findChild(deck, "preferencesOverlay")).save("/tmp/omadeck-monitor-setup-ready.png")
+  }
+
+  function test_overlaysBlockMonitorInputBehindThem_data() {
+    var rows = []
+    for (var overlay of ["overview", "notifications", "preferences"])
+      for (var touch of [false, true]) rows.push({ tag: overlay + (touch ? "-touch" : "-mouse"), overlay: overlay, touch: touch })
+    return rows
+  }
+
+  function test_overlaysBlockMonitorInputBehindThem(data) {
+    Hl.Hyprland.toplevels.values = [{ address: "abc", title: "Fixture", lastIpcObject: { "class": "Fixture" },
+      workspace: { id: -98, name: "special:scratchpad" }, monitor: { name: "DP-1" } }]
+    var deck = createDeck(1600, 450)
+    wait(100)
+    var input = findChild(deck, "monitorInputModule")
+    verify(input !== null)
+    // Monitor switching is recorded by a controller double; no hardware command runs.
+    var position = input.mapToItem(deck, input.width * 0.75, input.height / 2)
+    function tap() {
+      if (data.touch) {
+        var gesture = touchEvent(deck)
+        gesture.press(0, deck, position.x, position.y).commit()
+        gesture.release(0, deck, position.x, position.y).commit()
+      } else mouseClick(deck, position.x, position.y)
+    }
+    deck.openOverlay(data.overlay)
+    tap()
+    compare(monitorFixture.requests.length, 0, "dashboard blocked immediately on opening")
+    wait(300)
+    if (data.overlay === "overview") {
+      var panel = findChild(deck, "scratchpadPanel")
+      var local = panel.mapFromItem(deck, position.x, position.y)
+      verify(local.x > 0 && local.x < panel.width && local.y > 0 && local.y < panel.height,
+        "reproduce scratchpad directly above the monitor input button")
+    }
+    var requestsBefore = Hl.Hyprland.requests.length
+    tap()
+    compare(monitorFixture.requests.length, 0, "overlay taps cannot reach monitor input")
+    compare(deck.commandCenterPage, "home")
+    if (data.overlay === "overview") {
+      compare(Hl.Hyprland.requests.length, requestsBefore + 1)
+      compare(Hl.Hyprland.requests[requestsBefore], 'hl.dsp.workspace.toggle_special("scratchpad")')
+    }
+    deck.closeOverlay()
+    wait(60)
+    tap()
+    compare(monitorFixture.requests.length, 0, "closing animation still blocks dashboard taps")
+    wait(300)
+    verify(deck.dashboardInputAllowed)
+    tap()
+    compare(monitorFixture.requests[0].code, "13", "dashboard input works again after dismissal")
+  }
+
+  function test_openingOverlayCancelsDashboardPress() {
+    var deck = createDeck(1600, 450)
+    wait(100)
+    var input = findChild(deck, "monitorInputModule")
+    var position = input.mapToItem(deck, input.width * 0.75, input.height / 2)
+    mousePress(deck, position.x, position.y)
+    deck.openOverlay("overview")
+    verify(!input.enabled)
+    mouseRelease(deck, position.x, position.y)
+    compare(monitorFixture.requests.length, 0)
+    deck.openOverlay("preferences")
+    wait(300)
+    compare(input.enabled, false)
+    verify(!findChild(deck, "omadeckOverviewOverlay").enabled)
+  }
+
+  function test_overlayCancelsCommandCenterPressAndBlocksCoveredMedia() {
+    var deck = createDeck(1600, 450)
+    wait(100)
+    var applications = findByProperty(deck, "label", "Applications")
+    var position = applications.mapToItem(deck, applications.width / 2, applications.height / 2)
+    mousePress(deck, position.x, position.y)
+    deck.openOverlay("overview")
+    mouseRelease(deck, position.x, position.y)
+    compare(deck.commandCenterPage, "home")
+    wait(300)
+    var play = findChild(deck, "playPauseControl")
+    verify(play !== null)
+    var before = mediaFixture.actions.length
+    position = play.mapToItem(deck, play.width / 2, play.height / 2)
+    mouseClick(deck, position.x, position.y)
+    compare(mediaFixture.actions.length, before)
   }
 
   function findByProperty(item, propertyName, value) {
@@ -191,6 +440,11 @@ TestCase {
     verify(!deck.contentItem.enabled)
     wrapper.bridge.hostInputAllowed = true
     verify(deck.contentItem.enabled)
+    deck.openOverlay("overview")
+    verify(!findChild(deck, "deckCenterCanvas").enabled)
+    compare(wrapper.window, deck.contentItem)
+    verify(wrapper.window.enabled, "modal content must retain native touch input")
+    verify(wrapper.active)
     wrapper.bridge.hostInputAllowed = false
     verify(!deck.contentItem.enabled)
     verify(wrapper.active)
@@ -268,12 +522,12 @@ TestCase {
     var mixerBounds = rectIn(mixerCard, deck)
     var nowPlayingBounds = rectIn(nowPlayingCard, deck)
     compare(nowPlayingBounds.x - (mixerBounds.x + mixerBounds.width), deck.innerGap)
-    compare(nowPlayingCard.width, deck.staticMediaWidth)
+    compare(nowPlayingCard.width, Math.round((deck.usableWidth - deck.reservedLeft - deck.reservedRight - deck.innerGap) * 0.27))
     verify(mixerCard.y + mixerCard.height <= left.height)
 
     compare(deck.reservedLeft, deck.leftDrawerWidth + deck.innerGap)
-    compare(center.x, deck.outerGap + deck.staticMediaReserve + deck.reservedLeft)
-    compare(center.width, deck.usableWidth - deck.staticMediaReserve - deck.reservedLeft)
+    compare(center.x, deck.outerGap + deck.reservedLeft)
+    compare(center.width, deck.usableWidth - deck.reservedLeft)
   }
 
   function test_standardInstallReportsCompositorTouchWithoutNativeArtifact() {
@@ -522,7 +776,7 @@ TestCase {
     compare(nowPlayingBounds.x - (mixerBounds.x + mixerBounds.width), deck.innerGap,
       "Mixer-to-Now Playing gap")
     compare(mixerBounds.width, deck.leftDrawerWidth, "Volume fills its drawer width")
-    compare(nowPlayingBounds.width, deck.staticMediaWidth, "Now Playing retains its static width")
+    compare(nowPlayingBounds.width, Math.round((deck.usableWidth - deck.reservedLeft - deck.reservedRight - deck.innerGap) * 0.27), "Now Playing retains its configured share")
     compare(left.dismissInset, deck.innerGap, "the extra carrier strip owns dismissal")
     compare(leftBounds.x + leftBounds.width, nowPlayingBounds.x,
       "the dismissal strip must end where static Now Playing begins")
@@ -558,7 +812,7 @@ TestCase {
     verify(clockCard !== null && commandCard !== null && command !== null && weather !== null)
 
     compare(mixerCard.width, deck.leftDrawerWidth)
-    compare(nowPlayingCard.width, deck.staticMediaWidth)
+    compare(nowPlayingCard.width, Math.round((deck.usableWidth - deck.reservedLeft - deck.reservedRight - deck.innerGap) * 0.27))
     verify(mixerCard.width < nowPlayingCard.width, "collapsed Volume stays a narrow strip")
     compare(mixerCard.height, deck.usableHeight)
     compare(nowPlayingCard.height, deck.usableHeight)
@@ -807,8 +1061,8 @@ TestCase {
     compare(mixer.activeCategoryCount, 4)
     compare(mixer.expandedSliderCount, 6)
     verify(deck.leftDrawerWidth <= Math.round(deck.usableWidth * 0.46))
-    compare(nowPlayingCard.width, deck.staticMediaWidth,
-      "expanded Volume must not resize static Now Playing")
+    compare(nowPlayingCard.width, Math.round((deck.usableWidth - deck.reservedLeft - deck.reservedRight - deck.innerGap) * 0.27),
+      "expanded Volume preserves the configured dashboard proportions")
 
     for (var controlId of ["output", "mic", "media", "games", "voice", "other"]) {
       var control = findChild(mixer, "verticalVolume:" + controlId)
@@ -1068,6 +1322,26 @@ TestCase {
   }
 
   QtObject {
+    id: monitorFixture
+    property bool showControls: true
+    property bool loaded: true
+    property bool busy: false
+    property string switchStatus: ""
+    property string notice: ""
+    property var settings: ({ enabled: true })
+    property var setupStatus: null
+    property bool setupWindowOpened: false
+    property bool scanned: false
+    property var requests: []
+    property var detectedMonitors: []
+    property var monitors: [{ id: "a".repeat(64), label: "Fixture monitor", sources: [{ code: "0f", label: "Desktop" }, { code: "13", label: "Laptop" }] }]
+    readonly property var selectedMonitor: monitors[0]
+    function switchInput(id, code) { requests = requests.concat([{ id: id, code: code }]); return true }
+    function cycleMonitor(delta) {}
+    function checkSetup() { setupStatus = { state: "ready", canPrepare: true }; return true }
+  }
+
+  QtObject {
     id: mediaFixture
     property var activePlayer: playerFixture
     property var actions: []
@@ -1101,33 +1375,14 @@ TestCase {
     function seek(seconds) { seeks.push(seconds) }
   }
 
-  QtObject {
+  Stores.LayoutController {
     id: layoutFixture
-    property string saveError: ""
     property int retryCalls: 0
     function persist() { retryCalls++; saveError = "" }
-    property int revision: 0
-    property bool editMode: false
-    property string selectedPath: ""
-    property string layoutBytes: "fixture-layout-v1"
-    property string topology: "split(module:clock,module:command-center)"
-    property int schemaVersion: 1
-    property int mutationCalls: 0
-    function nodeAt(path) {
-      var clock = { type: "module", moduleId: "clock" }
-      var command = { type: "module", moduleId: "command-center" }
-      if (path === "") return {
-        type: "split", orientation: "horizontal", ratio: 0.36,
-        first: clock, second: command
-      }
-      if (path === "first") return clock
-      if (path === "second") return command
-      return null
-    }
-    function beginEdit(path) { selectedPath = path; editMode = true }
-    function selectOrSwap(path) { selectedPath = path; mutationCalls++ }
-    function swap(first, second) { mutationCalls++ }
-    function setRatio(path, ratio) { mutationCalls++ }
+    readonly property string layoutBytes: JSON.stringify(layout)
+    readonly property string topology: JSON.stringify(layout.root)
+    readonly property int schemaVersion: layout.version
+    readonly property int mutationCalls: revision
   }
 
   QtObject {

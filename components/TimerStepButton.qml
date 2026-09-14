@@ -7,8 +7,14 @@ Item {
   property string text: ""
   property string accessibleName: ""
   readonly property bool pressFeedbackActive: stepTap.pressed
+  property int repeatCount: 0
 
   signal clicked()
+  Accessible.onPressAction: if (root.enabled && root.visible) root.clicked()
+
+  function stopRepeating() { holdDelay.stop(); repeatDelay.stop() }
+  onEnabledChanged: if (!enabled) stopRepeating()
+  onVisibleChanged: if (!visible) stopRepeating()
 
   width: 48
   height: 48
@@ -42,6 +48,30 @@ Item {
 
   TapHandler {
     id: stepTap
-    onTapped: root.clicked()
+    enabled: root.enabled && root.visible
+    onPressedChanged: {
+      if (pressed) { root.repeatCount = 0; holdDelay.restart() }
+      else root.stopRepeating()
+    }
+    onTapped: if (root.repeatCount === 0) root.clicked()
+  }
+  Timer {
+    id: holdDelay
+    interval: 450
+    onTriggered: if (stepTap.pressed && root.enabled && root.visible) {
+      root.repeatCount++
+      root.clicked()
+      repeatDelay.start()
+    }
+  }
+  Timer {
+    id: repeatDelay
+    interval: root.repeatCount >= 8 ? 70 : 160
+    repeat: true
+    onTriggered: {
+      if (!stepTap.pressed || !root.enabled || !root.visible) { root.stopRepeating(); return }
+      root.repeatCount++
+      root.clicked()
+    }
   }
 }

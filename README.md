@@ -21,7 +21,7 @@ live system information.
 
 - Keeps Now Playing, Clock/Weather, and Command Center mounted as the permanent
   dashboard while horizontal drawers reserve animated edge geometry.
-- Layers Notifications and Overview above the dashboard without collapsing or
+- Layers Notifications and Workspaces above the dashboard without collapsing or
   dismissing an open Volume or System drawer.
 - Responsively simplifies dense modules while space is constrained, restoring
   their selected detail as panels expand.
@@ -31,6 +31,7 @@ live system information.
   are not part of this release.
 - Focuses an existing Hyprland window before launching another copy.
 - Switches workspaces on the primary monitor without moving touch focus there.
+- Optional monitor input controls configured for your own displays and sources.
 - Exposes live CPU, GPU, memory, temperature, network, and storage information.
 - Provides a touch task manager with Focus, Close, and confirmed Force Kill.
 - Browses native Omarchy clipboard history with text and image previews.
@@ -133,17 +134,18 @@ different hardware.
 
 | Position | Surface |
 | --- | --- |
-| Static left | Now Playing |
-| Center | Clock/Weather and Command Center |
+| Dashboard (customizable) | Now Playing, Clock, Weather/Timer, and Command Center |
 | Left swipe | Volume mixer |
 | Right swipe | System overview and tools |
 | Pull down | Notifications and quick controls overlay |
-| Pull up | Workspaces and scratchpad Overview overlay |
+| Pull up | Workspaces and scratchpad overlay |
 
 Tap the dashboard Clock to set or control one countdown; its normal date line becomes the
 remaining-time status while the wall clock stays primary. Clock and weather
 appearance is available in **Preferences → Dashboard**, and from the optional
-OmaDeck taskbar icon. The Applications
+OmaDeck taskbar icon. Choose **Customize layout** there to move panels and resize
+their dividers; **Done** saves and **Cancel** restores the previous arrangement.
+Timer plus/minus controls repeat and accelerate when held. The Applications
 button opens an editable launcher inside Command Center. Horizontal drawers
 resize the dashboard through one shared animated boundary; vertical gestures
 leave its geometry and drawer state untouched.

@@ -51,7 +51,7 @@ test("a topology revision replaces child component types in both directions", ()
     appearanceController: {},
     weatherController: {},
   }
-  const Qt = { resolvedUrl: file => file }
+  const Qt = { resolvedUrl: file => file, binding: fn => fn() }
   const loadChild = extractFunction("loadChild", { root, Qt })
   const loader = {
     nodePath: "first",
@@ -79,7 +79,7 @@ test("revision handling is safe before child loaders finish construction", () =>
   const root = {
     controller: { nodeAt: () => ({ type: "module", moduleId: "clock" }) },
   }
-  const Qt = { resolvedUrl: file => file }
+  const Qt = { resolvedUrl: file => file, binding: fn => fn() }
   const loadChild = extractFunction("loadChild", { root, Qt })
 
   assert.doesNotThrow(() => loadChild(null))
@@ -103,7 +103,7 @@ test("initial construction loads once and later revisions coalesce while childre
 test("the validated split root remains explicit", () => {
   assert.match(
     deckSurfaceSource,
-    /DeckCenter \{[\s\S]*reservedLeft:\s*root\.staticMediaReserve \+ root\.reservedLeft[\s\S]*reservedRight:\s*root\.reservedRight[\s\S]*reservedTop:\s*root\.reservedTop[\s\S]*reservedBottom:\s*root\.reservedBottom[\s\S]*layoutController:\s*root\.layoutController/,
+    /DeckCenter \{[\s\S]*reservedLeft:\s*root\.reservedLeft[\s\S]*reservedRight:\s*root\.reservedRight[\s\S]*reservedTop:\s*root\.reservedTop[\s\S]*reservedBottom:\s*root\.reservedBottom[\s\S]*layoutController:\s*root\.layoutController/,
   )
   assert.match(
     deckCenterSource,

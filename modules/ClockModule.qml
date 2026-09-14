@@ -63,7 +63,7 @@ Item {
 
     TapHandler {
       enabled: root.interactionEnabled
-      // Match the containing tile's edit gesture across platform style hints.
+      // Only a deliberate tap opens the timer; resting a finger does nothing.
       longPressThreshold: 0.5
       onTapped: if (root.interactionEnabled) root.setupRequested()
     }

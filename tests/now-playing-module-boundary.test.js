@@ -94,7 +94,7 @@ test("NowPlayingModule owns the compact full-height player presentation", () => 
   }
 })
 
-test("Now Playing is static while Volume owns the left drawer", () => {
+test("Now Playing belongs to the editable dashboard while Volume owns the left drawer", () => {
   const mediaModule = source("modules/MediaModule.qml")
   const volumeModule = source("modules/VolumeModule.qml")
   const deckSurface = source("components/DeckSurface.qml")
@@ -109,10 +109,10 @@ test("Now Playing is static while Volume owns the left drawer", () => {
   assert.match(volumeModule, /readonly property real preferredDrawerWidth:/)
   assert.match(volumeModule, /function setMixerCompact\(compact\) \{ mixer\.compact = compact \}/)
   assert.match(volumeModule, /function setMixerCategory\(category\)/)
-  assert.match(deckSurface, /MediaModule\s*\{\s*id:\s*staticMedia/)
+  assert.match(source("components/ModuleTile.qml"), /MediaModule\s*\{[\s\S]*providedMedia:/)
   assert.match(deckSurface, /VolumeModule\s*\{\s*id:\s*volumeDrawer/)
-  assert.match(deckSurface, /readonly property int staticMediaWidth:/)
-  assert.match(deckSurface, /reservedLeft:\s*root\.staticMediaReserve \+ root\.reservedLeft/)
+  assert.match(deckSurface, /readonly property var dashboardMedia:/)
+  assert.match(deckSurface, /reservedLeft:\s*root\.reservedLeft/)
 })
 
 const qmlTestRunner = "/usr/lib/qt6/bin/qmltestrunner"
@@ -170,6 +170,7 @@ test("offscreen actual DeckSurface path renders separate media panels", {
       path.join(testRoot, "TouchBridgeFixture.qml"))
     const generatedTest = fs.readFileSync(qmlTestPath, "utf8")
       .replace('import "../../components" as Components', 'import "components" as Components')
+      .replace('import "../../services" as Stores', 'import "services" as Stores')
     fs.writeFileSync(generatedTestPath, generatedTest, { flag: "wx" })
 
     const result = childProcess.spawnSync(qmlTestRunner, [

@@ -41,6 +41,6 @@ BorderSurface {
     }
   }
 
-  HoverHandler { id: hover }
-  TapHandler { id: touch; onTapped: root.triggered() }
+  HoverHandler { id: hover; enabled: root.enabled }
+  TapHandler { id: touch; enabled: root.enabled; onTapped: root.triggered() }
 }

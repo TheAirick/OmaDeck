@@ -39,6 +39,10 @@ test('installed Quickshell retries real failed writes and failed starts in a pri
       'appearance.json': {version: 1, use24Hour: false},
       'hardware.json': {version: 1, targetScreen: 'fixture-old', primaryMonitor: 'fixture-old', touchDeviceNames: ['Fixture Touch']}
     }
+    const policy = {}
+    require('node:vm').runInNewContext(fs.readFileSync(path.join(root, 'services/LayoutPolicy.js'), 'utf8')
+      .replace(/^\.pragma library\s*/m, ''), policy)
+    values['dashboard-layout.json'] = policy.dashboardLayout(values['layout.json'])
     for (const [name, value] of Object.entries(values))
       fs.writeFileSync(path.join(config, name), JSON.stringify(value), { mode: 0o400 })
     fs.copyFileSync(path.join(__dirname, 'recovery-native.qml'), path.join(dir, 'shell.qml'))
@@ -70,7 +74,7 @@ test('installed Quickshell retries real failed writes and failed starts in a pri
     assert.equal((output.match(/TEST_ALERT/g) || []).length, 1, output)
     assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'timer.json'))).notificationSent, true)
     assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'timer-settings.json'))).eventId, 'bell')
-    assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'layout.json'))).root.ratio, 0.6)
+    assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'dashboard-layout.json'))).root.ratio, 0.6)
     assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'launcher.json'))).entries.length, 1)
     assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'appearance.json'))).use24Hour, true)
     assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'hardware.json'))).targetScreen, 'fixture-new')

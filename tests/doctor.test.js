@@ -60,8 +60,6 @@ function createFixture({
     }).join("\n") + "\n"
     fs.writeFileSync(path.join(nativeRoot, "artifacts.sha256"), artifactRecord, { mode: 0o600 })
   }
-  executable(path.join(homeDir, ".local/bin/alienware-to-omarchy"), "#!/usr/bin/env bash\nexit 0\n")
-  executable(path.join(homeDir, ".local/bin/alienware-to-mac"), "#!/usr/bin/env bash\nexit 0\n")
 
   executable(path.join(binDir, "pgrep"), "#!/usr/bin/env bash\n[[ $* == '-x quickshell' ]] || exit 1\nprintf '4242\\n'\n")
   executable(path.join(binDir, "hyprctl"), `#!/usr/bin/env bash\nprintf '%s\\n' '${JSON.stringify(monitorNames.map(name => ({ name })))}'\n`)

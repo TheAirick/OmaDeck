@@ -44,6 +44,25 @@ Item {
       }
       if (!appearance.loaded || !hardware.loaded || !layout.loaded
           || !launcher.loaded || !timer.loaded || !timer.soundSettingsLoaded) return
+      if (["workspace-write", "workspace-clear"].indexOf(Quickshell.env("OMADECK_SETTINGS_PHASE")) !== -1) {
+        var closeAfterSwitch = Quickshell.env("OMADECK_SETTINGS_PHASE") === "workspace-write"
+        if (!appearance.setOption("workspaceCloseOnActivate", closeAfterSwitch))
+          console.error("READINESS_FAILURE workspace preference did not save")
+        root.report()
+        return
+      }
+      var phase = Quickshell.env("OMADECK_SETTINGS_PHASE")
+      if (phase.indexOf("customize-") === 0) {
+        if (root.written) return
+        root.written = true
+        layout.beginEdit("")
+        layout.setRatio("", 0.42)
+        layout.moveModule("weather", "media", "left")
+        if (phase === "customize-cancel") layout.cancelEdit()
+        if (phase === "customize-done") layout.finishEdit()
+        settle.start()
+        return
+      }
       if (Quickshell.env("OMADECK_SETTINGS_PHASE") === "snapshot") {
         root.report()
         return

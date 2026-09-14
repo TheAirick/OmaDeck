@@ -149,7 +149,7 @@ test("timer ownership is forwarded through every layout loader to the Clock", ()
   assert.match(tile, /ClockCompanionTile \{[\s\S]*timer:\s*root\.timerController/)
 })
 
-test("Clock timer UI is hidden while idle and preserves long-press editing", () => {
+test("Clock timer UI is hidden while idle and holds never start layout editing", () => {
   const tile = source("components/ModuleTile.qml")
   const clock = source("modules/ClockModule.qml")
     + source("components/ClockCompanionTile.qml")
@@ -157,8 +157,7 @@ test("Clock timer UI is hidden while idle and preserves long-press editing", () 
   const timerModule = source("modules/TimerModule.qml")
   const timerSetup = source("modules/TimerSetupPanel.qml")
 
-  assert.match(tile, /longPressThreshold:\s*0\.5/)
-  assert.match(tile, /onLongPressed:\s*root\.controller\.beginEdit\(root\.path\)/)
+  assert.doesNotMatch(tile, /longPressThreshold|onLongPressed/)
   assert.match(clock, /TapHandler\s*\{[\s\S]*onTapped:\s*if \(root\.interactionEnabled\) root\.setupRequested\(\)/)
   assert.match(clock, /onSetupRequested:\s*companionModule\.openTimer\(\)/)
   assert.match(clock, /TimerModule\s*\{[\s\S]*id:\s*timerPresenter/)
