@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import fs from "node:fs"
+import { createHash } from "node:crypto"
 import vm from "node:vm"
 import test from "node:test"
 
@@ -228,6 +229,7 @@ test("timer sounds expose only the curated labels and event IDs", () => {
   assert.deepEqual(
     Array.from(policy.soundOptions(), ({ label, eventId }) => ({ label, eventId })),
     [
+      { label: "Ocean", eventId: "ocean" },
       { label: "Silent", eventId: "" },
       { label: "Alarm", eventId: "alarm-clock-elapsed" },
       { label: "Complete", eventId: "complete" },
@@ -237,15 +239,15 @@ test("timer sounds expose only the curated labels and event IDs", () => {
     ],
   )
   assert.equal(policy.normalizeSoundId("complete"), "complete")
-  assert.equal(policy.normalizeSoundId("/tmp/untrusted.oga"), "complete")
+  assert.equal(policy.normalizeSoundId("/tmp/untrusted.oga"), "ocean")
   assert.equal(policy.soundLabel("phone-incoming-call"), "Ring")
 })
 
 test("timer sound cycling wraps in both directions", () => {
   const policy = loadPolicy()
 
-  assert.equal(policy.cycleSoundId("", -1), "dialog-warning")
-  assert.equal(policy.cycleSoundId("dialog-warning", 1), "")
+  assert.equal(policy.cycleSoundId("ocean", -1), "dialog-warning")
+  assert.equal(policy.cycleSoundId("dialog-warning", 1), "ocean")
   assert.equal(policy.cycleSoundId("complete", -1), "alarm-clock-elapsed")
   assert.equal(policy.cycleSoundId("complete", 1), "bell")
 })
@@ -256,7 +258,7 @@ test("timer sound settings default and repair corrupt or invalid persistence", (
   for (const raw of ["", "not json", "{}", JSON.stringify({ version: 2, eventId: "bell" }),
     JSON.stringify({ version: 1, eventId: "/tmp/untrusted.oga" })]) {
     const restored = policy.restoreSoundSettings(raw)
-    assert.equal(restored.eventId, "complete")
+    assert.equal(restored.eventId, "ocean")
     assert.equal(restored.needsRepair, true)
   }
 
@@ -266,26 +268,37 @@ test("timer sound settings default and repair corrupt or invalid persistence", (
   assert.equal(JSON.stringify(policy.soundSettings("bell")), '{"version":1,"eventId":"bell"}')
 })
 
-test("sound commands are static deadline-bounded Canberra invocations and Silent has none", () => {
+test("sound commands are bounded argument arrays and Ocean plays the bundled file", () => {
   const policy = loadPolicy()
   const prefix = [
     "/usr/bin/timeout", "--signal=TERM", "--kill-after=1s", "3s",
     "/usr/bin/canberra-gtk-play",
   ]
-
+  const oceanPath = "/test path/OmaDeck/assets/sounds/ocean-timer.oga"
+  const oceanCommand = [
+    ...prefix.slice(0, 3), "8s", prefix[4], "-f", oceanPath, "-d", "OmaDeck timer sound",
+  ]
   assert.equal(policy.playbackCommand(""), null)
-  assert.deepEqual(Array.from(policy.playbackCommand("bell")), [
-    ...prefix, "-i", "bell", "-d", "OmaDeck timer sound",
-  ])
-  assert.deepEqual(Array.from(policy.playbackCommand("/tmp/untrusted.oga")), [
-    ...prefix, "-i", "complete", "-d", "OmaDeck timer sound",
-  ])
+  assert.equal(policy.playbackCommand("ocean"), null, "missing asset location fails closed")
+  assert.deepEqual(Array.from(policy.playbackCommand("ocean", oceanPath)), oceanCommand)
+  assert.deepEqual(Array.from(policy.playbackCommand("/tmp/untrusted.oga", oceanPath)), oceanCommand)
   for (const option of policy.soundOptions()) {
-    const command = policy.playbackCommand(option.eventId)
-    if (option.eventId === "") continue
-    assert.deepEqual(Array.from(command.slice(0, prefix.length)), prefix)
-    assert.equal(command[prefix.length], "-i")
-    assert.equal(command[prefix.length + 1], option.eventId)
-    assert.equal(command.includes("-f"), false)
+    if (["", "ocean"].includes(option.eventId)) continue
+    assert.deepEqual(Array.from(policy.playbackCommand(option.eventId, oceanPath)), [
+      ...prefix, "-i", option.eventId, "-d", "OmaDeck timer sound",
+    ])
+    const saved = policy.restoreSoundSettings(JSON.stringify({ version: 1, eventId: option.eventId }))
+    assert.equal(saved.eventId, option.eventId, "existing explicit selections survive")
+    assert.equal(saved.needsRepair, false)
   }
+})
+
+test("Ocean is bundled unmodified with its attribution and license", () => {
+  const asset = fs.readFileSync(new URL("../assets/sounds/ocean-timer.oga", import.meta.url))
+  assert.equal(createHash("sha256").update(asset).digest("hex"),
+    "9b5a81a2149c2d8b93a6c57249f25eecb6d980ce824eb5cd00155c64fa909be8")
+  const attribution = fs.readFileSync(new URL("../assets/sounds/ocean-timer.oga.license", import.meta.url), "utf8")
+  assert.match(attribution, /Guilherme Marçal Silva/)
+  assert.match(attribution, /CC-BY-SA-4.0/)
+  assert.ok(fs.statSync(new URL("../assets/sounds/CC-BY-SA-4.0.txt", import.meta.url)).size > 10000)
 })

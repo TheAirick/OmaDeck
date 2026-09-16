@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import "../theme"
 
 Item {
   id: root
@@ -100,7 +101,7 @@ Item {
             Text {
               anchors.verticalCenter: parent.verticalCenter
               text: ""
-              color: Color.muted
+              color: DeckColors.secondaryText
               font.family: Style.font.family
               font.pixelSize: Style.font.body
             }
@@ -108,7 +109,7 @@ Item {
               anchors.verticalCenter: parent.verticalCenter
               width: Math.max(0, parent.width - x)
               text: String(root.safeWeather.location || "Current location").toUpperCase()
-              color: Color.muted
+              color: DeckColors.secondaryText
               font.family: Style.font.family
               font.pixelSize: Style.font.body
               font.letterSpacing: 1
@@ -179,7 +180,7 @@ Item {
                 spacing: Style.space(2)
                 Text {
                   text: root.dayName ? root.dayName(forecastCell.modelData.date).toUpperCase() : "DAY"
-                  color: Color.muted
+                  color: DeckColors.secondaryText
                   font.family: Style.font.family
                   font.pixelSize: Style.font.caption
                   font.letterSpacing: 1
@@ -194,7 +195,7 @@ Item {
                   }
                   Text {
                     text: root.temp ? root.temp(forecastCell.modelData.lowC, false) : "—"
-                    color: Color.muted
+                    color: DeckColors.secondaryText
                     font.family: Style.font.family
                     font.pixelSize: Style.font.body
                   }
@@ -214,7 +215,7 @@ Item {
 
     Text {
       text: parent.label
-      color: Color.muted
+      color: DeckColors.secondaryText
       font.family: Style.font.family
       font.pixelSize: Style.font.bodySmall
       font.letterSpacing: 1

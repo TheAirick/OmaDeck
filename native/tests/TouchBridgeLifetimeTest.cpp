@@ -80,6 +80,7 @@ private slots:
     void stopIsSafeAfterActiveTargetDestruction();
     void syntheticReleaseCannotReenterActiveCleanup();
     void directTouchContactIsExposedUntilSyntheticHoverLeaves();
+    void directTouchClearsMouseAreaHoverBetweenButtons();
     void touchTransitionsSurviveReadBoundaries();
     void droppedStreamClearsSyntheticPointer();
     void disabledDeckCancelsContact_data();
@@ -402,6 +403,60 @@ void TouchBridgeLifetimeTest::droppedStreamClearsSyntheticPointer()
     bridge.m_fd = -1;
     ::close(descriptors[0]);
     ::close(descriptors[1]);
+}
+
+void TouchBridgeLifetimeTest::directTouchClearsMouseAreaHoverBetweenButtons()
+{
+    QQmlEngine engine;
+    QQmlComponent component(&engine);
+    component.setData(R"(
+        import QtQuick
+        Item {
+            id: root; width: 200; height: 100
+            property int selected: 0
+            property int clicks: 0
+            property bool outputHovered: output.containsMouse
+            property bool micHovered: mic.containsMouse
+            MouseArea {
+                id: output; width: 100; height: 100; hoverEnabled: true
+                onClicked: { root.selected = 0; root.clicks++ }
+            }
+            MouseArea {
+                id: mic; x: 100; width: 100; height: 100; hoverEnabled: true
+                onClicked: { root.selected = 1; root.clicks++ }
+            }
+        }
+    )", QUrl());
+    QVERIFY2(component.isReady(), qPrintable(component.errorString()));
+    QQuickWindow window;
+    window.resize(200, 100);
+    auto *item = qobject_cast<QQuickItem *>(component.create());
+    QVERIFY(item);
+    item->setParentItem(window.contentItem());
+    item->setParent(window.contentItem());
+    window.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&window));
+    TouchBridge bridge;
+    bridge.setWindow(&window);
+    bridge.m_xMax = 200;
+    bridge.m_yMax = 100;
+    for (int click = 0; click < 8; ++click) {
+        const bool microphone = click % 2 == 0;
+        bridge.m_inputState.process(inputEvent(EV_ABS, ABS_X, microphone ? 150 : 50), false);
+        bridge.m_inputState.process(inputEvent(EV_ABS, ABS_Y, 50), false);
+        bridge.dispatch(true, false);
+        bridge.dispatch(false, true);
+        QCoreApplication::processEvents();
+        QCOMPARE(item->property("selected").toInt(), microphone ? 1 : 0);
+        QCOMPARE(item->property("clicks").toInt(), click + 1);
+        QVERIFY2(!item->property("micHovered").toBool(), "lifted touch left Mic hovered");
+        QVERIFY2(!item->property("outputHovered").toBool(), "lifted touch left Output hovered");
+    }
+    // Real mouse hover must still work after the touch sequence.
+    QTest::mouseMove(&window, QPoint(150, 50));
+    QCoreApplication::processEvents();
+    QVERIFY(item->property("micHovered").toBool());
+    QVERIFY(!item->property("outputHovered").toBool());
 }
 
 void TouchBridgeLifetimeTest::disabledDeckCancelsContact_data()

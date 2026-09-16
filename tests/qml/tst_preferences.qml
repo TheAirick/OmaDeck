@@ -12,22 +12,48 @@ TestCase {
 
   Component { id: preferencesComponent; Modules.PreferencesModule {} }
 
-  function test_legacyClockStyleIsExplicitlyInactive() {
+  function test_onlyAppCategoriesAreExposed() {
     var module = createTemporaryObject(preferencesComponent, testCase, { width: 1100, height: 800 })
-    var choice = findChild(module, "preferencesClockStyle")
-    verify(choice !== null)
-    compare(choice.label, "Clock style (legacy)")
-    compare(choice.description, "Retained for compatibility; the current Clock always uses Compact")
-    compare(choice.enabled, false)
+    compare(module.categories.map(function(entry) { return entry.id }).join(","),
+      "omadeck,workspaces,timer,hardware,monitors,launcher")
+    for (var name of ["preferencesClockStyle", "preferencesTheme", "preferencesConfig",
+      "preferencesDoNotDisturb", "preferencesBarPosition", "preferencesPowerActions"])
+      compare(findChild(module, name), null)
   }
 
-  function test_configRouteDoesNotClaimValidation() {
+  function test_workspaceCloseSetting() {
+    var saves = []
     var module = createTemporaryObject(preferencesComponent, testCase, {
-      width: 1100, height: 800, selectedCategory: "advanced"
+      width: 1100, height: 450, selectedCategory: "workspaces",
+      appearanceController: {
+        workspaceCloseOnActivate: false, use24Hour: false, showSeconds: false,
+        showWeather: true, weatherStyle: "scene", weatherDetail: "standard", temperatureUnit: "fahrenheit",
+        setOption: function(key, value) { saves.push([key, value]); return true }
+      }
     })
-    var action = findChild(module, "preferencesConfig")
-    verify(action !== null)
-    compare(action.description, "Open Omarchy's configuration files in an editor")
+    wait(30)
+    var control = findChild(module, "preferencesWorkspaceCloseOnActivate")
+    verify(control !== null)
+    mouseClick(control, control.width / 2, control.height / 2)
+    compare(saves.length, 1)
+    compare(saves[0][0], "workspaceCloseOnActivate")
+    compare(saves[0][1], true)
+    compare(module.notice, "Saved")
+  }
+
+  function test_categoryChangeResetsScrollAndRefreshesTouchDevices() {
+    var refreshes = 0
+    var module = createTemporaryObject(preferencesComponent, testCase, {
+      width: 1100, height: 450,
+      deck: { refreshTouchDevices: function() { refreshes++ } }
+    })
+    var list = findChild(module, "omaDeckPreferencesList")
+    list.contentY = 300
+    module.selectedCategory = "hardware"
+    compare(list.contentY, 0)
+    compare(refreshes, 1)
+    module.selectedCategory = "timer"
+    compare(refreshes, 1)
   }
 
   function optionsIn(item) {
@@ -41,9 +67,9 @@ TestCase {
 
   function test_dynamicHardwareChoicesFit_data() {
     return [
-      { tag: "target", category: "displays", name: "preferencesTargetScreen" },
-      { tag: "primary", category: "displays", name: "preferencesPrimaryMonitor" },
-      { tag: "touch", category: "input", name: "preferencesTouchDevice" }
+      { tag: "target", category: "hardware", name: "preferencesTargetScreen" },
+      { tag: "primary", category: "hardware", name: "preferencesPrimaryMonitor" },
+      { tag: "touch", category: "hardware", name: "preferencesTouchDevice" }
     ]
   }
 
@@ -112,55 +138,4 @@ TestCase {
     }
   }
 
-  function test_hostRequestsDoNotClaimPersistence_data() {
-    return [
-      { tag: "dnd", method: "applyDoNotDisturb", args: [true], call: "dnd", value: true },
-      { tag: "nightlight", method: "applyNightlight", args: [true], call: "nightlight", value: true },
-      { tag: "awake", method: "applyKeepAwake", args: [true], call: "idle", value: false },
-      { tag: "position", method: "applyBarPosition", args: ["left"], key: "bar", field: "position", value: "left" },
-      { tag: "transparency", method: "applyBarTransparency", args: [true], key: "bar", field: "transparent", value: true },
-      { tag: "screensaver", method: "applyIdleTimeout", args: ["screensaver", "600"], key: "idle", field: "screensaver", value: 600 },
-      { tag: "lock", method: "applyIdleTimeout", args: ["lock", "900"], key: "idle", field: "lock", value: 900 }
-    ]
-  }
-
-  function test_hostRequestsDoNotClaimPersistence(data) {
-    // Void host APIs can queue work without changing live state or saving disk.
-    var calls = []
-    var pendingMutator = null
-    var service = {
-      stateLoaded: true, stayAwakeStateLoaded: true, idleEnabled: true,
-      doNotDisturb: false, enabled: false,
-      screensaverTimeoutSeconds: 150, lockTimeoutSeconds: 300,
-      setDoNotDisturb: function(v) { calls.push(["dnd", v]) },
-      setNightlight: function(v) { calls.push(["nightlight", v]) },
-      setIdleEnabled: function(v) { calls.push(["idle", v]) }
-    }
-    var host = {
-      shellConfig: {},
-      firstPartyServiceFor: function(id) { return service },
-      mutateShellConfig: function(fn) { pendingMutator = fn }
-    }
-    var module = createTemporaryObject(preferencesComponent, testCase, {
-      width: 1100, height: 800, shell: host
-    })
-    verify(module !== null)
-    compare(module[data.method].apply(module, data.args), true)
-    if (data.call) {
-      compare(calls.length, 1)
-      compare(calls[0][0], data.call)
-      compare(calls[0][1], data.value)
-    } else {
-      verify(pendingMutator !== null)
-      var config = { unrelated: "preserved" }
-      pendingMutator(config)
-      compare(config[data.key][data.field], data.value)
-      compare(config.unrelated, "preserved")
-    }
-    compare(module.notice, "Requested")
-    compare(service.doNotDisturb, false)
-    compare(service.enabled, false)
-    compare(service.idleEnabled, true)
-    compare(module.barPosition, "top")
-  }
 }

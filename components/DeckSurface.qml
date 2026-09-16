@@ -5,6 +5,7 @@ import Quickshell.Wayland
 import qs.Commons
 import qs.Ui
 import "../modules"
+import "../services"
 import "DrawerGesture.js" as DrawerGesture
 
 PanelWindow {
@@ -36,6 +37,7 @@ PanelWindow {
   property var appearanceController: null
   property var launcherController: null
   property var hardwareController: null
+  property var monitorInputController: null
   property var weatherController: null
   property var timerController: null
   property string targetScreen: "DP-3"
@@ -43,6 +45,10 @@ PanelWindow {
   property var touchDeviceNames: []
   property string openDrawer: ""
   property string openOverlayName: ""
+  // Keep the dashboard inert through the entire open/close animation. A
+  // painted overlay does not stop passive TapHandlers in siblings below it.
+  readonly property bool dashboardInputAllowed: openOverlayName === ""
+    && !notificationOverlay.visible && !overviewOverlay.visible && !preferencesOverlay.visible
   property string commandCenterPage: "home"
   property string lastDrawerTransition: "initial"
   property int drawerTransitionSequence: 0
@@ -56,7 +62,6 @@ PanelWindow {
   readonly property var availableTouchDeviceNames: directTouch.availableDeviceNames
   readonly property string activeTouchDeviceName: directTouch.activeDeviceName
   readonly property bool deckHovered: backgroundHover.hovered || centerCanvas.pointerHovered
-    || nowPlayingHover.hovered
     || leftDrawer.pointerHovered || rightDrawer.pointerHovered
     || notificationOverlay.pointerHovered || overviewOverlay.pointerHovered
     || preferencesOverlay.pointerHovered
@@ -66,8 +71,20 @@ PanelWindow {
   readonly property int innerGap: Style.spacing.panelGap
   readonly property int usableWidth: Math.max(0, width - outerGap * 2)
   readonly property int usableHeight: Math.max(0, height - outerGap * 2)
-  readonly property int staticMediaWidth: Math.round(usableWidth * 0.27)
-  readonly property int staticMediaReserve: staticMediaWidth + innerGap
+  readonly property bool customizing: !!(layoutController && layoutController.editMode)
+  readonly property var hostMedia: shell && typeof shell.serviceFor === "function"
+    ? shell.serviceFor("omarchy.media") : null
+  readonly property var dashboardMedia: hostMedia || nativeMedia
+  property var timerCompanion: null
+  readonly property bool timerPanelOpen: !!(timerCompanion && timerCompanion.timerPanelOpen)
+  MprisMediaAdapter { id: nativeMedia; enabled: !root.hostMedia }
+  function openTimerPanel() { if (timerCompanion) timerCompanion.openTimer() }
+
+  function beginCustomize() {
+    if (!layoutController) return
+    closeDrawer()
+    layoutController.beginEdit("")
+  }
   readonly property int leftDrawerWidth: Math.min(Math.round(usableWidth * 0.46),
     Math.ceil(volumeDrawer.preferredDrawerWidth))
   readonly property int rightDrawerWidth: Math.round(usableWidth * 0.34)
@@ -76,7 +93,7 @@ PanelWindow {
   // own full-surface overlays and therefore never steal height from the center.
   property real reservedLeft: openDrawer === "left" ? leftDrawerWidth + innerGap : 0
   property real reservedRight: openDrawer === "right" ? rightDrawerWidth + innerGap : 0
-  readonly property real reservedTop: 0
+  readonly property real reservedTop: customizing ? Style.space(68) : 0
   readonly property real reservedBottom: 0
 
   Behavior on reservedLeft { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
@@ -87,10 +104,17 @@ PanelWindow {
   color: "transparent"
   exclusionMode: ExclusionMode.Ignore
   WlrLayershell.namespace: "omadeck"
-  WlrLayershell.layer: WlrLayer.Bottom
-  // OmaDeck never requests compositor keyboard focus. Its direct-touch bridge
-  // owns the Xeneon evdev node and injects events only into this backing window.
-  WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+  WlrLayershell.layer: launcherKeyboardRequested ? WlrLayer.Top : WlrLayer.Bottom
+  // Request keys only during explicit launcher text entry. Direct touch
+  // bypasses compositor pointer focus. Exclusive keys need the top layer;
+  // closing, changing category or locking
+  // releases keyboard ownership immediately.
+  readonly property bool launcherKeyboardRequested: interactionAllowed && openOverlayName === "preferences" && preferencesPresenter.selectedCategory === "launcher" && preferencesPresenter.keyboardRequested
+  WlrLayershell.keyboardFocus: launcherKeyboardRequested ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+  function editLauncher(addApp) {
+    showPreferences("launcher")
+    if (addApp) preferencesPresenter.browseLauncherApps()
+  }
 
   OptionalTouchBridge {
     id: directTouch
@@ -102,7 +126,9 @@ PanelWindow {
   }
 
   Component.onCompleted: {
-    directTouch.window = centerCanvas
+    // Input belongs to the whole surface: modal overlays disable the center,
+    // while the root continues to enforce the existing session-lock guard.
+    directTouch.window = root.contentItem
     directTouch.start()
     if (serviceHost) serviceHost.registerSurface(root)
     console.info("[OmaDeckDrawer] loaded", JSON.stringify(drawerDiagnostics()))
@@ -115,9 +141,10 @@ PanelWindow {
   function drawerDiagnostics() {
     return {
       interactionAllowed: interactionAllowed,
+      dashboardInputAllowed: dashboardInputAllowed,
       inputMode: directTouch.mode,
-      mediaProvider: staticMedia.hostMedia ? "omarchy" : "mpris",
-      mediaHasPlayer: !!staticMedia.media.activePlayer,
+      mediaProvider: root.hostMedia ? "omarchy" : "mpris",
+      mediaHasPlayer: !!root.dashboardMedia.activePlayer,
       lockServiceAvailable: !!lockService,
       hostInputGuardAvailable: directTouch.hostGuardAvailable,
       hostInputAllowed: directTouch.hostInputAllowed,
@@ -188,6 +215,16 @@ PanelWindow {
 
   function closeOverlay() {
     setOpenOverlay("", "close-overlay")
+  }
+
+  function showPreferences(category) {
+    if (category === "customize") { beginCustomize(); return }
+    var setup = category === "monitor-setup"
+    if (setup) category = "monitors"
+    if (!preferencesPresenter.categories.some(function(row) { return row.id === category })) return
+    preferencesPresenter.selectedCategory = category
+    openOverlay("preferences")
+    if (setup) preferencesPresenter.startMonitorSetup()
   }
 
   function setCommandCenterPage(page) {
@@ -283,6 +320,7 @@ PanelWindow {
   // that exact underlying state and reveal it again when dismissed.
   EdgeDrawer {
     id: leftDrawer
+    enabled: root.dashboardInputAllowed && !root.customizing
     objectName: "leftVolumeDrawer"
     edge: "left"
     framed: false
@@ -304,6 +342,7 @@ PanelWindow {
 
   EdgeDrawer {
     id: rightDrawer
+    enabled: root.dashboardInputAllowed && !root.customizing
     objectName: "rightSystemDrawer"
     edge: "right"
     open: root.openDrawer === edge
@@ -323,25 +362,15 @@ PanelWindow {
     }
   }
 
-  MediaModule {
-    id: staticMedia
-    x: root.outerGap + root.reservedLeft
-    y: root.outerGap
-    width: root.staticMediaWidth
-    height: root.usableHeight
-    shell: root.shell
-
-    HoverHandler { id: nowPlayingHover }
-  }
-
   DeckCenter {
     id: centerCanvas
+    enabled: root.dashboardInputAllowed
     surfaceWidth: root.width
     surfaceHeight: root.height
     outerGap: root.outerGap
     usableWidth: root.usableWidth
     usableHeight: root.usableHeight
-    reservedLeft: root.staticMediaReserve + root.reservedLeft
+    reservedLeft: root.reservedLeft
     reservedRight: root.reservedRight
     reservedTop: root.reservedTop
     reservedBottom: root.reservedBottom
@@ -387,13 +416,16 @@ PanelWindow {
     z: 180
     origin: "bottom"
     overlayId: "overview"
-    title: "OmaDeck overview"
+    title: "Workspaces"
     subtitle: ""
     outerGap: root.outerGap
     open: root.openOverlayName === "overview"
     onDismissRequested: root.closeOverlay()
 
     OverviewModule {
+      active: overviewOverlay.open && root.interactionAllowed
+      appearanceController: root.appearanceController
+      shell: root.shell
       anchors.fill: parent
       deck: root
       primaryMonitor: root.primaryMonitor
@@ -409,19 +441,20 @@ PanelWindow {
     z: 190
     origin: "top"
     overlayId: "preferences"
-    title: "Preferences"
+    title: "OmaDeck preferences"
     subtitle: ""
     outerGap: root.outerGap
     open: root.openOverlayName === "preferences"
     onDismissRequested: root.closeOverlay()
 
     PreferencesModule {
+      id: preferencesPresenter
       anchors.fill: parent
-      shell: root.shell
       deck: root
       appearanceController: root.appearanceController
       layoutController: root.layoutController
       hardwareController: root.hardwareController
+      monitorInputController: root.monitorInputController
       weatherController: root.weatherController
       timerController: root.timerController
     }
@@ -430,14 +463,15 @@ PanelWindow {
   // Generous touch zones begin the drawer gesture. The first foundation uses
   // single-point drags; multi-touch resize/edit handlers come with the layout
   // tree so gesture ownership remains unambiguous.
-  EdgeSwipeArea { enabled: root.openOverlayName === ""; edge: "left"; anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom; onTriggered: root.toggleDrawer(edge) }
-  EdgeSwipeArea { enabled: root.openOverlayName === ""; edge: "right"; anchors.right: parent.right; anchors.top: parent.top; anchors.bottom: parent.bottom; onTriggered: root.toggleDrawer(edge) }
-  EdgeSwipeArea { enabled: root.openOverlayName === ""; edge: "top"; anchors.top: parent.top; anchors.left: parent.left; anchors.right: parent.right; onTriggered: root.toggleOverlay("notifications") }
-  EdgeSwipeArea { enabled: root.openOverlayName === ""; edge: "bottom"; anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.right: parent.right; onTriggered: root.toggleOverlay("overview") }
+  EdgeSwipeArea { enabled: root.dashboardInputAllowed && !root.customizing; edge: "left"; anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom; onTriggered: root.toggleDrawer(edge) }
+  EdgeSwipeArea { enabled: root.dashboardInputAllowed && !root.customizing; edge: "right"; anchors.right: parent.right; anchors.top: parent.top; anchors.bottom: parent.bottom; onTriggered: root.toggleDrawer(edge) }
+  EdgeSwipeArea { enabled: root.dashboardInputAllowed && !root.customizing; edge: "top"; anchors.top: parent.top; anchors.left: parent.left; anchors.right: parent.right; onTriggered: root.toggleOverlay("notifications") }
+  EdgeSwipeArea { enabled: root.dashboardInputAllowed && !root.customizing; edge: "bottom"; anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.right: parent.right; onTriggered: root.toggleOverlay("overview") }
 
   // Keep failed-save feedback reachable even after the editing UI closes.
   // Controllers retain dirty state and own the retry; never expose raw errors.
   Column {
+    enabled: root.dashboardInputAllowed
     anchors.left: parent.left
     anchors.bottom: parent.bottom
     anchors.margins: root.outerGap + Style.spacing.controlPaddingX
@@ -459,16 +493,45 @@ PanelWindow {
     }
   }
 
-  Button {
-    visible: root.layoutController && root.layoutController.editMode
-    anchors.top: parent.top
-    anchors.right: parent.right
-    anchors.margins: root.outerGap + Style.spacing.controlPaddingX
+  Item {
+    visible: root.customizing
+    enabled: root.dashboardInputAllowed
+    x: root.outerGap
+    y: root.outerGap
+    width: root.usableWidth
+    height: root.reservedTop - root.innerGap
     z: 200
-    text: "Done"
-    iconText: "󰄬"
-    selected: true
-    foreground: Color.foreground
-    onClicked: root.layoutController.finishEdit()
+    Text {
+      anchors.left: parent.left
+      anchors.leftMargin: Style.spacing.controlPaddingX
+      anchors.verticalCenter: parent.verticalCenter
+      width: Math.max(0, editActions.x - x - Style.spacing.controlGap)
+      text: "Customize · Drag panels to move, tap two to swap, drag dividers to resize"
+      color: Color.foreground
+      font.family: Style.font.family
+      font.pixelSize: Style.font.body
+      wrapMode: Text.WordWrap
+    }
+    Row {
+      id: editActions
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      spacing: Style.spacing.controlGap
+      Button {
+        objectName: "cancelCustomize"
+        text: "Cancel"
+        height: Style.space(48)
+        bordered: false
+        onClicked: root.layoutController.cancelEdit()
+      }
+      Button {
+        objectName: "finishCustomize"
+        text: "Done"
+        height: Style.space(48)
+        selected: true
+        foreground: Color.foreground
+        onClicked: root.layoutController.finishEdit()
+      }
+    }
   }
 }

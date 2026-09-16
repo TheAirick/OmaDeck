@@ -6,6 +6,10 @@ const { spawnSync, execFileSync } = require("node:child_process")
 const test = require("node:test")
 
 const root = path.resolve(__dirname, "..")
+const layoutPolicy = {}
+require("node:vm").runInNewContext(fs.readFileSync(path.join(root, "services/LayoutPolicy.js"), "utf8")
+  .replace(/^\.pragma library\s*/m, ""), layoutPolicy)
+const convertLayout = value => JSON.parse(JSON.stringify(layoutPolicy.dashboardLayout(value)))
 
 // The marketplace/default-branch snapshot, deliberately pinned for rollback coverage.
 const priorRelease = "36578b3ba701db709b69ac6dccb32e61d53e34a0"
@@ -58,7 +62,19 @@ for (const upgrade of [false, true]) test(upgrade
       assert.doesNotMatch(output, /READINESS_FAILURE|Failed to load configuration/)
       const match = output.match(/READINESS_STATE (\{[^\n]+\})/)
       assert.ok(match, output)
-      return JSON.parse(match[1])
+      const state = JSON.parse(match[1])
+      // Published versions predate this additive, false-by-default preference.
+      state.appearance = { workspaceCloseOnActivate: false, ...state.appearance }
+      return state
+    }
+    if (!upgrade) {
+      assert.equal(run("snapshot").appearance.workspaceCloseOnActivate, false)
+      assert.equal(run("workspace-write").appearance.workspaceCloseOnActivate, true)
+      assert.equal(run("read").appearance.workspaceCloseOnActivate, true, "close preference survives process recreation")
+      assert.equal(run("workspace-clear").appearance.workspaceCloseOnActivate, false)
+      assert.equal(run("read").appearance.workspaceCloseOnActivate, false)
+      assert.equal(run("snapshot").timerSound, "ocean", "fresh settings default to Ocean")
+      assert.equal(run("snapshot").timerSound, "ocean", "Ocean survives controller recreation")
     }
     const written = run("write")
     assert.equal(written.appearance.use24Hour, true)
@@ -70,19 +86,42 @@ for (const upgrade of [false, true]) test(upgrade
     assert.equal(written.timerSound, "bell")
     assert.equal(written.timerStatus, "idle")
     const settings = path.join(home, ".config/omadeck")
-    for (const file of ["appearance.json", "hardware.json", "layout.json", "launcher.json", "timer-settings.json"])
+    for (const file of ["appearance.json", "hardware.json", upgrade ? "layout.json" : "dashboard-layout.json", upgrade ? "launcher.json" : "launcher-v2.json", "timer-settings.json"])
       assert.doesNotThrow(() => JSON.parse(fs.readFileSync(path.join(settings, file), "utf8")))
     assert.deepEqual(run(upgrade ? "snapshot" : "read"), written)
+    if (!upgrade) {
+      const savedLayout = fs.readFileSync(path.join(settings, "dashboard-layout.json"), "utf8")
+      const preview = run("customize-preview")
+      assert.notDeepEqual(preview.layout, written.layout, "preview exercises movement and resizing")
+      assert.equal(fs.readFileSync(path.join(settings, "dashboard-layout.json"), "utf8"), savedLayout,
+        "an unfinished preview never writes to disk")
+      assert.deepEqual(run("read"), written, "an interrupted edit restores the last saved layout")
+      assert.deepEqual(run("customize-cancel"), written, "Cancel restores the original tree and sizes")
+      assert.equal(fs.readFileSync(path.join(settings, "dashboard-layout.json"), "utf8"), savedLayout)
+      const finished = run("customize-done")
+      assert.deepEqual(finished, preview, "Done saves the preview")
+      assert.deepEqual(run("read"), finished, "Done survives process recreation")
+    }
     if (upgrade) {
       const files = fs.readdirSync(settings).filter(file => file.endsWith(".json"))
       const saved = Object.fromEntries(files.map(file => [file, fs.readFileSync(path.join(settings, file), "utf8")]))
       installControllers(null)
-      assert.deepEqual(run("read"), written, "candidate must read published settings")
-      assert.deepEqual(run("write"), written, "candidate must save compatible settings")
+      const migrated = { ...written, layout: convertLayout(written.layout) }
+      assert.deepEqual(run("read"), migrated, "candidate migrates the previous visual layout")
+      const edited = run("write")
+      assert.deepEqual(edited, { ...migrated, layout: {
+        ...migrated.layout, root: { ...migrated.layout.root, ratio: 0.62 }
+      } }, "candidate writes the full dashboard separately")
+      assert.deepEqual(run("read"), edited, "new layout survives recreation")
+      assert.equal(fs.readFileSync(path.join(settings, "layout.json"), "utf8"), saved["layout.json"],
+        "migration never writes the prior release layout file")
       installControllers(priorRelease)
       assert.deepEqual(run("snapshot"), written, "published controllers must read candidate settings")
-      for (const file of files) assert.deepEqual(JSON.parse(fs.readFileSync(path.join(settings, file), "utf8")),
-        JSON.parse(saved[file]), `rollback preserves ${file}`)
+      for (const file of files) {
+        const normalize = value => file === "appearance.json" ? { workspaceCloseOnActivate: false, ...value } : value
+        assert.deepEqual(normalize(JSON.parse(fs.readFileSync(path.join(settings, file), "utf8"))),
+          normalize(JSON.parse(saved[file])), `rollback preserves ${file}`)
+      }
     }
   } finally {
     fs.rmSync(home, { recursive: true, force: true })

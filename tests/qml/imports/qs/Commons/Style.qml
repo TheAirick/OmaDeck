@@ -45,6 +45,8 @@ QtObject {
     return accent
   }
 
+  function hoverFillFor(foreground, accent) { return hoverFill }
+
   function pressedFillFor(foreground, accent) {
     return pressedFill
   }

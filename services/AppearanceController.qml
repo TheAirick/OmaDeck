@@ -12,6 +12,7 @@ Item {
   property bool use24Hour: false
   property bool showSeconds: false
   property bool showWeather: true
+  property bool workspaceCloseOnActivate: false
   property string weatherStyle: "scene"
   property string weatherDetail: "standard"
   property string temperatureUnit: "fahrenheit"
@@ -33,6 +34,7 @@ Item {
       use24Hour = parsed.use24Hour === true
       showSeconds = parsed.showSeconds === true
       showWeather = parsed.showWeather !== false
+      workspaceCloseOnActivate = parsed.workspaceCloseOnActivate === true
       weatherStyle = oneOf(parsed.weatherStyle, ["scene", "glyph", "minimal"], "scene")
       weatherDetail = oneOf(parsed.weatherDetail, ["compact", "standard", "full"], "standard")
       temperatureUnit = oneOf(parsed.temperatureUnit, ["fahrenheit", "celsius"], "fahrenheit")
@@ -51,6 +53,7 @@ Item {
       use24Hour: use24Hour,
       showSeconds: showSeconds,
       showWeather: showWeather,
+      workspaceCloseOnActivate: workspaceCloseOnActivate,
       weatherStyle: weatherStyle,
       weatherDetail: weatherDetail,
       temperatureUnit: temperatureUnit
@@ -62,6 +65,7 @@ Item {
     use24Hour = state.use24Hour
     showSeconds = state.showSeconds
     showWeather = state.showWeather
+    workspaceCloseOnActivate = state.workspaceCloseOnActivate
     weatherStyle = state.weatherStyle
     weatherDetail = state.weatherDetail
     temperatureUnit = state.temperatureUnit
@@ -75,6 +79,7 @@ Item {
     else if (key === "use24Hour") use24Hour = value === true
     else if (key === "showSeconds") showSeconds = value === true
     else if (key === "showWeather") showWeather = value === true
+    else if (key === "workspaceCloseOnActivate") workspaceCloseOnActivate = value === true
     else if (key === "weatherStyle") weatherStyle = oneOf(value, ["scene", "glyph", "minimal"], weatherStyle)
     else if (key === "weatherDetail") weatherDetail = oneOf(value, ["compact", "standard", "full"], weatherDetail)
     else if (key === "temperatureUnit") temperatureUnit = oneOf(value, ["fahrenheit", "celsius"], temperatureUnit)

@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import "../theme"
 import qs.Ui
 
 BorderSurface {
@@ -9,11 +10,13 @@ BorderSurface {
   property string title: ""
   property string subtitle: ""
   property bool active: false
+  property real headerMinimumHeight: 0
+  property real headerTrailingSpace: 0
   default property alias content: contentHost.data
 
   readonly property real headerWidth: width - contentLeftInset - contentRightInset
 
-  color: Color.popups.background
+  color: DeckColors.surface
   radius: Style.cornerRadius
   padding: Style.spacing.panelPadding
   borderSpec: active
@@ -31,11 +34,13 @@ BorderSurface {
     Row {
       id: headerRow
       objectName: "deckCardHeader"
-      width: parent.width
+      width: Math.max(0, parent.width - root.headerTrailingSpace)
+      height: Math.max(implicitHeight, root.headerMinimumHeight)
       spacing: Style.spacing.controlGap
 
       Text {
         id: titleText
+        anchors.verticalCenter: parent.verticalCenter
         width: subtitleText.visible ? implicitWidth : parent.width
         text: root.title
         color: Color.foreground
@@ -47,10 +52,11 @@ BorderSurface {
 
       Text {
         id: subtitleText
+        anchors.verticalCenter: parent.verticalCenter
         visible: root.headerWidth >= titleText.implicitWidth + implicitWidth + headerRow.spacing
         width: parent.width - x
         text: root.subtitle
-        color: Color.muted
+        color: DeckColors.secondaryText
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
         elide: Text.ElideRight

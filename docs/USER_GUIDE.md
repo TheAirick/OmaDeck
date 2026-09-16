@@ -10,7 +10,7 @@
 
 On first run OmaDeck prefers `DP-3` and `DP-1`, then selects connected displays
 when those names are unavailable. If the automatic choice is not right, change
-it in **Preferences → Displays**.
+it in **Preferences → Display & touch**.
 
 ## Starting OmaDeck
 
@@ -26,7 +26,7 @@ omarchy restart shell
 
 The optional native build adds an icon to the primary desktop's system tray. Click it with the
 mouse to open diagnostics even when the deck touchscreen is unavailable. The
-Control Center shows monitor, touchscreen, native-build, input-script, and
+Control Center shows monitor, touchscreen, native-build, monitor-control, and
 command health. It can copy a sanitized report, request touch reconnection, and
 restart the Omarchy shell after confirmation.
 
@@ -42,15 +42,16 @@ visual uses Omarchy's recognizable condition glyphs, current-condition stats,
 and a multi-day forecast. When the provider is unreachable, the clock remains
 usable and the weather area reports that it is unavailable.
 
-Use **Preferences → OmaDeck** to change time format, weather treatment, detail,
+Use **Preferences → Dashboard** to change time format, weather treatment, detail,
 visibility, or units. The optional tray's **Clock & weather settings…** exposes
 the same persisted appearance settings. The current Clock uses a fixed
 presentation; the legacy clock-style setting does not change it.
 
 Tap the Clock card to set a countdown. Choose hours, minutes, and seconds. The
 setup sheet's **Sound** row cycles through
-Silent, Alarm, Complete, Bell, Ring, and Warning; **Preview** plays the current
-choice once. Tap **Start** to begin and return the lower companion to Weather;
+Ocean (the default), Silent, Alarm, Complete, Bell, Ring, and Warning.
+**Preferences → Timer** shows the named choices and lets you preview a sound once.
+Tap **Start** to begin and return the lower companion to Weather;
 the Clock shows timer progress. Tap the Clock again to open pause, resume,
 add-five, restart, and cancel controls. Completed state remains available until
 you dismiss it. Audible choices play three non-overlapping completion chimes; Silent keeps
@@ -121,22 +122,27 @@ sends `SIGKILL` to its primary process after a second confirmation tap.
 
 ## Layout editing
 
-Long-press a center module to enter edit mode. Select or drag modules to swap
-them, and drag the highlighted divider to resize the split. Changes are saved
-to `~/.config/omadeck/layout.json`.
+Open **Preferences → Dashboard → Customize layout**. Now Playing, Clock,
+Weather/Timer, and Command Center can each move independently:
 
-A normal Clock tap opens its temporary timer controls. The existing long press
-still enters layout editing without starting or changing a timer.
+- Drag a panel onto another panel's edge to place it beside, above, or below it.
+  The highlighted destination shows where it will go.
+- Drop in the center to swap, or tap two panels to swap their positions.
+- Drag the highlighted dividers to adjust widths and heights.
+- Tap **Done** to save, or **Cancel** to restore the previous arrangement.
 
-## Optional monitor input module
+Panel controls and drawer gestures pause while customizing. Ordinary dashboard
+holds never enter layout editing. A Clock tap opens the Timer in the Weather
+panel wherever you place it. Hold a timer's plus or minus button to repeat;
+a longer hold speeds up, and releasing or sliding away stops it.
 
-The repository includes a monitor-input module for custom layouts, but it is
-not exposed by the standard Command Center. It calls two user-owned scripts:
+## Optional monitor switching
 
-```text
-~/.local/bin/alienware-to-omarchy
-~/.local/bin/alienware-to-mac
-```
-
-They are not included because DDC/CI input codes and monitor buses differ by
-setup. See [Configuration](CONFIGURATION.md).
+Open **Preferences → Monitor switching** for guided setup from scratch. It checks
+the computer, opens a setup window if software or access is missing, explains
+the monitor's DDC/CI setting, and helps choose ports and device names. Tap
+**Finish setup** to enable the buttons. Existing users can choose **Set up another
+monitor** or edit their configured monitors directly. Use the arrows beside the
+monitor controls to choose a configured monitor.
+Switching is off on a fresh install and uses DDC/CI rather than personal scripts.
+See [Configuration](CONFIGURATION.md#monitor-switching) for requirements.

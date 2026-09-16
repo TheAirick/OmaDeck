@@ -534,6 +534,20 @@ void TouchBridge::dispatch(bool pressed, bool released)
         return;
     }
 
+    if (pressed) {
+        // MouseArea sets containsMouse on press, but Qt only records it in
+        // the window's hover chain during a move. A touch can begin without
+        // any preceding move, leaving that area outside Leave cleanup and
+        // permanently highlighted after release. Prime the local hover chain
+        // before the press; this does not move the compositor's mouse cursor.
+        QMouseEvent arrival(QEvent::MouseMove, m_lastPosition,
+                            window->mapToGlobal(m_lastPosition), Qt::NoButton,
+                            Qt::NoButton, Qt::NoModifier);
+        QCoreApplication::sendEvent(window.data(), &arrival);
+        if (!window || !inputAllowed() || !m_pointerDown)
+            return;
+    }
+
     QMouseEvent mouseEvent(type, m_lastPosition, window->mapToGlobal(m_lastPosition),
                            button, buttons, Qt::NoModifier);
     mouseEvent.setTimestamp(0);

@@ -135,3 +135,53 @@ test("LayoutController applies the shared policy when loading and updating", () 
   assert.match(controller, /scheduleSave\(\)/)
   assert.match(controller, /LayoutPolicy\.ratioForUpdate\(value\)/)
 })
+
+test("migration separates all dashboard panels without changing the legacy file value", () => {
+  const policy = loadPolicy()
+  const old = { version: 2, root: { type: "split", orientation: "horizontal", ratio: 0.36,
+    first: { type: "module", moduleId: "clock" }, second: { type: "module", moduleId: "command-center" } } }
+  const before = JSON.stringify(old)
+  const full = policy.dashboardLayout(old)
+  assert.equal(policy.validDashboard(full), true)
+  assert.equal(full.root.first.moduleId, "media")
+  assert.equal(full.root.second.ratio, 0.5, "preserve the old visual minimum during migration")
+  assert.equal(full.root.second.first.ratio, 0.48)
+  assert.equal(full.root.second.first.first.moduleId, "clock")
+  assert.equal(full.root.second.first.second.moduleId, "weather")
+  assert.equal(JSON.stringify(old), before)
+  assert.equal(JSON.stringify(policy.dashboardLayout(full)), JSON.stringify(full), "migration is idempotent")
+})
+
+test("every panel can move to all four sides of every other panel without loss or duplication", () => {
+  const policy = loadPolicy()
+  const full = policy.dashboardLayout(validNestedLayout())
+  const before = JSON.stringify(full)
+  const ids = ["media", "clock", "weather", "command-center", "workspaces"]
+  for (const source of ids) for (const target of ids.filter(id => id !== source)) {
+    for (const edge of ["left", "right", "top", "bottom"]) {
+      const moved = policy.moveModule(full, source, target, edge)
+      assert.equal(policy.validDashboard(moved), true, `${source} ${edge} of ${target}`)
+      const sourcePath = policy.modulePath(moved.root, source, "")
+      let parent = moved.root
+      for (const part of sourcePath.split("/").slice(0, -1)) parent = parent[part]
+      assert.equal(parent.orientation, ["left", "right"].includes(edge) ? "horizontal" : "vertical")
+      const beforeTarget = ["left", "top"].includes(edge)
+      assert.equal(parent[beforeTarget ? "first" : "second"].moduleId, source)
+      assert.equal(parent[beforeTarget ? "second" : "first"].moduleId, target)
+    }
+  }
+  assert.equal(JSON.stringify(full), before)
+  assert.equal(policy.moveModule(full, "media", "media", "left"), null)
+  assert.equal(policy.moveModule(full, "unknown", "clock", "left"), null)
+  assert.equal(policy.moveModule(full, "media", "clock", "unknown"), null)
+})
+
+test("dashboard validation refuses missing, duplicate, and unsupported panels", () => {
+  const policy = loadPolicy()
+  for (const id of ["clock", "unknown", null]) {
+    const full = policy.dashboardLayout(validNestedLayout())
+    full.root.first.moduleId = id
+    assert.equal(policy.validDashboard(full), false)
+    assert.equal(policy.parseLayout(JSON.stringify(full)), null)
+  }
+})

@@ -149,7 +149,7 @@ test("long-running QML consumers retain only bounded output prefixes", () => {
   const weather = source("services/WeatherController.qml")
   const system = source("modules/SystemModule.qml")
   const audio = source("modules/AudioMixerModule.qml")
-  const notifications = source("modules/NotificationCenterModule.qml")
+  const notifications = source("services/NotificationController.qml")
 
   assert.match(parser, /splitMarker: ""/)
   assert.match(parser, /property int maxBytes:/)
@@ -168,7 +168,7 @@ test("long-running QML consumers retain only bounded output prefixes", () => {
 
 test("recurring audio and notification producers have external deadlines and QML backstops", () => {
   const audio = source("modules/AudioMixerModule.qml")
-  const notifications = source("modules/NotificationCenterModule.qml")
+  const notifications = source("services/NotificationController.qml")
 
   assert.match(audio, /"\/usr\/bin\/env", "PATH=\/usr\/bin:\/usr\/share\/omarchy\/bin"/)
   assert.match(audio, /"\/usr\/bin\/timeout", "--signal=TERM", "--kill-after=1s", "2s"/)

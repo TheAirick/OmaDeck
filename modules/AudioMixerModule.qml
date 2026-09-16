@@ -3,8 +3,10 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Pipewire
 import qs.Commons
+import "../theme"
 import qs.Ui
 import "../components"
+import "../services"
 import "AudioModel.js" as AudioModel
 
 Item {
@@ -17,6 +19,8 @@ Item {
   property var displayStreams: []
   property string volumeSinkName: ""
   property bool compact: true
+  property string devicePickerKind: ""
+  onCompactChanged: if (compact) devicePickerKind = ""
   readonly property int activeCategoryCount:
     Number(streamsFor("media").length > 0)
     + Number(streamsFor("games").length > 0)
@@ -26,9 +30,14 @@ Item {
   readonly property real toggleReserve: root.compact ? 0
     : Style.spacing.labelGap + Style.space(32)
   readonly property real preferredWidth: root.compact ? Style.space(70)
-    : expandedSliderCount * Style.space(70)
+    : Math.max(Style.space(300), expandedSliderCount * Style.space(70)
       + Math.max(0, expandedSliderCount - 1) * Style.spacing.controlGap
-      + toggleReserve
+      + toggleReserve)
+
+  AudioDeviceController {
+    id: deviceController
+    onSelected: root.devicePickerKind = ""
+  }
 
   readonly property var nodes: Pipewire.nodes ? Pipewire.nodes.values : []
   readonly property var defaultSink: Pipewire.defaultAudioSink
@@ -203,7 +212,7 @@ Item {
       Text {
         anchors.centerIn: parent
         text: volumeControl.muted ? "󰝟" : volumeControl.glyph
-        color: volumeControl.muted ? Color.muted : Color.accent
+        color: volumeControl.muted ? DeckColors.secondaryText : Color.accent
         font.family: Style.font.family
         font.pixelSize: Style.font.iconLarge
       }
@@ -233,7 +242,7 @@ Item {
         width: parent.width
         horizontalAlignment: Text.AlignHCenter
         text: Math.round(volumeControl.level * 100) + "%"
-        color: Color.muted
+        color: DeckColors.secondaryText
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
       }
@@ -296,8 +305,10 @@ Item {
     id: verticalControlRow
     anchors.left: parent.left
     anchors.top: parent.top
+    anchors.topMargin: root.compact ? 0 : routeButtons.height + Style.spacing.controlGap
     anchors.bottom: parent.bottom
     spacing: Style.spacing.controlGap
+    visible: root.devicePickerKind === ""
 
     VerticalVolume {
       controlId: "output"
@@ -376,6 +387,37 @@ Item {
     }
   }
 
+  Row {
+    id: routeButtons
+    objectName: "audioRouteButtons"
+    width: parent.width
+    visible: !root.compact && root.devicePickerKind === ""
+    spacing: Style.spacing.controlGap
+    AudioRouteButton {
+      objectName: "outputDeviceSelector"
+      width: (parent.width - parent.spacing) / 2
+      heading: "Output"
+      deviceLabel: deviceController.outputLabel
+      onClicked: { deviceController.error = ""; root.devicePickerKind = "output" }
+    }
+    AudioRouteButton {
+      objectName: "inputDeviceSelector"
+      width: (parent.width - parent.spacing) / 2
+      heading: "Mic"
+      deviceLabel: deviceController.inputLabel
+      onClicked: { deviceController.error = ""; root.devicePickerKind = "input" }
+    }
+  }
+
+  AudioDevicePicker {
+    anchors.fill: parent
+    visible: root.devicePickerKind !== ""
+    controller: deviceController
+    kind: root.devicePickerKind || "output"
+    onKindRequested: value => root.devicePickerKind = value
+    onClosed: root.devicePickerKind = ""
+  }
+
   Button {
     objectName: "mixerExpandButton"
     x: root.compact ? (parent.width - width) / 2 : parent.width - width
@@ -390,6 +432,7 @@ Item {
     color: "transparent"
     borderSpec: Border.none()
     z: 2
+    visible: root.devicePickerKind === ""
     onClicked: root.compact = !root.compact
   }
 }

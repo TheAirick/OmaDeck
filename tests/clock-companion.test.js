@@ -76,22 +76,13 @@ test("Clock tile uses one explicit static companion host with complementary pres
   assert.doesNotMatch(companion, /Loader|setSource|layoutController|commit\(|scheduleSave/)
 })
 
-test("ModuleTile gives Clock two sibling card boundaries instead of one composite card", () => {
+test("dashboard renders Clock and Weather as separate cards and retains the legacy paired fixture", () => {
   const moduleTile = source("components/ModuleTile.qml")
-  const companionTilePath = path.join(repositoryRoot, "components/ClockCompanionTile.qml")
-
-  assert.equal(fs.existsSync(companionTilePath), true, "ClockCompanionTile.qml must own the pair")
-  assert.match(moduleTile, /id:\s*clockLoader[\s\S]*active:\s*root\.moduleId === "clock"[\s\S]*sourceComponent:\s*clockTileComponent/)
-  assert.match(moduleTile, /id:\s*genericCardLoader[\s\S]*active:\s*root\.moduleId !== "clock"[\s\S]*sourceComponent:\s*genericCardComponent/)
-  assert.equal((moduleTile.match(/DeckCard\s*\{/g) || []).length, 1,
-    "ordinary modules retain exactly one generic DeckCard declaration")
-  assert.equal((moduleTile.match(/ClockCompanionTile\s*\{/g) || []).length, 1)
-
-  const companionTile = fs.readFileSync(companionTilePath, "utf8")
-  assert.equal((companionTile.match(/DeckCard\s*\{/g) || []).length, 2)
-  assert.match(companionTile, /objectName:\s*"clockPanelCard"/)
-  assert.match(companionTile, /objectName:\s*"companionPanelCard"/)
-  assert.doesNotMatch(companionTile, /\bRectangle\s*\{/, "the split must not be a decorative divider")
+  assert.match(moduleTile, /root\.fullDashboard \? clockComponent : clockTileComponent/)
+  assert.match(moduleTile, /root\.moduleId === "weather" \? weatherComponent/)
+  assert.match(moduleTile, /objectName:\s*"clockPanelCard"/)
+  assert.match(moduleTile, /objectName:\s*"companionPanelCard"/)
+  assert.doesNotMatch(moduleTile, /onLongPressed|longPressThreshold/)
 })
 
 test("Clock and companion cards retain Omarchy panel padding", () => {
@@ -139,9 +130,9 @@ test("SplitNode applies effective presentation geometry without changing the sav
   const split = source("components/SplitNode.qml")
 
   assert.match(split, /import "SplitPresentationPolicy\.js" as SplitPresentationPolicy/)
-  assert.match(split, /readonly property real effectiveRatio:\s*SplitPresentationPolicy\.effectiveRatio\(/)
+  assert.match(split, /readonly property real effectiveRatio:[^\n]*SplitPresentationPolicy\.effectiveRatio\(/)
   assert.match(split, /readonly property real firstLength:\s*Math\.max\(0, Math\.round\(availableLength \* effectiveRatio\)\)/)
-  assert.match(split, /startingRatio = root\.ratio/)
+  assert.match(split, /startingRatio = root\.effectiveRatio/)
   assert.doesNotMatch(split, /setRatio\([^\n]*effectiveRatio|commit\(|scheduleSave/)
 })
 

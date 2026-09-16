@@ -101,12 +101,18 @@ Item {
     onLoadedChanged: if (loaded) Qt.callLater(root.startTray)
   }
 
+  MonitorInputController {
+    id: monitorInputStore
+    pluginDir: root.pluginDir
+  }
+
   AppearanceController {
     id: appearanceStore
   }
 
   LauncherController {
     id: launcherStore
+    pluginDir: root.pluginDir
   }
 
   TimerController {
@@ -202,6 +208,19 @@ Item {
       if (root.activeSurface) root.activeSurface.closeOverlay()
     }
 
+    function preferences(category: string): void {
+      if (root.activeSurface) root.activeSurface.showPreferences(category)
+    }
+
+    function monitorInputState(): string {
+      return JSON.stringify({ loaded: monitorInputStore.loaded, enabled: monitorInputStore.showControls,
+        count: monitorInputStore.monitors.length, busy: monitorInputStore.busy,
+        detectedCount: monitorInputStore.detectedMonitors.length, notice: monitorInputStore.notice,
+        setupState: monitorInputStore.setupStatus ? monitorInputStore.setupStatus.state : "unchecked" })
+    }
+
+    function scanMonitors(): bool { return monitorInputStore.scan() }
+
     function drawerState(): string {
       if (root.activeSurface) return root.activeSurface.drawerState()
       return JSON.stringify({
@@ -263,7 +282,7 @@ Item {
       if (!appearanceStore.loaded)
         return JSON.stringify({ ok: false, error: "Appearance settings are not ready" })
 
-      var booleanKeys = ["use24Hour", "showSeconds", "showWeather"]
+      var booleanKeys = ["use24Hour", "showSeconds", "showWeather", "workspaceCloseOnActivate"]
       var stringKeys = ["clockStyle", "weatherStyle", "weatherDetail", "temperatureUnit"]
       if (booleanKeys.indexOf(key) === -1 && stringKeys.indexOf(key) === -1)
         return JSON.stringify({ ok: false, error: "Unknown appearance setting" })
@@ -376,6 +395,7 @@ Item {
       primaryMonitor: root.primaryMonitor
       touchDeviceNames: root.touchDeviceNames
       hardwareController: hardwareStore
+      monitorInputController: monitorInputStore
       layoutController: layoutStore
       appearanceController: appearanceStore
       launcherController: launcherStore

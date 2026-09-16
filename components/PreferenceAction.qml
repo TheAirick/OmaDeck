@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import "../theme"
 
 Item {
   id: root
@@ -47,6 +48,7 @@ Item {
       Text {
         width: parent.width
         text: root.label
+        textFormat: Text.PlainText
         color: Color.foreground
         font.family: Style.font.family
         font.pixelSize: Style.font.subtitle
@@ -58,7 +60,8 @@ Item {
         visible: root.description !== ""
         width: parent.width
         text: root.description
-        color: Color.muted
+        textFormat: Text.PlainText
+        color: DeckColors.secondaryText
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
         elide: Text.ElideRight
@@ -69,7 +72,7 @@ Item {
       id: actionLabel
       anchors.verticalCenter: parent.verticalCenter
       text: root.actionText
-      color: Color.muted
+      color: DeckColors.secondaryText
       font.family: Style.font.family
       font.pixelSize: Style.font.caption
       font.bold: true
@@ -80,7 +83,7 @@ Item {
       width: Style.space(22)
       anchors.verticalCenter: parent.verticalCenter
       text: "󰅂"
-      color: Color.muted
+      color: DeckColors.secondaryText
       font.family: Style.font.family
       font.pixelSize: Style.font.icon
       horizontalAlignment: Text.AlignRight

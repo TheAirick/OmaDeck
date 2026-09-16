@@ -28,7 +28,7 @@ Item {
   readonly property var secondNode: node && node.second ? node.second : null
   readonly property string firstModuleId: firstNode && firstNode.type === "module" ? String(firstNode.moduleId || "") : ""
   readonly property string secondModuleId: secondNode && secondNode.type === "module" ? String(secondNode.moduleId || "") : ""
-  readonly property real effectiveRatio: SplitPresentationPolicy.effectiveRatio(
+  readonly property real effectiveRatio: controller && controller.dashboardLayout ? ratio : SplitPresentationPolicy.effectiveRatio(
     horizontal, firstModuleId, secondModuleId, ratio)
   readonly property int gap: Style.spacing.panelGap
   readonly property real availableLength: horizontal ? width - gap : height - gap
@@ -46,7 +46,7 @@ Item {
       controller: root.controller,
       path: loader.nodePath,
       deck: root.deck,
-      shell: root.shell,
+      shell: Qt.binding(function() { return root.shell }),
       primaryMonitor: root.primaryMonitor,
       appearanceController: root.appearanceController,
       launcherController: root.launcherController,
@@ -89,6 +89,8 @@ Item {
     id: firstLoader
     property string nodePath: root.firstPath
     property string loadedComponent: ""
+    z: root.controller && (root.controller.selectedPath === nodePath
+      || root.controller.selectedPath.indexOf(nodePath + "/") === 0) ? 2 : 1
     x: 0
     y: 0
     width: root.horizontal ? root.firstLength : root.width
@@ -100,6 +102,8 @@ Item {
     id: secondLoader
     property string nodePath: root.secondPath
     property string loadedComponent: ""
+    z: root.controller && (root.controller.selectedPath === nodePath
+      || root.controller.selectedPath.indexOf(nodePath + "/") === 0) ? 2 : 1
     x: root.horizontal ? root.firstLength + root.gap : 0
     y: root.horizontal ? 0 : root.firstLength + root.gap
     width: root.horizontal ? root.width - x : root.width
@@ -107,25 +111,33 @@ Item {
     onStatusChanged: root.finishPendingReload()
   }
 
-  Rectangle {
+  Item {
     id: divider
+    objectName: "layoutDivider-" + root.path
     visible: root.controller && root.controller.editMode
-    x: root.horizontal ? root.firstLength : 0
-    y: root.horizontal ? 0 : root.firstLength
-    width: root.horizontal ? root.gap : root.width
-    height: root.horizontal ? root.height : root.gap
-    color: Color.accent
-    opacity: dividerDrag.active ? 1 : 0.5
-    z: 20
+    x: root.horizontal ? root.firstLength + root.gap / 2 - width / 2 : 0
+    y: root.horizontal ? 0 : root.firstLength + root.gap / 2 - height / 2
+    width: root.horizontal ? Style.space(48) : root.width
+    height: root.horizontal ? root.height : Style.space(48)
+    z: 100
+    Rectangle {
+      anchors.centerIn: parent
+      width: root.horizontal ? Style.space(4) : Math.min(parent.width, Style.space(64))
+      height: root.horizontal ? Math.min(parent.height, Style.space(64)) : Style.space(4)
+      radius: Style.space(2)
+      color: Color.accent
+      opacity: dividerDrag.active ? 1 : 0.7
+    }
 
     DragHandler {
       id: dividerDrag
+      enabled: root.enabled && divider.visible
       target: null
       xAxis.enabled: root.horizontal
       yAxis.enabled: !root.horizontal
       property real startingRatio: 0.5
 
-      onActiveChanged: if (active) startingRatio = root.ratio
+      onActiveChanged: if (active) startingRatio = root.effectiveRatio
       onTranslationChanged: {
         if (!active || root.availableLength <= 0) return
         var delta = root.horizontal ? translation.x : translation.y

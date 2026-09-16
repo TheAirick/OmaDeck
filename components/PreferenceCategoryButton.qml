@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import "../theme"
 
 Item {
   id: root
@@ -47,7 +48,7 @@ Item {
       width: Style.space(28)
       anchors.verticalCenter: parent.verticalCenter
       text: root.iconText
-      color: root.selected ? Color.accent : Color.muted
+      color: root.selected ? Color.accent : DeckColors.secondaryText
       font.family: Style.font.family
       font.pixelSize: Style.font.iconLarge
       horizontalAlignment: Text.AlignHCenter
@@ -57,7 +58,7 @@ Item {
       width: parent.width - x
       anchors.verticalCenter: parent.verticalCenter
       text: root.label
-      color: root.selected ? Color.foreground : Color.muted
+      color: root.selected ? Color.foreground : DeckColors.secondaryText
       font.family: Style.font.family
       font.pixelSize: Style.font.body
       font.bold: root.selected

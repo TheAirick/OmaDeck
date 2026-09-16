@@ -7,13 +7,14 @@ Item {
   objectName: "staticMediaPanel"
 
   property var shell: null
+  property var providedMedia: null
   readonly property var hostMedia: shell && typeof shell.serviceFor === "function"
     ? shell.serviceFor("omarchy.media") : null
-  readonly property var media: hostMedia || nativeMedia
+  readonly property var media: providedMedia || hostMedia || nativeMedia
 
   MprisMediaAdapter {
     id: nativeMedia
-    enabled: !root.hostMedia
+    enabled: !root.providedMedia && !root.hostMedia
   }
 
   DeckCard {

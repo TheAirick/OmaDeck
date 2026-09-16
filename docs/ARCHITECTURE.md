@@ -13,22 +13,34 @@ a web server, Electron process, or separate system daemon.
   itself with the service across monitor hotplug. Its `DeckCenter` child owns the
   reserved center geometry and actual root `SplitNode` tiling region.
 - `services/AppearanceController.qml` validates and atomically persists the
-  Clock/Weather presentation model.
+  Clock/Weather presentation model and Workspaces navigation preference.
 - `services/HardwareController.qml` validates and atomically persists the
   selected deck screen, primary workspace monitor, and authorized direct-touch
   device identities. Connected monitors come from Quickshell; readable direct
   touchscreens come from the native bridge rather than a recurring helper.
 - `services/LauncherController.qml` validates and atomically persists the
-  ordered Command Center launcher selection. `LauncherPolicy.js` restricts
-  touch editing to installed desktop-entry IDs and the built-in action catalog,
-  so persisted data cannot introduce an arbitrary command vector.
+  ordered Command Center launcher selection and explicitly authored command
+  buttons in one atomic `launcher-v2.json` snapshot. `LauncherPolicy.js` validates
+  desktop IDs, stable custom IDs, bounded command fields, and icon choices.
+  Legacy `launcher.json` is migrated without overwriting it.
 - `services/TimerController.qml` owns the Clock's single deadline-based
   countdown, separate atomic sound preference, and claimed notification/
-  three-chime completion effects. Static allowlisted Canberra commands share
-  the default PipeWire route, and the controller serializes preview and
+  three-chime completion effects. Ocean is the default, bundled unchanged with
+  its CC-BY-SA-4.0 attribution under `assets/sounds/`. Its full 6.15-second clip
+  has an eight-second playback deadline; legacy system events retain three
+  seconds. A running player always blocks the next chime. Allowlisted Canberra
+  event/file commands share the default PipeWire route, and the controller serializes preview and
   completion players under one lifecycle.
 - `services/WeatherController.qml` owns refresh state and normalizes provider
   condition codes for the UI.
+
+`theme/DeckColors.qml` derives OmaDeck's opaque panel backing and secondary-text
+role from live Omarchy colors. `TextContrast.js` preserves readable muted colors
+and otherwise mixes toward the foreground to reach 4.5:1 sRGB contrast. If the
+foreground itself cannot meet that floor, it uses the stronger black/white
+endpoint. Color quantization is included in the check. Bindings react to theme
+changes without polling or writing theme files; labels on control fills can
+request `secondaryTextOn(background)` for their actual backing.
 
 Weather presentation has a separate, lifecycle-free boundary:
 `modules/WeatherModule.qml` adapts the service-owned `WeatherController` state
@@ -49,33 +61,32 @@ three-day forecast instead of falling back to the compressed current-only view.
 
 Timer setup and controls use the same presentation-only boundary:
 `modules/TimerModule.qml` owns the editable hours/minutes/seconds draft, compact reflow, sound selector,
-and forwarding of timer actions. `components/ClockCompanionTile.qml` is the
-Clock-specific `ModuleTile` host: it replaces the ordinary single-card wrapper
-with two sibling `DeckCard` boundaries separated by the panel-gap token. The
-Clock, Weather, and the temporary Timer surface retain Omarchy's panel-padding
-token around their headers and content. The upper Clock card always uses `0.48`
-of the available height and the lower companion card always uses `0.52`.
-The Clock time scale uses that added height with an enlarged bounded type scale
-rather than retaining its former compact cap.
-The upper card owns only `ClockModule`; the lower card owns one static
-`ClockCompanionModule`, whose title and sole visible occupant switch between
-Weather and the explicitly opened Timer surface without changing geometry.
-Starting a timer closes that surface, leaving progress in the Clock; tapping the
-Clock reopens controls for an active, paused, or completed timer. The pair is
-still one saved `clock` leaf for selection, dragging, swapping, and persistence.
+and forwarding of timer actions. The version 3 dashboard tree contains separate
+`media`, `clock`, `weather`, and `command-center` leaves. `ModuleTile` renders each
+in its own `DeckCard`; the Weather leaf owns one `ClockCompanionModule` whose sole
+visible occupant switches between Weather and Timer without changing geometry.
+`DeckSurface` connects Clock taps to that mounted companion, including after
+moves or swaps. Starting a timer closes the controls, leaving progress in Clock.
+The former `ClockCompanionTile` remains a compatibility fixture for paired leaves.
 Ambient Timer status and progress remain in the Clock without duplicating the
 countdown readout. The presentation does not own authoritative
 countdown state, deadlines, persistence, notification or audio scheduling,
 processes, files, IPC, layout mutation, or settings; those remain with the single
 service-owned `TimerController` and existing service IPC.
 
-Media presentation has two independent owners. A permanent full-height
-`MediaModule` reserves 27% of the usable dashboard width for one Now Playing
-`DeckCard`; it remains mounted beside Clock/Weather and Command Center in every
-drawer and overlay state. A frameless left drawer owns only `VolumeModule` and
-reserves exactly the mixer's current preferred width while open. This
-horizontal allocation is presentation-only and creates no persisted layout
-node, schema, setting, or resizable divider. The mixer starts with one
+Layout editing starts explicitly through Preferences. Panel contents and edge
+swipes are inert while editing; the split tree provides touch dividers, edge
+placement, and swaps. `LayoutController` snapshots the tree on entry, saves only
+on Done, and restores it on Cancel. Its version 3 `dashboard-layout.json` is
+separate from the legacy `layout.json`, which is migrated without overwriting it.
+The default media share is 27%; Clock/Weather start in a 48/52 vertical split.
+
+Media presentation has two independent owners. `DeckSurface` owns the stable
+MPRIS adapter, supplied to the movable `MediaModule`, so changing layout topology
+does not replace the active backend. A frameless left drawer owns only
+`VolumeModule` and reserves the mixer's preferred width while open. The entire
+dashboard reflows within the remaining space using its saved proportions.
+The mixer starts with one
 almost-full-height vertical Output control and a bottom expansion chevron.
 Expanded mode widens the Volume drawer just enough to add a vertical Mic control and
 the active Media, Games, Voice, and Other aggregate categories. Tapping the
@@ -83,6 +94,14 @@ slim edge chevron again restores the narrow strip without reserving a full
 button column. The stable PipeWire snapshot remains
 the presentation model authority while category changes fan out to currently
 live member streams.
+The expanded mixer's Output and Mic rows open an in-drawer device picker.
+`services/AudioDeviceController.qml` observes the shared PipeWire graph and
+defers scalar device snapshots before rebuilding the picker. Selection checks
+both the current node ID and name, serializes a bounded installed Omarchy
+audio-switch command, and confirms the actual default from PipeWire before
+returning to the mixer. It adds no persisted routing state or discovery process.
+Both device lists remain mounted while the picker is open; Output/Mic tab taps
+change visibility immediately without recreating the themed row controls.
 `modules/NowPlayingModule.qml` owns only the active-player projection, local
 duration/position and same-track artwork caches, transport controls, metadata,
 and timeline. Its presentation centers bounded artwork at the top, overlays the
@@ -120,40 +139,109 @@ boundaries, creating one synchronized horizontal retiling motion. Top and
 bottom gestures deliberately do not reserve geometry: they reveal full-surface
 `DeckOverlay` instances above an unchanged dashboard. The Command Center also
 opens Preferences in the same overlay layer. Pulling down opens recent
-notifications; pulling up opens the workspace and scratchpad overview. Overlay
+notifications; pulling up opens the Workspaces browser and scratchpad. Overlay
 state is independent of horizontal drawer state: dismissing an overlay reveals
 the same Volume or System drawer and the same underlying geometry that was
-present before the vertical gesture. The two horizontal drawers remain mutually
+present before the vertical gesture. Dashboard and drawer input is disabled from
+the moment an overlay opens until all overlay closing animations finish; outgoing
+overlay controls are also disabled. The direct-touch bridge targets the guarded
+root content item so disabling the dashboard does not disable overlay input.
+The two horizontal drawers remain mutually
 exclusive, and only one full-surface overlay can be open at a time.
 
-The notification overlay borrows the single installed
-`omarchy.notifications` service for live notification actions, DND, clearing,
-and application focus. It reads that service's bounded on-disk history for
-presentation only and never creates another `NotificationServer`. Its compact
-control rail delegates DND and Night Light to the corresponding first-party
-services, Wi-Fi to Quickshell's NetworkManager model, and Bluetooth power to
-Omarchy's persistent rfkill helper. The notification feed is width-capped so
-messages remain scannable on the ultra-wide deck. The overview
-delegates workspace focus and `special:scratchpad` actions to Hyprland's native
-dispatch language.
+`NotificationController` projects Omarchy's notification ownership into a bounded
+scalar feed; it never creates another `NotificationServer`. Hosts exposing the
+first-party service retain its live default actions, resolved by notification
+identity at activation rather than a stale model index. On scoped plugin APIs,
+the on-demand `notification_control.py` bridge uses public Omarchy commands for
+DND, Night Light, clearing, and literal application focus. Clear serializes the
+owner's popup dismissal and history clear; OmaDeck never deletes owner files or
+executes notification-supplied command vectors itself.
+
+The history helper reads pending and archived files under Omarchy's XDG state
+directory, enforcing directory, file-count, per-file and aggregate byte limits.
+While the drawer is open, Qt directory watchers detect arrivals/archiving and at
+most twelve watch-only FileViews detect edits to displayed files. Their names
+come from the validated helper and their contents are never loaded by FileView.
+Changes coalesce into a bounded read; closing destroys the watchers and cancels
+the reader, and opening reconciles again. All helper processes have external
+deadlines and QML lifecycle backstops.
+
+The presenter uses a borderless recent list, a full-message reader on wide
+screens, and a compact control rail. Narrow layouts provide Back navigation.
+Selecting a row only reads its text; opening the app and confirmed Clear all
+are separate actions. Selection survives new arrivals and all message text is
+plain text; icons accept theme names only. Wi-Fi uses Quickshell's NetworkManager
+model and Bluetooth power uses Omarchy's persistent rfkill helper.
+
+The Workspaces overlay owns one `WorkspaceController`, which projects shared
+Quickshell Hyprland models into scalar workspace/window rows and resolves app
+names/icons through desktop entries. A coalesced native refresh follows window
+mapping/movement and monitor/workspace lifecycle events while the view is active,
+and each opening reconciles metadata again. This covers new native toplevels
+whose initial IPC metadata does not yet include their app identity or workspace.
+It adds no polling, process, or persisted window state. Five baseline slots are supplemented by existing numbered
+workspaces. Delegates never retain removed native window objects; actions
+re-resolve the exact window address before using Hyprland's native dispatcher.
+Scratchpad visibility follows monitor IPC metadata, refreshed on special-workspace
+events. Card and app-row taps toggle it without dismissing the browser; Return
+and Park retain independent actions. Scratchpad return targets the current numbered
+workspace or the primary monitor's active numbered workspace. The legacy `overview` IPC route remains
+compatible with saved launcher shortcuts. Navigation leaves the view open unless
+`workspaceCloseOnActivate` is enabled through the existing atomic appearance
+store. Active workspace and visible scratchpad cards use an accent outline without
+an additional selected fill. When pointer focus moves to the deck's named workspace
+or a special workspace, the numbered highlight follows the primary monitor's live
+active workspace. Overlay headers share their surrounding padding with
+the close control's 48-unit touch target, keeping the borderless glyph compact.
 
 The Command Center is a small page host. Its six controls expose Volume, System,
-Notifications, Overview, Applications, and Preferences. Applications replaces
+Notifications, Workspaces, Applications, and Preferences. Applications replaces
 the home controls in place with `AppLauncherModule`; Home returns without changing
-the center layout. Preferences opens a full-surface category browser. Its first
-functional page owns OmaDeck layout entry points, Clock/Weather controls, and
-the timer sound selector, all delegated to the existing validated controllers.
-The Shell page projects Do Not Disturb, Night Light, and Keep Awake directly
-from the installed first-party notification, nightlight, and idle services.
-Appearance and Desktop expose the small settings for which the shell already
-owns live state and validated persistence—bar position/transparency and idle
-timeouts—through `shell.mutateShellConfig`. Richer Appearance, Desktop,
-Displays, Input, Sound, Applications, Power, and Advanced actions summon the
-installed Omarchy menu or first-party panel that owns the setting. Preferences
-therefore neither spawns helpers nor writes `shell.json`, Hyprland files, or
-application defaults itself. Launcher entries may be added from Omarchy's filtered live
-application library or a curated shortcut catalog, removed, and moved left or
-right. The service-owned launcher controller saves only stable IDs.
+the center layout. Preferences opens a full-surface browser with Dashboard, Workspaces,
+Timer, Display & touch, Monitor switching, and Launcher categories. These delegate layout, appearance,
+sound, hardware, and launcher choices to OmaDeck's existing validated
+controllers. Preferences has no system-wide shell configuration mutators or
+Omarchy settings-menu routes. `LauncherPreferences` owns draft editing and a
+searchable catalog backed by Quickshell's native desktop-entry collection;
+`LauncherCatalog` snapshots scalar metadata without retaining removed native
+entries. `LauncherListModel` reconciles those snapshots by ID instead of replacing
+the view model, preserving delegates and scroll position during icon and app
+refreshes. Both launcher grids and the command form limit flick momentum and
+stop at their content bounds. Preferences uses the available width for app
+columns and keeps selection actions below the scroll area. Omarchy's app library supplies icon fallback, but its menu filters do
+not hide apps from this browser. App and command buttons can be added, removed,
+and reordered. Custom command names, Bash text, working folders, terminal mode,
+and curated icon IDs persist with their stable IDs.
+
+Custom launches read only the selected, saved entry through `launcher-command`.
+The helper validates the owned regular settings file, resolves the working
+folder, and launches Bash through UWSM's application scope (optionally through
+`xdg-terminal-exec`). User jobs have their own session and closed inherited
+file descriptors; the short helper deadline does not terminate long-running
+user commands. Saving, searching, and editing never execute the command.
+Explicit launcher text entry temporarily raises the deck to the top layer,
+requests compositor keyboard focus, and exposes a touch keyboard. Closing the overlay, changing category, or losing
+host input permission releases the keyboard; the normal deck remains unfocused.
+
+`MonitorInputController` owns optional input-switch settings in `monitors.json`.
+It starts no discovery on startup, and serializes on-demand scans and switches
+through the bounded `monitor_inputs.py` helper. The helper queries ddcutil and
+the DRM EDID, returns scalar choices, and resolves a unique hardware identity
+again before requesting VCP 0x60. Display/bus numbers and arbitrary commands are
+never persisted. Missing, ambiguous, or unresponsive monitors fail visibly.
+Configuration writes are atomic and revert on failure; default settings disable
+the controls. Input actions also honor the overlay's disabled dashboard state.
+`MonitorSetupGuide` takes first-time users through computer readiness, DDC/CI
+instructions and discovery, then the shared input editor. A read-only
+`monitor_setup.py check` runs through the controller's bounded process only when
+the guide requests it. The explicit setup action launches an independent Omarchy
+terminal running `monitor_setup.py prepare`: fixed packaged commands install
+ddcutil, load i2c-dev, and reapply packaged uaccess rules. Only those system
+commands use sudo; the script remains unprivileged. No package transaction is
+owned or timed out by QML, and an advisory lock prevents duplicate setup runs.
+The guide rechecks real readiness instead of inferring success from opening the
+terminal. Neither preparation nor discovery writes an input value.
 
 Cards clip their content to their live bounds. Finite action panels follow a shared responsive contract:
 use geometry-driven `Grid`/`Flow` reflow first, then wrap the complete control
@@ -212,7 +300,10 @@ plugin checkout therefore never fails its keep-loaded service import.
 OmaDeck also contains two optional native Qt components:
 
 - `TouchBridge` exclusively reads the direct touchscreen evdev node and injects
-  pointer events only into the OmaDeck window. An explicit list of distinctive,
+  pointer events only into the OmaDeck window. Each contact primes Qt's local
+  hover chain with a move before the press, so the release's Leave event clears
+  MouseArea highlights even when the finger never moved. The compositor's mouse
+  cursor is unaffected. An explicit list of distinctive,
   case-insensitive device-name substrings authorizes the exclusive grab; an
   absent match fails closed without selecting another direct touchscreen. It
   exposes the bounded set of readable direct-touch device names to Preferences

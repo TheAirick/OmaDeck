@@ -1,7 +1,9 @@
 import QtQuick
 import QtTest
 import Quickshell.Services.Pipewire as Pw
+import Quickshell.Hyprland as Hl
 import "../../components" as Components
+import "../../services" as Stores
 
 TestCase {
   id: testCase
@@ -14,10 +16,23 @@ TestCase {
   property var fixtureStreams: []
 
   function init() {
+    monitorFixture.requests = []
+    monitorFixture.showControls = true
+    Hl.Hyprland.toplevels.values = []
+    Hl.Hyprland.workspaces.values = []
+    Hl.Hyprland.monitors.values = []
+    Hl.Hyprland.focusedWorkspace = null
+    Hl.Hyprland.activeToplevel = null
+    Hl.Hyprland.requests = []
     lockRegistryFixture.enabledLockId = "omarchy.lock"
     lockFixture.locked = false
     lockFixture.strandedLockResolved = true
     lockFixture.strandedLock = false
+    layoutFixture.layout = layoutFixture.defaultLayout()
+    layoutFixture.revision++
+    layoutFixture.editMode = false
+    layoutFixture.editSnapshot = null
+    layoutFixture.selectedPath = ""
     layoutFixture.saveError = ""
     launcherFixture.saveError = ""
     layoutFixture.retryCalls = 0
@@ -26,10 +41,10 @@ TestCase {
     var sinkAudio = createTemporaryObject(audioComponent, testCase, { volume: 0.7 })
     var sourceAudio = createTemporaryObject(audioComponent, testCase, { volume: 0.5 })
     var sink = createTemporaryObject(nodeComponent, testCase, {
-      name: "fixture-sink", isSink: true, audio: sinkAudio
+      id: 31, name: "fixture-sink", description: "QR65 speakers", isSink: true, audio: sinkAudio
     })
     var source = createTemporaryObject(nodeComponent, testCase, {
-      name: "fixture-source", audio: sourceAudio
+      id: 32, name: "fixture-source", description: "Alias Pro mic", audio: sourceAudio
     })
     var streams = []
     for (var index = 0; index < 4; index++) {
@@ -47,7 +62,7 @@ TestCase {
     fixtureStreams = streams
     Pw.Pipewire.defaultAudioSink = sink
     Pw.Pipewire.defaultAudioSource = source
-    Pw.Pipewire.nodes.values = streams
+    Pw.Pipewire.nodes.values = streams.concat([sink, source])
   }
 
   function createDeck(width, height) {
@@ -60,11 +75,245 @@ TestCase {
       appearanceController: appearanceFixture,
       launcherController: launcherFixture,
       hardwareController: hardwareFixture,
+      monitorInputController: monitorFixture,
       weatherController: weatherFixture,
       timerController: timerFixture
     })
     verify(deck !== null)
     return deck
+  }
+
+  function test_customizeMovesEveryPanelAndCancelRestores() {
+    var deck = createDeck()
+    var original = JSON.stringify(layoutFixture.layout)
+    deck.showPreferences("omadeck")
+    wait(300)
+    var edit = findChild(deck, "preferencesEditDashboard")
+    verify(edit !== null)
+    mouseClick(edit, edit.width / 2, edit.height / 2)
+    wait(300)
+    verify(deck.customizing)
+    compare(deck.openOverlayName, "")
+    for (var id of ["media", "clock", "weather", "command-center"]) {
+      var tile = findChild(deck, "dashboardTile-" + id)
+      verify(tile !== null && tile.width > 0 && tile.height > 0, id)
+    }
+    // Content is inert while editing, even the monitor-switching row.
+    var inputs = findChild(deck, "monitorInputModule")
+    verify(!inputs.enabled)
+    mouseClick(inputs, inputs.width * 0.75, inputs.height / 2)
+    compare(monitorFixture.requests.length, 0)
+    layoutFixture.selectedPath = ""
+    var media = findChild(deck, "dashboardTile-media")
+    var clock = findChild(deck, "dashboardTile-clock")
+    var oldMediaPath = media.path, oldClockPath = clock.path
+    mouseClick(media, media.width / 2, media.height / 2)
+    mouseClick(clock, clock.width / 2, clock.height / 2)
+    wait(100)
+    compare(layoutFixture.nodeAt(oldMediaPath).moduleId, "clock")
+    compare(layoutFixture.nodeAt(oldClockPath).moduleId, "media")
+    // Changing topology recreates panels but retains the single service owner.
+    layoutFixture.moveModule("weather", "command-center", "bottom")
+    wait(100)
+    verify(findChild(deck, "dashboardTile-weather") !== null)
+    verify(findChild(deck, "staticMediaPanel").media === deck.dashboardMedia)
+    verify(deck.timerCompanion !== null)
+    verify(JSON.stringify(layoutFixture.layout) !== original)
+    var cancel = findChild(deck, "cancelCustomize")
+    mouseClick(cancel, cancel.width / 2, cancel.height / 2)
+    wait(100)
+    compare(JSON.stringify(layoutFixture.layout), original)
+    verify(!deck.customizing)
+    verify(findChild(deck, "monitorInputModule").enabled)
+    deck.openTimerPanel()
+    verify(deck.timerPanelOpen, "Clock can still reach the Weather/Timer panel after moving")
+  }
+
+  function test_customizeDragPlacesPanelAndResizesWithTouch() {
+    var deck = createDeck()
+    deck.beginCustomize()
+    wait(300)
+    var original = JSON.stringify(layoutFixture.layout)
+    var media = findChild(deck, "dashboardTile-media")
+    var command = findChild(deck, "dashboardTile-command-center")
+    var start = media.mapToItem(deck, media.width / 2, media.height / 2)
+    var end = command.mapToItem(deck, command.width / 2, command.height - 35)
+    var gesture = touchEvent(deck)
+    gesture.press(0, deck, start.x, start.y).commit()
+    for (var i = 1; i <= 12; i++) {
+      gesture.move(0, deck, start.x + (end.x - start.x) * i / 12,
+        start.y + (end.y - start.y) * i / 12).commit()
+      wait(20)
+    }
+    verify(media.dragging, "touch motion engages the module drag")
+    grabImage(deck).save("/tmp/omadeck-customize-drag.png")
+    verify(command.dropEdge !== "", "destination receives the drag: " + command.dropEdge)
+    gesture.release(0, deck, end.x, end.y).commit()
+    wait(200)
+    verify(JSON.stringify(layoutFixture.layout) !== original, "touch drop changes topology")
+    media = findChild(deck, "dashboardTile-media")
+    command = findChild(deck, "dashboardTile-command-center")
+    var mediaRect = rectIn(media, deck), commandRect = rectIn(command, deck)
+    verify(mediaRect.y > commandRect.y, "Now Playing moves below Command Center")
+    compare(mediaRect.x, commandRect.x)
+    var divider = findChild(deck, "layoutDivider-")
+    verify(divider.width >= 48)
+    var oldRatio = layoutFixture.layout.root.ratio
+    var point = divider.mapToItem(deck, divider.width / 2, divider.height / 2)
+    gesture.press(0, deck, point.x, point.y).commit()
+    for (var step = 1; step <= 6; step++) {
+      gesture.move(0, deck, point.x + step * 20, point.y).commit()
+      wait(20)
+    }
+    gesture.release(0, deck, point.x + 120, point.y).commit()
+    wait(100)
+    verify(layoutFixture.layout.root.ratio > oldRatio, "touch divider increases left share")
+    verify(Math.abs((layoutFixture.layout.root.ratio - oldRatio)
+      * (deck.usableWidth - deck.innerGap) - 120) < 3, "divider follows the finger without drift")
+    var horizontalDivider = findChild(deck, "layoutDivider-second")
+    verify(horizontalDivider !== null && horizontalDivider.height >= 48)
+    var priorHeight = findChild(deck, "dashboardTile-command-center").height
+    point = horizontalDivider.mapToItem(deck, horizontalDivider.width / 2, horizontalDivider.height / 2)
+    gesture.press(0, deck, point.x, point.y).commit()
+    for (var row = 1; row <= 5; row++) {
+      gesture.move(0, deck, point.x, point.y + row * 10).commit()
+      wait(20)
+    }
+    gesture.release(0, deck, point.x, point.y + 50).commit()
+    wait(100)
+    verify(Math.abs(findChild(deck, "dashboardTile-command-center").height - priorHeight - 50) < 3,
+      "horizontal divider resizes panel height without drift")
+    var edited = JSON.stringify(layoutFixture.layout)
+    var done = findChild(deck, "finishCustomize")
+    mouseClick(done, done.width / 2, done.height / 2)
+    compare(JSON.stringify(layoutFixture.layout), edited)
+    verify(!deck.customizing)
+    grabImage(deck).save("/tmp/omadeck-customized-layout.png")
+  }
+
+  function test_overlayCloseFitsHeader() {
+    var deck = createDeck(1600, 450)
+    deck.openOverlay("overview")
+    wait(300)
+    var overlay = findChild(deck, "omadeckOverviewOverlay")
+    var button = findChild(overlay, "closeOverviewOverlay")
+    var content = findChild(overlay, "deckCardContent")
+    verify(button !== null && content !== null)
+    verify(button.width >= 48 && button.height >= 48)
+    var buttonPos = button.mapToItem(overlay, 0, 0)
+    var contentPos = content.mapToItem(overlay, 0, 0)
+    verify(buttonPos.y + button.height <= contentPos.y, "close control fits above content")
+    verify(buttonPos.y >= 0, "close touch target remains inside the overlay")
+    verify(contentPos.y <= 64, "compact header leaves room for workspace cards")
+    compare(button.bordered, false)
+    mouseClick(button, button.width / 2, button.height / 2)
+    compare(deck.openOverlayName, "")
+  }
+
+  function test_monitorPreferencesRoute() {
+    var deck = createDeck(1600, 450)
+    deck.showPreferences("monitors")
+    compare(deck.openOverlayName, "preferences")
+    compare(findChild(deck, "preferencesPresenter").selectedCategory, "monitors")
+    deck.showPreferences("unknown")
+    compare(findChild(deck, "preferencesPresenter").selectedCategory, "monitors")
+  }
+
+  function test_monitorSetupRouteOpensReadOnlyGuide() {
+    var deck = createDeck(1600, 450)
+    deck.showPreferences("monitor-setup")
+    wait(300)
+    compare(deck.openOverlayName, "preferences")
+    var preferences = findChild(deck, "monitorInputPreferences")
+    compare(preferences.setupStep, "computer")
+    compare(findChild(preferences, "monitorSetupPrimary").text, "Continue")
+    verify(!deck.dashboardInputAllowed)
+    grabImage(findChild(deck, "preferencesOverlay")).save("/tmp/omadeck-monitor-setup-ready.png")
+  }
+
+  function test_overlaysBlockMonitorInputBehindThem_data() {
+    var rows = []
+    for (var overlay of ["overview", "notifications", "preferences"])
+      for (var touch of [false, true]) rows.push({ tag: overlay + (touch ? "-touch" : "-mouse"), overlay: overlay, touch: touch })
+    return rows
+  }
+
+  function test_overlaysBlockMonitorInputBehindThem(data) {
+    Hl.Hyprland.toplevels.values = [{ address: "abc", title: "Fixture", lastIpcObject: { "class": "Fixture" },
+      workspace: { id: -98, name: "special:scratchpad" }, monitor: { name: "DP-1" } }]
+    var deck = createDeck(1600, 450)
+    wait(100)
+    var input = findChild(deck, "monitorInputModule")
+    verify(input !== null)
+    // Monitor switching is recorded by a controller double; no hardware command runs.
+    var position = input.mapToItem(deck, input.width * 0.75, input.height / 2)
+    function tap() {
+      if (data.touch) {
+        var gesture = touchEvent(deck)
+        gesture.press(0, deck, position.x, position.y).commit()
+        gesture.release(0, deck, position.x, position.y).commit()
+      } else mouseClick(deck, position.x, position.y)
+    }
+    deck.openOverlay(data.overlay)
+    tap()
+    compare(monitorFixture.requests.length, 0, "dashboard blocked immediately on opening")
+    wait(300)
+    if (data.overlay === "overview") {
+      var panel = findChild(deck, "scratchpadPanel")
+      var local = panel.mapFromItem(deck, position.x, position.y)
+      verify(local.x > 0 && local.x < panel.width && local.y > 0 && local.y < panel.height,
+        "reproduce scratchpad directly above the monitor input button")
+    }
+    var requestsBefore = Hl.Hyprland.requests.length
+    tap()
+    compare(monitorFixture.requests.length, 0, "overlay taps cannot reach monitor input")
+    compare(deck.commandCenterPage, "home")
+    if (data.overlay === "overview") {
+      compare(Hl.Hyprland.requests.length, requestsBefore + 1)
+      compare(Hl.Hyprland.requests[requestsBefore], 'hl.dsp.workspace.toggle_special("scratchpad")')
+    }
+    deck.closeOverlay()
+    wait(60)
+    tap()
+    compare(monitorFixture.requests.length, 0, "closing animation still blocks dashboard taps")
+    wait(300)
+    verify(deck.dashboardInputAllowed)
+    tap()
+    compare(monitorFixture.requests[0].code, "13", "dashboard input works again after dismissal")
+  }
+
+  function test_openingOverlayCancelsDashboardPress() {
+    var deck = createDeck(1600, 450)
+    wait(100)
+    var input = findChild(deck, "monitorInputModule")
+    var position = input.mapToItem(deck, input.width * 0.75, input.height / 2)
+    mousePress(deck, position.x, position.y)
+    deck.openOverlay("overview")
+    verify(!input.enabled)
+    mouseRelease(deck, position.x, position.y)
+    compare(monitorFixture.requests.length, 0)
+    deck.openOverlay("preferences")
+    wait(300)
+    compare(input.enabled, false)
+    verify(!findChild(deck, "omadeckOverviewOverlay").enabled)
+  }
+
+  function test_overlayCancelsCommandCenterPressAndBlocksCoveredMedia() {
+    var deck = createDeck(1600, 450)
+    wait(100)
+    var applications = findByProperty(deck, "label", "Applications")
+    var position = applications.mapToItem(deck, applications.width / 2, applications.height / 2)
+    mousePress(deck, position.x, position.y)
+    deck.openOverlay("overview")
+    mouseRelease(deck, position.x, position.y)
+    compare(deck.commandCenterPage, "home")
+    wait(300)
+    var play = findChild(deck, "playPauseControl")
+    verify(play !== null)
+    var before = mediaFixture.actions.length
+    position = play.mapToItem(deck, play.width / 2, play.height / 2)
+    mouseClick(deck, position.x, position.y)
+    compare(mediaFixture.actions.length, before)
   }
 
   function findByProperty(item, propertyName, value) {
@@ -191,6 +440,11 @@ TestCase {
     verify(!deck.contentItem.enabled)
     wrapper.bridge.hostInputAllowed = true
     verify(deck.contentItem.enabled)
+    deck.openOverlay("overview")
+    verify(!findChild(deck, "deckCenterCanvas").enabled)
+    compare(wrapper.window, deck.contentItem)
+    verify(wrapper.window.enabled, "modal content must retain native touch input")
+    verify(wrapper.active)
     wrapper.bridge.hostInputAllowed = false
     verify(!deck.contentItem.enabled)
     verify(wrapper.active)
@@ -268,12 +522,12 @@ TestCase {
     var mixerBounds = rectIn(mixerCard, deck)
     var nowPlayingBounds = rectIn(nowPlayingCard, deck)
     compare(nowPlayingBounds.x - (mixerBounds.x + mixerBounds.width), deck.innerGap)
-    compare(nowPlayingCard.width, deck.staticMediaWidth)
+    compare(nowPlayingCard.width, Math.round((deck.usableWidth - deck.reservedLeft - deck.reservedRight - deck.innerGap) * 0.27))
     verify(mixerCard.y + mixerCard.height <= left.height)
 
     compare(deck.reservedLeft, deck.leftDrawerWidth + deck.innerGap)
-    compare(center.x, deck.outerGap + deck.staticMediaReserve + deck.reservedLeft)
-    compare(center.width, deck.usableWidth - deck.staticMediaReserve - deck.reservedLeft)
+    compare(center.x, deck.outerGap + deck.reservedLeft)
+    compare(center.width, deck.usableWidth - deck.reservedLeft)
   }
 
   function test_standardInstallReportsCompositorTouchWithoutNativeArtifact() {
@@ -357,17 +611,22 @@ TestCase {
 
     var omaDeckList = findChild(preferences, "omaDeckPreferencesList")
     verify(omaDeckList !== null)
-    omaDeckList.contentY = Math.max(0, omaDeckList.contentHeight - omaDeckList.height)
-    wait(0)
+    clickItem(deck, findChild(preferences, "preferenceCategory:timer"))
+    compare(findChild(preferences, "preferencesPresenter").selectedCategory, "timer")
+    wait(30)
     var bellOption = findByProperty(timerSound, "text", "Bell")
     verify(bellOption !== null)
     clickItem(deck, bellOption)
     compare(timerFixture.selectedSoundId, "bell")
+    var oceanOption = findByProperty(timerSound, "text", "Ocean")
+    clickItem(deck, oceanOption)
+    compare(timerFixture.selectedSoundId, "ocean")
+    grabImage(preferences).save("/tmp/omadeck-preferences-timer.png")
     clickItem(deck, previewTimerSound)
     compare(timerFixture.previewCalls, 1)
 
-    omaDeckList.contentY = 0
-    wait(0)
+    clickItem(deck, findChild(preferences, "preferenceCategory:omadeck"))
+    wait(30)
     clickItem(deck, editDashboard)
     wait(280)
     compare(layoutFixture.editMode, true)
@@ -375,95 +634,44 @@ TestCase {
     compare(deck.openOverlayName, "")
   }
 
-  function test_preferencesShellPageUsesLiveOmarchyServices() {
-    notificationFixture.doNotDisturb = false
-    nightlightFixture.enabled = false
-    nightlightFixture.applyCalls = 0
-    idleFixture.idleEnabled = true
-    idleFixture.applyCalls = 0
-
+  function test_launcherTypingOwnsKeysOnlyInActiveUnlockedEditor() {
     var deck = createDeck()
-    deck.openOverlay("preferences")
-    wait(280)
-    var overlay = findChild(deck, "preferencesOverlay")
-    var preferences = findChild(overlay, "preferencesPresenter")
-    verify(preferences !== null)
-    preferences.selectedCategory = "shell"
-    wait(0)
-
-    var dnd = findChild(preferences, "preferencesDoNotDisturb")
-    var nightlight = findChild(preferences, "preferencesNightlight")
-    var keepAwake = findChild(preferences, "preferencesKeepAwake")
-    verify(dnd !== null && nightlight !== null && keepAwake !== null)
-    verify(dnd.visible && nightlight.visible && keepAwake.visible)
-
-    clickItem(deck, dnd)
-    compare(notificationFixture.doNotDisturb, true)
-    clickItem(deck, nightlight)
-    compare(nightlightFixture.enabled, true)
-    compare(nightlightFixture.applyCalls, 1)
-    clickItem(deck, keepAwake)
-    compare(idleFixture.idleEnabled, false)
-    compare(idleFixture.applyCalls, 1)
-    grabImage(overlay).save("/tmp/omadeck-preferences-shell.png")
-  }
-
-  function test_preferencesNativeCategoriesUseHostSettingsAndPanels() {
-    shellFixture.resetPreferencesState()
-    var deck = createDeck()
-    deck.openOverlay("preferences")
-    wait(280)
-
-    var overlay = findChild(deck, "preferencesOverlay")
-    var preferences = findChild(overlay, "preferencesPresenter")
-    verify(preferences !== null)
-    preferences.selectedCategory = "appearance"
-    wait(0)
-
-    var barPosition = findChild(preferences, "preferencesBarPosition")
-    var barTransparency = findChild(preferences, "preferencesBarTransparency")
-    var theme = findChild(preferences, "preferencesTheme")
-    verify(barPosition !== null && barTransparency !== null && theme !== null)
-    verify(barPosition.visible && barTransparency.visible && theme.visible)
-
-    barPosition.changed("bottom")
-    compare(shellFixture.shellConfig.bar.position, "bottom")
-    compare(barFixture.position, "bottom")
-    compare(shellFixture.shellMutationCalls, 1)
-
-    barTransparency.clicked()
-    compare(shellFixture.shellConfig.bar.transparent, true)
-    compare(barFixture.requestedTransparent, true)
-    compare(shellFixture.shellMutationCalls, 2)
-
-    theme.clicked()
-    wait(280)
-    compare(shellFixture.lastSummonedId, "omarchy.menu")
-    compare(shellFixture.lastSummonedPayload, '{"menu":"style.theme"}')
-    compare(deck.openOverlayName, "")
-  }
-
-  function test_preferencesDesktopTimeoutsPersistThroughHostConfig() {
-    shellFixture.resetPreferencesState()
-    var deck = createDeck()
-    deck.openOverlay("preferences")
-    wait(280)
-
+    deck.editLauncher(true)
+    wait(300)
     var preferences = findChild(deck, "preferencesPresenter")
-    verify(preferences !== null)
-    preferences.selectedCategory = "desktop"
-    wait(0)
+    var editor = findChild(preferences, "launcherPreferences")
+    compare(deck.launcherKeyboardRequested, false)
+    editor.editField("query")
+    compare(deck.launcherKeyboardRequested, true)
+    lockFixture.locked = true
+    compare(deck.launcherKeyboardRequested, false)
+    lockFixture.locked = false
+    compare(deck.launcherKeyboardRequested, true)
+    preferences.selectedCategory = "timer"
+    compare(deck.launcherKeyboardRequested, false)
+    compare(editor.inputField, "")
+    preferences.selectedCategory = "launcher"
+    editor.editField("query")
+    compare(deck.launcherKeyboardRequested, true)
+    deck.closeOverlay()
+    compare(deck.launcherKeyboardRequested, false)
+    compare(editor.inputField, "")
+  }
 
-    var screensaver = findChild(preferences, "preferencesScreensaverTimeout")
-    var lock = findChild(preferences, "preferencesLockTimeout")
-    verify(screensaver !== null && lock !== null)
-    screensaver.changed("300")
-    compare(shellFixture.shellConfig.idle.screensaver, 300)
-    compare(idleFixture.screensaverTimeoutSeconds, 300)
-    lock.changed("1800")
-    compare(shellFixture.shellConfig.idle.lock, 1800)
-    compare(idleFixture.lockTimeoutSeconds, 1800)
-    compare(shellFixture.shellMutationCalls, 2)
+  function test_preferencesLauncherOpensAppEditorWithoutHostSettings() {
+    shellFixture.resetPreferencesState()
+    var deck = createDeck()
+    deck.openOverlay("preferences")
+    wait(280)
+    var preferences = findChild(deck, "preferencesPresenter")
+    clickItem(deck, findChild(preferences, "preferenceCategory:launcher"))
+    compare(preferences.selectedCategory, "launcher")
+    wait(30)
+    verify(findChild(preferences, "launcherPreferences").visible)
+    clickItem(deck, findChild(preferences, "launcherBrowseApps"))
+    compare(findChild(preferences, "launcherPreferences").page, "apps")
+    compare(deck.openOverlayName, "preferences")
+    compare(shellFixture.shellMutationCalls, 0)
   }
 
   function test_preferencesHardwareSelectorsUseDetectedControllerChoices() {
@@ -474,7 +682,7 @@ TestCase {
 
     var preferences = findChild(deck, "preferencesPresenter")
     verify(preferences !== null)
-    preferences.selectedCategory = "displays"
+    preferences.selectedCategory = "hardware"
     wait(0)
 
     var target = findChild(preferences, "preferencesTargetScreen")
@@ -487,7 +695,6 @@ TestCase {
     compare(hardwareFixture.primaryMonitor, "DP-3")
     compare(hardwareFixture.applyCalls, 1)
 
-    preferences.selectedCategory = "input"
     wait(0)
     var touch = findChild(preferences, "preferencesTouchDevice")
     verify(touch !== null)
@@ -512,8 +719,8 @@ TestCase {
     settingsList.contentY = bottom
     wait(0)
 
-    var timerSound = findChild(settingsList, "preferencesTimerSound")
-    var completeLabel = findByProperty(timerSound, "text", "Complete")
+    var unitChoice = findChild(settingsList, "preferencesTemperatureUnit")
+    var completeLabel = findByProperty(unitChoice, "text", "°F")
     verify(completeLabel !== null)
     var completeOption = completeLabel.parent
     var pointer = completeOption.mapToItem(settingsList,
@@ -593,7 +800,7 @@ TestCase {
     compare(nowPlayingBounds.x - (mixerBounds.x + mixerBounds.width), deck.innerGap,
       "Mixer-to-Now Playing gap")
     compare(mixerBounds.width, deck.leftDrawerWidth, "Volume fills its drawer width")
-    compare(nowPlayingBounds.width, deck.staticMediaWidth, "Now Playing retains its static width")
+    compare(nowPlayingBounds.width, Math.round((deck.usableWidth - deck.reservedLeft - deck.reservedRight - deck.innerGap) * 0.27), "Now Playing retains its configured share")
     compare(left.dismissInset, deck.innerGap, "the extra carrier strip owns dismissal")
     compare(leftBounds.x + leftBounds.width, nowPlayingBounds.x,
       "the dismissal strip must end where static Now Playing begins")
@@ -629,7 +836,7 @@ TestCase {
     verify(clockCard !== null && commandCard !== null && command !== null && weather !== null)
 
     compare(mixerCard.width, deck.leftDrawerWidth)
-    compare(nowPlayingCard.width, deck.staticMediaWidth)
+    compare(nowPlayingCard.width, Math.round((deck.usableWidth - deck.reservedLeft - deck.reservedRight - deck.innerGap) * 0.27))
     verify(mixerCard.width < nowPlayingCard.width, "collapsed Volume stays a narrow strip")
     compare(mixerCard.height, deck.usableHeight)
     compare(nowPlayingCard.height, deck.usableHeight)
@@ -796,6 +1003,59 @@ TestCase {
     grabImage(deck).save("/tmp/omadeck-media-vertical-expanded.png")
   }
 
+  function test_devicePickerKeepsScaledControlsInsideDrawerAndReturnsToMixer() {
+    var deck = createDeck(1600, 450)
+    deck.setMediaCompact(false)
+    wait(300)
+    var mixer = findChild(deck, "audioMixerPresenter")
+    var route = findChild(deck, "outputDeviceSelector")
+    var inputRoute = findChild(deck, "inputDeviceSelector")
+    verify(route.visible && inputRoute.visible)
+    compare(route.deviceLabel, "QR65 speakers")
+    compare(inputRoute.deviceLabel, "Alias Pro mic")
+    verify(route.height >= 44 && inputRoute.height >= 44)
+    clickItem(deck, route)
+    wait(100)
+    var picker = findChild(deck, "audioDevicePicker")
+    compare(picker.kind, "output")
+    verify(picker.visible)
+    var selected = findChild(picker, "audioDevice:fixture-sink")
+    verify(selected !== null && selected.selected)
+    var bounds = rectIn(selected, mixer)
+    verify(bounds.x >= 0 && bounds.y >= 0)
+    verify(bounds.x + bounds.width <= mixer.width)
+    verify(bounds.y + bounds.height <= mixer.height)
+    var outputTab = findChild(picker, "audioOutputTab")
+    var inputTab = findChild(picker, "audioInputTab")
+    var inputRow = findChild(picker, "audioDevice:fixture-source")
+    verify(inputRow !== null && !inputRow.visible)
+    for (var switchIndex = 0; switchIndex < 10; switchIndex++) {
+      var input = switchIndex % 2 === 0
+      clickItem(deck, input ? inputTab : outputTab)
+      // No wait: selection and list visibility change in the tap's event turn.
+      compare(picker.kind, input ? "input" : "output")
+      compare(inputTab.selected, input)
+      compare(outputTab.selected, !input)
+      compare(inputRow.visible, input)
+      compare(selected.visible, !input)
+      compare(findChild(picker, "audioDevice:fixture-sink"), selected,
+        "tab changes must retain the existing output row")
+      compare(findChild(picker, "audioDevice:fixture-source"), inputRow,
+        "tab changes must retain the existing input row")
+    }
+    clickItem(deck, findChild(picker, "audioInputTab"))
+    compare(picker.kind, "input")
+    verify(findChild(picker, "audioDevice:fixture-source").selected)
+    clickItem(deck, findChild(picker, "audioDeviceBack"))
+    verify(!picker.visible)
+    clickItem(deck, route)
+    compare(picker.kind, "output", "reopening must reset a previously changed tab")
+    clickItem(deck, findChild(picker, "audioDevice:fixture-sink"))
+    verify(!picker.visible, "selecting the current device returns without spawning a switch")
+    compare(findChild(mixer, "audioDeviceSwitchProcess").running, false)
+    verify(route.visible)
+  }
+
   function test_allExpandedCategoryControlsFitTheFullHeightVolumePanel() {
     var deck = createDeck(1600, 450)
     var categoryNames = ["Firefox", "Steam Game", "Discord", "System Audio"]
@@ -825,8 +1085,8 @@ TestCase {
     compare(mixer.activeCategoryCount, 4)
     compare(mixer.expandedSliderCount, 6)
     verify(deck.leftDrawerWidth <= Math.round(deck.usableWidth * 0.46))
-    compare(nowPlayingCard.width, deck.staticMediaWidth,
-      "expanded Volume must not resize static Now Playing")
+    compare(nowPlayingCard.width, Math.round((deck.usableWidth - deck.reservedLeft - deck.reservedRight - deck.innerGap) * 0.27),
+      "expanded Volume preserves the configured dashboard proportions")
 
     for (var controlId of ["output", "mic", "media", "games", "voice", "other"]) {
       var control = findChild(mixer, "verticalVolume:" + controlId)
@@ -948,6 +1208,7 @@ TestCase {
   Component {
     id: nodeComponent
     QtObject {
+      property int id: 0
       property string name: ""
       property string description: ""
       property string type: ""
@@ -1085,6 +1346,26 @@ TestCase {
   }
 
   QtObject {
+    id: monitorFixture
+    property bool showControls: true
+    property bool loaded: true
+    property bool busy: false
+    property string switchStatus: ""
+    property string notice: ""
+    property var settings: ({ enabled: true })
+    property var setupStatus: null
+    property bool setupWindowOpened: false
+    property bool scanned: false
+    property var requests: []
+    property var detectedMonitors: []
+    property var monitors: [{ id: "a".repeat(64), label: "Fixture monitor", sources: [{ code: "0f", label: "Desktop" }, { code: "13", label: "Laptop" }] }]
+    readonly property var selectedMonitor: monitors[0]
+    function switchInput(id, code) { requests = requests.concat([{ id: id, code: code }]); return true }
+    function cycleMonitor(delta) {}
+    function checkSetup() { setupStatus = { state: "ready", canPrepare: true }; return true }
+  }
+
+  QtObject {
     id: mediaFixture
     property var activePlayer: playerFixture
     property var actions: []
@@ -1118,33 +1399,14 @@ TestCase {
     function seek(seconds) { seeks.push(seconds) }
   }
 
-  QtObject {
+  Stores.LayoutController {
     id: layoutFixture
-    property string saveError: ""
     property int retryCalls: 0
     function persist() { retryCalls++; saveError = "" }
-    property int revision: 0
-    property bool editMode: false
-    property string selectedPath: ""
-    property string layoutBytes: "fixture-layout-v1"
-    property string topology: "split(module:clock,module:command-center)"
-    property int schemaVersion: 1
-    property int mutationCalls: 0
-    function nodeAt(path) {
-      var clock = { type: "module", moduleId: "clock" }
-      var command = { type: "module", moduleId: "command-center" }
-      if (path === "") return {
-        type: "split", orientation: "horizontal", ratio: 0.36,
-        first: clock, second: command
-      }
-      if (path === "first") return clock
-      if (path === "second") return command
-      return null
-    }
-    function beginEdit(path) { selectedPath = path; editMode = true }
-    function selectOrSwap(path) { selectedPath = path; mutationCalls++ }
-    function swap(first, second) { mutationCalls++ }
-    function setRatio(path, ratio) { mutationCalls++ }
+    readonly property string layoutBytes: JSON.stringify(layout)
+    readonly property string topology: JSON.stringify(layout.root)
+    readonly property int schemaVersion: layout.version
+    readonly property int mutationCalls: revision
   }
 
   QtObject {
@@ -1229,11 +1491,17 @@ TestCase {
     property string status: "idle"
     property string remainingText: "5:00"
     property real progress: 0
-    property string selectedSoundName: "Complete"
+    property string selectedSoundName: "Ocean"
     property bool soundSettingsLoaded: true
-    property string selectedSoundId: "complete"
+    property var soundOptions: [
+      { eventId: "ocean", label: "Ocean" }, { eventId: "", label: "Silent" },
+      { eventId: "alarm-clock-elapsed", label: "Alarm" }, { eventId: "complete", label: "Complete" },
+      { eventId: "bell", label: "Bell" }, { eventId: "phone-incoming-call", label: "Ring" },
+      { eventId: "dialog-warning", label: "Warning" }
+    ]
+    property string selectedSoundId: "ocean"
     property int previewCalls: 0
-    function resetPreferences() { selectedSoundId = "complete"; previewCalls = 0 }
+    function resetPreferences() { selectedSoundId = "ocean"; previewCalls = 0 }
     function selectSoundId(value) { selectedSoundId = value; return true }
     function start(hours, minutes) { status = "active"; return { ok: true } }
     function stopPreview() {}

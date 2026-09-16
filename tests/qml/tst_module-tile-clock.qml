@@ -276,6 +276,45 @@ TestCase {
     comparePersistent(persistentSnapshot(), stateBefore, "timer lifecycle", true)
   }
 
+  function test_timerHoldRepeatsWithoutLayoutEditing_data() {
+    return [{ tag: "release", cancel: "release" }, { tag: "slide-away", cancel: "slide" },
+      { tag: "disabled", cancel: "disable" }, { tag: "hidden", cancel: "hide" }]
+  }
+
+  function test_timerHoldRepeatsWithoutLayoutEditing(data) {
+    var tile = makeTile(700, 500)
+    var fixture = panelFixture(tile)
+    mouseClick(fixture.clock, fixture.clock.width / 2, fixture.clock.height / 2)
+    var minutes = findChild(fixture.timer, "minutesTimerField")
+    verify(minutes !== null)
+    minutes.forceActiveFocus()
+    var add = findAccessible(fixture.timer, "Add one minute")
+    verify(add !== null)
+    var before = fixture.timer.selectedTotalSeconds
+    var position = add.mapToItem(tile, add.width / 2, add.height / 2)
+    var gesture = touchEvent(tile)
+    gesture.press(0, tile, position.x, position.y).commit()
+    wait(650)
+    verify(fixture.timer.selectedTotalSeconds >= before + 120, "hold repeats minutes")
+    verify(!layoutController.editMode)
+    compare(editCalls, 0)
+    wait(1000)
+    var afterSlow = fixture.timer.selectedTotalSeconds
+    wait(500)
+    verify(fixture.timer.selectedTotalSeconds >= afterSlow + 240, "longer hold accelerates")
+    if (data.cancel === "slide") gesture.move(0, tile, position.x - 80, position.y).commit()
+    if (data.cancel === "disable") tile.enabled = false
+    if (data.cancel === "hide") tile.visible = false
+    if (data.cancel === "release") gesture.release(0, tile, position.x, position.y).commit()
+    var stopped = fixture.timer.selectedTotalSeconds
+    wait(300)
+    compare(fixture.timer.selectedTotalSeconds, stopped, "repeat stops immediately on cancel or release")
+    if (data.cancel !== "release") gesture.release(0, tile, position.x, position.y).commit()
+    wait(100)
+    compare(fixture.timer.selectedTotalSeconds, stopped, "release adds no extra step")
+    compare(layoutController.layoutMutationCalls, 0)
+  }
+
   function test_compositorTouchOpensClockTimer() {
     var tile = makeTile(530, 380)
     var fixture = panelFixture(tile)
@@ -299,7 +338,7 @@ TestCase {
     compare(countCardBoundaries(tile), 1)
   }
 
-  function test_longPressEditsLogicalLeafWithoutOpeningTimer() {
+  function test_longPressDoesNotEnterLayoutEditing() {
     var tile = makeTile(530, 380)
     var fixture = panelFixture(tile)
     var stateBefore = persistentSnapshot()
@@ -307,8 +346,8 @@ TestCase {
     wait(650)
     mouseRelease(fixture.clock, fixture.clock.width / 2, fixture.clock.height / 2)
     wait(50)
-    compare(editCalls, 1)
-    compare(layoutController.selectedPath, "first")
+    compare(editCalls, 0)
+    compare(layoutController.selectedPath, "")
     compare(fixture.timer.setupOpen, false)
     compare(fixture.weather.visible, true)
     comparePersistent(persistentSnapshot(), stateBefore, "long press", false)

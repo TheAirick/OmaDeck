@@ -22,6 +22,9 @@ for (const { cycles, nativeAdapter } of [
     fs.cpSync(path.join(__dirname, 'qml/imports/qs'), path.join(dir, 'imports/qs'), { recursive: true })
     for (const file of ['NowPlayingModule.qml', 'MediaArtwork.js'])
       fs.copyFileSync(path.join(__dirname, '../modules', file), path.join(dir, file))
+    fs.cpSync(path.join(__dirname, '../theme'), path.join(dir, 'theme'), { recursive: true })
+    const nowPlayingPath = path.join(dir, 'NowPlayingModule.qml')
+    fs.writeFileSync(nowPlayingPath, fs.readFileSync(nowPlayingPath, 'utf8').replace('../theme', 'theme'))
     fs.copyFileSync(path.join(__dirname, '../services/MprisMediaAdapter.qml'), path.join(dir, 'MprisMediaAdapter.qml'))
     fs.copyFileSync(path.join(__dirname, 'fixtures/mpris-players.py'), path.join(dir, 'players.py'))
     fs.writeFileSync(path.join(dir, 'shell.qml'), `import QtQuick

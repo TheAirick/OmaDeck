@@ -32,13 +32,17 @@ test('installed Quickshell retries real failed writes and failed starts in a pri
     const values = {
       'layout.json': {version: 2, root: {type: 'split', orientation: 'horizontal', ratio: 0.36,
         first: {type: 'module', moduleId: 'clock'}, second: {type: 'module', moduleId: 'command-center'}}},
-      'launcher.json': {version: 1, entries: ['terminal', 'browser']},
+      'launcher-v2.json': {version: 2, entries: ['terminal', 'browser'], custom: []},
       'timer.json': {version: 1, status: 'active', originalDurationMs: 60000,
         currentDurationMs: 60000, deadlineMs: Date.now() - 1000, pausedRemainingMs: 0, notificationSent: false},
       'timer-settings.json': {version: 1, eventId: ''},
       'appearance.json': {version: 1, use24Hour: false},
       'hardware.json': {version: 1, targetScreen: 'fixture-old', primaryMonitor: 'fixture-old', touchDeviceNames: ['Fixture Touch']}
     }
+    const policy = {}
+    require('node:vm').runInNewContext(fs.readFileSync(path.join(root, 'services/LayoutPolicy.js'), 'utf8')
+      .replace(/^\.pragma library\s*/m, ''), policy)
+    values['dashboard-layout.json'] = policy.dashboardLayout(values['layout.json'])
     for (const [name, value] of Object.entries(values))
       fs.writeFileSync(path.join(config, name), JSON.stringify(value), { mode: 0o400 })
     fs.copyFileSync(path.join(__dirname, 'recovery-native.qml'), path.join(dir, 'shell.qml'))
@@ -70,8 +74,8 @@ test('installed Quickshell retries real failed writes and failed starts in a pri
     assert.equal((output.match(/TEST_ALERT/g) || []).length, 1, output)
     assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'timer.json'))).notificationSent, true)
     assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'timer-settings.json'))).eventId, 'bell')
-    assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'layout.json'))).root.ratio, 0.6)
-    assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'launcher.json'))).entries.length, 1)
+    assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'dashboard-layout.json'))).root.ratio, 0.6)
+    assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'launcher-v2.json'))).entries.length, 1)
     assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'appearance.json'))).use24Hour, true)
     assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'hardware.json'))).targetScreen, 'fixture-new')
   } finally {

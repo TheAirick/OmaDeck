@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import "../theme"
 
 Item {
   id: root
@@ -40,7 +41,7 @@ Item {
         visible: root.description !== ""
         width: parent.width
         text: root.description
-        color: Color.muted
+        color: DeckColors.secondaryText
         font.family: Style.font.family
         font.pixelSize: Style.font.caption
         wrapMode: Text.Wrap
@@ -83,7 +84,7 @@ Item {
             wrapMode: Text.Wrap
             horizontalAlignment: Text.AlignHCenter
             text: choiceOption.modelData.label
-            color: choiceOption.selected ? Color.accent : Color.muted
+            color: choiceOption.selected ? Color.accent : DeckColors.secondaryText
             font.family: Style.font.family
             font.pixelSize: Style.font.body
             font.bold: choiceOption.selected

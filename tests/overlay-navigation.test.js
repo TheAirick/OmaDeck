@@ -11,6 +11,7 @@ const overlay = source("components/DeckOverlay.qml")
 const commandCenter = source("modules/CommandCenterModule.qml")
 const launcher = source("modules/AppLauncherModule.qml")
 const notifications = source("modules/NotificationCenterModule.qml")
+const notificationController = source("services/NotificationController.qml")
 const overview = source("modules/OverviewModule.qml")
 const preferences = source("modules/PreferencesModule.qml")
 const preferenceAction = source("components/PreferenceAction.qml")
@@ -25,7 +26,7 @@ const historySource = source("modules/NotificationHistory.js").replace(/^\.pragm
 const History = vm.runInNewContext(`${historySource}\n;({ parseHistory, merge })`)
 
 test("vertical gestures own overlays and never reserve center height", () => {
-  assert.match(deck, /readonly property real reservedTop:\s*0/)
+  assert.match(deck, /readonly property real reservedTop:\s*customizing \? Style\.space\(68\) : 0/)
   assert.match(deck, /readonly property real reservedBottom:\s*0/)
   assert.equal((deck.match(/EdgeDrawer\s*\{/g) || []).length, 2)
   assert.equal((deck.match(/DeckOverlay\s*\{/g) || []).length, 3)
@@ -51,7 +52,7 @@ test("Command Center owns the editable Applications page", () => {
   assert.match(commandCenter, /AppLauncherModule\s*\{/)
   assert.match(launcher, /controller\.availableEntries\(\)/)
   assert.match(launcher, /shell\.appLibrary/)
-  assert.match(launcher, /library\.sortedEntries\(""\)/)
+  assert.match(source("services/LauncherCatalog.qml"), /DesktopEntries\.applications\.values/)
   assert.match(launcher, /controller\.add\(entry\.id\)/)
   assert.match(launcher, /controller\.remove\(selectedId\)/)
   assert.match(launcher, /controller\.move\(selectedId, delta\)/)
@@ -61,7 +62,7 @@ test("Command Center owns the editable Applications page", () => {
 test("Command Center hides its gesture hint in the drawer-constrained layout", () => {
   assert.match(commandCenter, /id:\s*interactionHint/)
   assert.match(commandCenter, /visible:\s*root\.page === "home" && root\.useThreeColumns/)
-  assert.match(commandCenter, /Pull down notifications · pull up overview/)
+  assert.match(commandCenter, /Pull down notifications · pull up workspaces/)
 })
 
 test("Command Center opens a full-surface Preferences overlay", () => {
@@ -73,14 +74,14 @@ test("Command Center opens a full-surface Preferences overlay", () => {
   assert.match(preferences, /appearanceController\.setOption\(key, value\)/)
   assert.match(preferences, /layoutController\.beginEdit\(""\)/)
   assert.match(preferences, /weatherController\.refresh\("manual"\)/)
-  assert.match(preferences, /visible:\s*root\.selectedCategory === "shell"/)
+  assert.match(preferences, /visible:\s*root\.selectedCategory === "timer"/)
   assert.match(preferences, /objectName:\s*"preferencesTimerSound"/)
   assert.doesNotMatch(preferenceChoice, /BorderSurface\s*\{/)
   assert.match(preferenceChoice, /choiceOption\.selected \? 1 : 0/)
   assert.match(preferenceChoice, /MouseArea\s*\{[\s\S]*preventStealing:\s*false/)
   assert.match(preferences, /PreferenceCategoryButton\s*\{/)
   assert.match(preferences, /PreferenceToggle\s*\{/)
-  assert.equal((preferences.match(/flickableDirection:\s*Flickable\.VerticalFlick/g) || []).length, 4)
+  assert.equal((preferences.match(/flickableDirection:\s*Flickable\.VerticalFlick/g) || []).length, 2)
   assert.doesNotMatch(preferences, /id:\s*categoryRail[\s\S]{0,180}borderSpec:/)
   assert.doesNotMatch(preferences, /id:\s*settingsPane[\s\S]{0,180}borderSpec:/)
   assert.doesNotMatch(preferenceAction, /BorderSurface\s*\{/)
@@ -90,16 +91,18 @@ test("Command Center opens a full-surface Preferences overlay", () => {
 })
 
 test("notification overlay reuses Omarchy notification ownership", () => {
-  assert.match(notifications, /firstPartyServiceFor\("omarchy\.notifications"\)/)
-  assert.match(notifications, /notificationService\.clearPopups\(\)/)
-  assert.match(notifications, /notificationService\.clearHistory\(\)/)
-  assert.match(notifications, /notificationService\.invokePopupDefault/)
+  assert.match(notificationController, /firstPartyServiceFor\("omarchy\.notifications"\)/)
+  assert.match(notificationController, /notificationService\.clearPopups\(\)/)
+  assert.match(notificationController, /notificationService\.clearHistory\(\)/)
+  assert.match(notificationController, /notificationService\.invokePopupDefault/)
   assert.doesNotMatch(notifications, /NotificationServer\s*\{/)
 })
 
 test("notification center bounds its feed and exposes native quick controls", () => {
-  assert.match(notifications, /width:\s*Math\.min\(notificationList\.width, Style\.space\(720\)\)/)
-  assert.match(notifications, /firstPartyServiceFor\("omarchy\.nightlight"\)/)
+  assert.match(notifications, /objectName: "notificationMessagePane"/)
+  assert.match(notifications, /objectName: "notificationMessageBody"/)
+  assert.match(notifications, /textFormat: Text.PlainText/)
+  assert.match(notificationController, /firstPartyServiceFor\("omarchy\.nightlight"\)/)
   assert.match(notifications, /Networking\.wifiEnabled = !Networking\.wifiEnabled/)
   assert.match(notifications, /"\/usr\/bin\/omarchy-bluetooth-power"/)
   assert.match(notifications, /notificationDndControl/)
@@ -108,7 +111,7 @@ test("notification center bounds its feed and exposes native quick controls", ()
   assert.match(notifications, /notificationNightlightControl/)
   assert.doesNotMatch(notifications, /airplane/i)
   assert.match(quickToggle, /TapHandler\s*\{/)
-  assert.match(quickToggle, /Border\.hyprlandActiveSpec/)
+  assert.doesNotMatch(quickToggle, /BorderSurface|borderSpec/)
 })
 
 test("notification history parsing tolerates torn rows and deduplicates live entries", () => {
@@ -126,19 +129,10 @@ test("notification history parsing tolerates torn rows and deduplicates live ent
   assert.equal(merged[0].live, true)
 })
 
-test("overview delegates scratchpad actions to Hyprland's native special workspace", () => {
-  assert.match(overview, /hl\.dsp\.workspace\.toggle_special\(\\"scratchpad\\"\)/)
-  assert.match(overview, /workspace = \\"special:scratchpad\\"/)
+test("Workspaces keeps the existing overlay route and delegates to its native controller", () => {
+  assert.match(commandCenter, /label: "Workspaces"/)
+  assert.match(deck, /title: "Workspaces"/)
+  assert.match(overview, /WorkspaceController\s*\{/)
   assert.match(overview, /WorkspaceModule\s*\{/)
-  assert.match(overview, /expandToFit:\s*true/)
-})
-
-test("workspace tiles reserve persistent selection for the focused workspace", () => {
-  assert.match(workspaces, /readonly property bool occupied:/)
-  assert.match(workspaces, /readonly property bool focused:/)
   assert.match(workspaces, /borderSpec:\s*focused[\s\S]*Border\.hyprlandActiveSpec/)
-  assert.match(workspaces, /workspaceTile\.occupied \? Color\.foreground : Color\.muted/)
-  assert.match(workspaces, /HoverHandler\s*\{ id: workspaceHover \}/)
-  assert.match(workspaces, /TapHandler\s*\{/)
-  assert.doesNotMatch(workspaces, /selected:\s*focused/)
 })

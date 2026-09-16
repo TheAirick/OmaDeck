@@ -7,7 +7,11 @@ Item {
   id: root
 
   readonly property string configDir: Quickshell.env("HOME") + "/.config/omadeck"
-  readonly property string layoutPath: configDir + "/layout.json"
+  readonly property string layoutPath: configDir + "/dashboard-layout.json"
+  readonly property string legacyLayoutPath: configDir + "/layout.json"
+  readonly property bool dashboardLayout: true
+  property var editSnapshot: null
+  property bool legacyChecked: false
 
   property var layout: defaultLayout()
   property int revision: 0
@@ -26,7 +30,7 @@ Item {
   signal layoutChangedByUser()
 
   function defaultLayout() {
-    return {
+    return LayoutPolicy.dashboardLayout({
       version: 2,
       root: {
         type: "split",
@@ -35,7 +39,7 @@ Item {
         first: { type: "module", moduleId: "clock" },
         second: { type: "module", moduleId: "command-center" }
       }
-    }
+    })
   }
 
   function clone(value) {
@@ -43,12 +47,13 @@ Item {
   }
 
   function load(raw) {
-    if (savePending || saveInFlight) return
+    if (editMode || savePending || saveInFlight) return
     savedText = raw
     try {
       var parsed = LayoutPolicy.parseLayout(raw)
       if (!parsed) throw new Error("unsupported layout")
-      layout = parsed
+      layout = LayoutPolicy.dashboardLayout(parsed)
+      if (!layout) throw new Error("invalid dashboard modules")
       revision++
       loaded = true
     } catch (error) {
@@ -86,7 +91,7 @@ Item {
     layout = next
     revision++
     layoutChangedByUser()
-    scheduleSave()
+    if (!editMode) scheduleSave()
   }
 
   function setRatio(path, value) {
@@ -104,7 +109,9 @@ Item {
     var next = clone(layout)
     var firstParent = parentAt(firstPath, next)
     var secondParent = parentAt(secondPath, next)
-    if (!firstParent || !secondParent) return
+    if (!firstParent || !secondParent
+      || firstParent.node[firstParent.key].type !== "module"
+      || secondParent.node[secondParent.key].type !== "module") return
     var temporary = firstParent.node[firstParent.key]
     firstParent.node[firstParent.key] = secondParent.node[secondParent.key]
     secondParent.node[secondParent.key] = temporary
@@ -127,12 +134,32 @@ Item {
     swap(from, path)
   }
 
+  function moveModule(sourceId, targetId, edge) {
+    if (!editMode) return
+    var next = LayoutPolicy.moveModule(layout, sourceId, targetId, edge)
+    if (!next) return
+    selectedPath = LayoutPolicy.modulePath(next.root, sourceId, "")
+    commit(next)
+  }
+
   function beginEdit(path) {
+    if (!editMode) editSnapshot = clone(layout)
     editMode = true
     selectedPath = path
   }
 
   function finishEdit() {
+    editMode = false
+    selectedPath = ""
+    editSnapshot = null
+    scheduleSave()
+  }
+
+  function cancelEdit() {
+    if (!editMode || !editSnapshot) return
+    layout = clone(editSnapshot)
+    revision++
+    editSnapshot = null
     editMode = false
     selectedPath = ""
     scheduleSave()
@@ -144,6 +171,7 @@ Item {
   }
 
   function persist() {
+    if (editMode) return
     if (!directoryReady) {
       if (!mkdirProcess.running) {
         mkdirProcess.launchPending = true
@@ -220,10 +248,32 @@ Item {
     onLoadFailed: {
       root.savedText = ""
       if (!root.directoryReady) return
+      if (!root.loaded && !root.legacyChecked) {
+        root.legacyChecked = true
+        legacyLayoutFile.path = root.legacyLayoutPath
+        return
+      }
       root.loaded = true
       root.scheduleSave()
     }
     onFileChanged: reload()
+  }
+
+  FileView {
+    id: legacyLayoutFile
+    path: ""
+    printErrors: false
+    onLoaded: {
+      if (root.loaded) return
+      root.load(text())
+      root.savedText = ""
+      root.scheduleSave()
+    }
+    onLoadFailed: {
+      if (!root.legacyChecked || root.loaded) return
+      root.loaded = true
+      root.scheduleSave()
+    }
   }
 
   Timer {

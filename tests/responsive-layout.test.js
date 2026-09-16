@@ -82,3 +82,15 @@ test("finite action panels reflow where meaningful and never rely on hidden scro
   assert.match(commandCenter, /readonly property real contentScale:\s*1/)
   assert.doesNotMatch(commandCenter, /scale:\s*root\.contentScale/)
 })
+
+test("Command Center stays usable in roomy, narrow, and short customized panels", () => {
+  const result = require("node:child_process").spawnSync("/usr/lib/qt6/bin/qmltestrunner", [
+    "-input", "tests/qml/tst_command-center-responsive.qml", "-import", "tests/qml/imports"
+  ], {
+    cwd: path.join(__dirname, ".."), encoding: "utf8", timeout: 10000,
+    env: { ...process.env, QT_QPA_PLATFORM: "offscreen", QT_QUICK_BACKEND: "software", QML_DISABLE_DISK_CACHE: "1" }
+  })
+  assert.equal(result.error, undefined)
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.doesNotMatch(result.stdout + result.stderr, /QWARN|QCRITICAL|QFATAL/)
+})

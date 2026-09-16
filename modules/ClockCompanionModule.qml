@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import "../theme"
 import "ClockCompanionPolicy.js" as ClockCompanionPolicy
 
 Item {
@@ -48,7 +49,7 @@ Item {
         anchors.centerIn: parent
         visible: !root.showWeather
         text: "Weather disabled"
-        color: Color.muted
+        color: DeckColors.secondaryText
         font.family: Style.font.family
         font.pixelSize: Style.font.body
       }

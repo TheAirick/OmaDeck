@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import "../theme"
 
 Item {
   id: root
@@ -54,7 +55,7 @@ Item {
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
         text: root.timerSummary()
-        color: root.timerStatus !== "idle" ? Color.accent : Color.muted
+        color: root.timerStatus !== "idle" ? Color.accent : DeckColors.secondaryText
         font.family: Style.font.family
         font.pixelSize: Style.font.body
       }
@@ -62,7 +63,7 @@ Item {
 
     TapHandler {
       enabled: root.interactionEnabled
-      // Match the containing tile's edit gesture across platform style hints.
+      // Only a deliberate tap opens the timer; resting a finger does nothing.
       longPressThreshold: 0.5
       onTapped: if (root.interactionEnabled) root.setupRequested()
     }

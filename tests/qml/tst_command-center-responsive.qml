@@ -50,7 +50,8 @@ TestCase {
 
     var monitor = findChild(module, "monitorInputModule")
     verify(monitor !== null)
-    compare(monitor.height, 76)
+    compare(monitor.visible, false, "fresh installs have no monitor controls until configured")
+    compare(monitor.height, 0)
     grabImage(module).save("/tmp/omadeck-command-center-narrow.png")
   }
 
@@ -67,6 +68,22 @@ TestCase {
     var hint = findChild(module, "commandCenterInteractionHint")
     verify(hint !== null)
     compare(hint.visible, true)
+  }
+
+  function test_shortPanelKeepsPreferencesReachableByScrolling() {
+    var module = createTemporaryObject(commandCenterComponent, testCase, {
+      width: 300, height: 130, deck: deckStub
+    })
+    verify(module !== null)
+    wait(1)
+    var viewport = findChild(module, "commandCenterControlsViewport")
+    verify(viewport.interactive)
+    var preferences = findChild(module, "drawerButton:preferences")
+    verify(preferences.height >= 48)
+    viewport.contentY = viewport.contentHeight - viewport.height
+    var bounds = rectIn(preferences, module)
+    verify(bounds.y >= 0 && bounds.y + bounds.height <= module.height)
+    verify(!findChild(module, "commandCenterInteractionHint").visible)
   }
 
   QtObject {
