@@ -19,9 +19,10 @@ a web server, Electron process, or separate system daemon.
   device identities. Connected monitors come from Quickshell; readable direct
   touchscreens come from the native bridge rather than a recurring helper.
 - `services/LauncherController.qml` validates and atomically persists the
-  ordered Command Center launcher selection. `LauncherPolicy.js` restricts
-  touch editing to installed desktop-entry IDs and the built-in action catalog,
-  so persisted data cannot introduce an arbitrary command vector.
+  ordered Command Center launcher selection and explicitly authored command
+  buttons in one atomic `launcher-v2.json` snapshot. `LauncherPolicy.js` validates
+  desktop IDs, stable custom IDs, bounded command fields, and icon choices.
+  Legacy `launcher.json` is migrated without overwriting it.
 - `services/TimerController.qml` owns the Clock's single deadline-based
   countdown, separate atomic sound preference, and claimed notification/
   three-chime completion effects. Ocean is the default, bundled unchanged with
@@ -148,14 +149,30 @@ root content item so disabling the dashboard does not disable overlay input.
 The two horizontal drawers remain mutually
 exclusive, and only one full-surface overlay can be open at a time.
 
-The notification overlay borrows the single installed
-`omarchy.notifications` service for live notification actions, DND, clearing,
-and application focus. It reads that service's bounded on-disk history for
-presentation only and never creates another `NotificationServer`. Its compact
-control rail delegates DND and Night Light to the corresponding first-party
-services, Wi-Fi to Quickshell's NetworkManager model, and Bluetooth power to
-Omarchy's persistent rfkill helper. The notification feed is width-capped so
-messages remain scannable on the ultra-wide deck.
+`NotificationController` projects Omarchy's notification ownership into a bounded
+scalar feed; it never creates another `NotificationServer`. Hosts exposing the
+first-party service retain its live default actions, resolved by notification
+identity at activation rather than a stale model index. On scoped plugin APIs,
+the on-demand `notification_control.py` bridge uses public Omarchy commands for
+DND, Night Light, clearing, and literal application focus. Clear serializes the
+owner's popup dismissal and history clear; OmaDeck never deletes owner files or
+executes notification-supplied command vectors itself.
+
+The history helper reads pending and archived files under Omarchy's XDG state
+directory, enforcing directory, file-count, per-file and aggregate byte limits.
+While the drawer is open, Qt directory watchers detect arrivals/archiving and at
+most twelve watch-only FileViews detect edits to displayed files. Their names
+come from the validated helper and their contents are never loaded by FileView.
+Changes coalesce into a bounded read; closing destroys the watchers and cancels
+the reader, and opening reconciles again. All helper processes have external
+deadlines and QML lifecycle backstops.
+
+The presenter uses a borderless recent list, a full-message reader on wide
+screens, and a compact control rail. Narrow layouts provide Back navigation.
+Selecting a row only reads its text; opening the app and confirmed Clear all
+are separate actions. Selection survives new arrivals and all message text is
+plain text; icons accept theme names only. Wi-Fi uses Quickshell's NetworkManager
+model and Bluetooth power uses Omarchy's persistent rfkill helper.
 
 The Workspaces overlay owns one `WorkspaceController`, which projects shared
 Quickshell Hyprland models into scalar workspace/window rows and resolves app
@@ -185,9 +202,27 @@ the center layout. Preferences opens a full-surface browser with Dashboard, Work
 Timer, Display & touch, Monitor switching, and Launcher categories. These delegate layout, appearance,
 sound, hardware, and launcher choices to OmaDeck's existing validated
 controllers. Preferences has no system-wide shell configuration mutators or
-Omarchy settings-menu routes. Launcher entries may be added from Omarchy's filtered live
-application library or a curated shortcut catalog, removed, and moved left or
-right. The service-owned launcher controller saves only stable IDs.
+Omarchy settings-menu routes. `LauncherPreferences` owns draft editing and a
+searchable catalog backed by Quickshell's native desktop-entry collection;
+`LauncherCatalog` snapshots scalar metadata without retaining removed native
+entries. `LauncherListModel` reconciles those snapshots by ID instead of replacing
+the view model, preserving delegates and scroll position during icon and app
+refreshes. Both launcher grids and the command form limit flick momentum and
+stop at their content bounds. Preferences uses the available width for app
+columns and keeps selection actions below the scroll area. Omarchy's app library supplies icon fallback, but its menu filters do
+not hide apps from this browser. App and command buttons can be added, removed,
+and reordered. Custom command names, Bash text, working folders, terminal mode,
+and curated icon IDs persist with their stable IDs.
+
+Custom launches read only the selected, saved entry through `launcher-command`.
+The helper validates the owned regular settings file, resolves the working
+folder, and launches Bash through UWSM's application scope (optionally through
+`xdg-terminal-exec`). User jobs have their own session and closed inherited
+file descriptors; the short helper deadline does not terminate long-running
+user commands. Saving, searching, and editing never execute the command.
+Explicit launcher text entry temporarily raises the deck to the top layer,
+requests compositor keyboard focus, and exposes a touch keyboard. Closing the overlay, changing category, or losing
+host input permission releases the keyboard; the normal deck remains unfocused.
 
 `MonitorInputController` owns optional input-switch settings in `monitors.json`.
 It starts no discovery on startup, and serializes on-demand scans and switches

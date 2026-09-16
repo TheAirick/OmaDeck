@@ -22,13 +22,13 @@ are release gates, not implied by passing unit tests. See
 
 ## Interaction system
 
-- **Implemented, awaiting touchscreen acceptance — explicit layout customization
+- **Included in v0.9.0 — explicit layout customization
   and timer holds (reported 2026-09-13).** Preferences → Dashboard → Customize
   moves all four panels independently, offers edge placement and tap/drop swaps,
   resizes dividers, and has Done/Cancel. Normal dashboard long presses no longer
   enter layout editing. Timer duration buttons repeat and accelerate while held,
   stopping on release, cancellation, hide, or disable. Validate the feel on the
-  physical touchscreen before release closeout.
+  physical touchscreen across more hardware.
 - Pin or float modules inside the split tree
 - Touch-first resizing and placement refinements
 - Contextual modules triggered by media, microphone, timer, or warning state
@@ -47,10 +47,10 @@ are release gates, not implied by passing unit tests. See
 
 - Home Assistant controls
 - Download and transfer status
-- **Configurable monitor inputs — in local validation (2026-09-13).** Optional
+- **Included in v0.9.0 — configurable monitor inputs.** Optional
   Command Center controls, detected monitor/input choices, device labels, atomic
-  per-user settings, and DDC requests matched to hardware identity. Awaiting
-  owner acceptance and the next release commit.
+  per-user settings, guided DDC/CI preparation, and DDC requests matched to
+  hardware identity. Broader monitor compatibility remains ongoing.
 - Optional agent integrations without duplicating Omarchy's agent UI
 
 ## Presentation
@@ -74,8 +74,10 @@ are release gates, not implied by passing unit tests. See
 - Persistent touch settings for Clock/Weather appearance
 - Current weather with Omarchy-shared location, condition glyphs, and forecast
 - Mouse-accessible tray diagnostics and touch reconnection
-- OmaDeck-only Preferences: Dashboard, Timer, Display & touch, and Launcher
-- Add, remove, and reorder application launcher entries
+- OmaDeck-only Preferences: Dashboard, Workspaces, Timer, Display & touch,
+  Monitor switching, and Launcher
+- Add, remove, and reorder installed apps and custom script/command buttons;
+  searchable native app catalog and explicit touch/keyboard editing in Preferences
 - Notification and workspace overlays; persistent single countdown
 
 EQ and audio-preset integrations are deferred. Volume, mute, device selection,

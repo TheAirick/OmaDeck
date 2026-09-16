@@ -17,6 +17,8 @@ Item {
   property var timerController: null
   property string selectedCategory: "omadeck"
   property string notice: ""
+  readonly property bool keyboardRequested: launcherPreferences.typing
+  function browseLauncherApps() { selectedCategory = "launcher"; launcherPreferences.browseApps() }
 
   readonly property var screenOptions: {
     var names = hardwareController && hardwareController.availableScreenNames
@@ -150,6 +152,7 @@ Item {
   }
 
   Row {
+    enabled: !root.keyboardRequested
     anchors.fill: parent
     spacing: Style.spacing.panelGap
 
@@ -271,7 +274,18 @@ Item {
           width: parent.width
           height: parent.height - y
 
+          LauncherPreferences {
+            id: launcherPreferences
+            objectName: "launcherPreferences"
+            anchors.fill: parent
+            visible: root.selectedCategory === "launcher"
+            active: visible && root.visible && !!root.deck && root.deck.openOverlayName === "preferences"
+            controller: root.deck ? root.deck.launcherController : null
+            shell: root.deck ? root.deck.shell : null
+            inputHost: root
+          }
           Flickable {
+            visible: root.selectedCategory !== "launcher"
             id: settingsList
             objectName: "omaDeckPreferencesList"
             anchors.fill: parent
@@ -548,21 +562,7 @@ Item {
                 }
               }
 
-              Column {
-                width: parent.width
-                visible: root.selectedCategory === "launcher"
-                spacing: Style.spacing.controlGap
 
-                PreferenceAction {
-                  objectName: "preferencesLauncherApps"
-                  width: parent.width
-                  label: "OmaDeck launcher"
-                  description: "Add, remove, and rearrange Command Center applications"
-                  iconText: "󰀻"
-                  actionText: "Edit"
-                  onClicked: root.openApplications()
-                }
-              }
             }
           }
         }

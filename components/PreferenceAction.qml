@@ -48,6 +48,7 @@ Item {
       Text {
         width: parent.width
         text: root.label
+        textFormat: Text.PlainText
         color: Color.foreground
         font.family: Style.font.family
         font.pixelSize: Style.font.subtitle
@@ -59,6 +60,7 @@ Item {
         visible: root.description !== ""
         width: parent.width
         text: root.description
+        textFormat: Text.PlainText
         color: DeckColors.secondaryText
         font.family: Style.font.family
         font.pixelSize: Style.font.caption

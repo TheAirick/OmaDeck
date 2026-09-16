@@ -32,7 +32,7 @@ test('installed Quickshell retries real failed writes and failed starts in a pri
     const values = {
       'layout.json': {version: 2, root: {type: 'split', orientation: 'horizontal', ratio: 0.36,
         first: {type: 'module', moduleId: 'clock'}, second: {type: 'module', moduleId: 'command-center'}}},
-      'launcher.json': {version: 1, entries: ['terminal', 'browser']},
+      'launcher-v2.json': {version: 2, entries: ['terminal', 'browser'], custom: []},
       'timer.json': {version: 1, status: 'active', originalDurationMs: 60000,
         currentDurationMs: 60000, deadlineMs: Date.now() - 1000, pausedRemainingMs: 0, notificationSent: false},
       'timer-settings.json': {version: 1, eventId: ''},
@@ -75,7 +75,7 @@ test('installed Quickshell retries real failed writes and failed starts in a pri
     assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'timer.json'))).notificationSent, true)
     assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'timer-settings.json'))).eventId, 'bell')
     assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'dashboard-layout.json'))).root.ratio, 0.6)
-    assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'launcher.json'))).entries.length, 1)
+    assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'launcher-v2.json'))).entries.length, 1)
     assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'appearance.json'))).use24Hour, true)
     assert.equal(JSON.parse(fs.readFileSync(path.join(config, 'hardware.json'))).targetScreen, 'fixture-new')
   } finally {

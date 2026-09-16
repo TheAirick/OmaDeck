@@ -32,7 +32,7 @@ Preferences contains six app-specific categories:
 - **Display & touch**: OmaDeck's display, the monitor used for its application
   and workspace actions, and touchscreen selection/reconnection.
 - **Monitor switching**: optional monitor detection, input buttons, and connected-device labels.
-- **Launcher**: add, remove, and rearrange Command Center applications.
+- **Launcher**: browse installed apps, arrange buttons, and save custom scripts or commands.
 
 System themes, bar settings, keybindings, power, and broader Omarchy configuration
 remain in Omarchy's own interface. The Command Center retains its everyday
@@ -194,29 +194,50 @@ their in-app audio setting. WirePlumber owns the saved defaults.
 
 ## Application launcher
 
-Tap **Applications** in Command Center to replace its home controls with the
-launcher page. **Add** opens Omarchy's installed application library followed
-by OmaDeck's curated shortcut catalog.
-**Arrange** lets a selected tile move left, move right, or be removed; a long
-press on a launcher tile enters the same mode. These choices are stored
-atomically in `~/.config/omadeck/launcher.json` as stable catalog IDs. Removing
-that file restores the six default applications.
+Command Center → **Applications** shows your pinned app and command buttons.
+**Add** opens Preferences → Launcher → Add app; **Edit** opens your saved buttons.
+The app browser uses Quickshell's desktop-entry collection directly, including
+apps excluded from Omarchy's menu filter. Search by name, description, or desktop
+ID, select an app, then tap **Add to Applications** in the action bar below the
+grid. The grid adapts its columns to the available width and keeps your place
+when app metadata refreshes. OmaDeck shortcuts such as
+Clipboard and Workspaces are available in the same browser.
 
-Application entries define a desktop ID, label, monochrome glyph, and matching
-Hyprland classes. Class aliases let OmaDeck focus a running window before
-launching a new instance. Shortcut entries call only built-in OmaDeck actions;
-the persisted file cannot add arbitrary executable commands.
+Choose **New command** for scripts, standalone executables, URLs opened with
+`xdg-open`, or other shell commands. Set a name and icon, enter the command, and
+optionally choose a working folder and **Run in a terminal**. For example,
+`bash ~/Scripts/backup.sh` runs a script; quote paths containing spaces. Commands
+use Bash syntax and the desktop session's environment. A blank working folder
+uses your home directory. Tap a field to use the touch keyboard or your physical
+keyboard; **Done** accepts that field and **Cancel** discards its text changes.
+**Save button** saves the draft without running it. Tap the resulting Command
+Center button to run it. Launch feedback reports a start or immediate failure,
+not completion of a long-running job.
+
+Under **Buttons**, select an entry and use the action bar arrows to move it
+earlier/later, edit a custom command,
+or remove its button with confirmation. Removing a button does not uninstall an
+app or remove the script. All changes save atomically to
+`~/.config/omadeck/launcher-v2.json`. The prior `launcher.json` is migrated once
+and left untouched so rolling back to an older release cannot erase command
+settings. Old releases retain their old button order; returning to this version
+restores the new configuration.
 
 ## Vertical overlays
 
-Pull down from the top edge to open Notification Center. It combines live
-notifications from Omarchy's existing notification service with that service's
-bounded recent history. Live entries retain their normal click action; archived
-entries focus their sending application. **Clear all** clears live popups and
-recorded history. The left control rail exposes native **Focus**, **Wi-Fi**,
-**Bluetooth**, and **Night Light** toggles plus routes to OmaDeck's Network and
-Audio panels. A missing Wi-Fi or Bluetooth adapter is shown as unavailable
-rather than presenting a control that cannot work.
+Pull down from the top edge to open Notification Center. The recent list combines
+pending notifications with Omarchy's bounded history and updates while open.
+Tap a row to read its full message; **Open app** is a separate action. On hosts
+that expose live notification actions it invokes the selected notification's
+default action; otherwise it focuses the sending app's existing window. An app
+with no matching open window reports that result without closing the drawer.
+**Clear all** asks for confirmation, then clears both popups and recorded history.
+
+The right control rail exposes **Do not disturb**, **Wi-Fi**, **Bluetooth**, and
+**Night Light**, plus routes to Network and Audio. Missing adapters or unsupported
+host commands appear unavailable. The reader and controls become separate pages
+with **Back** navigation on smaller screens. **Refresh** checks notifications and
+control states again without closing the drawer.
 
 Pull up from the bottom edge, or tap **Workspaces** in Command Center. Five
 numbered slots (1–5) are always available. Additional numbered workspaces appear
@@ -315,8 +336,9 @@ Clock and weather preferences are stored separately in
 appearance choices.
 
 Command Center launcher choices are stored independently in
-`~/.config/omadeck/launcher.json`. Invalid or unknown catalog entries are
-dropped; invalid files recover to the default launcher set.
+`~/.config/omadeck/launcher-v2.json`. App IDs and custom command definitions share
+one atomic snapshot. Invalid entries are dropped; invalid files recover to the
+default launcher set. Existing `launcher.json` is read only for first migration.
 
 Monitor and direct-touch choices are stored atomically in
 `~/.config/omadeck/hardware.json`. A missing or invalid file prefers the safe

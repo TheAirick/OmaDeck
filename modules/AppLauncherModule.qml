@@ -3,6 +3,7 @@ import Quickshell
 import qs.Commons
 import "../theme"
 import qs.Ui
+import "../services"
 
 Item {
   id: root
@@ -21,6 +22,7 @@ Item {
   readonly property var entries: {
     var revision = root.controllerRevision
     var appsRevision = root.appLibraryRevision
+    var catalogEntries = appCatalog.entries
     if (!controller) return []
     return catalogOpen ? root.availableEntries() : root.pinnedEntries()
   }
@@ -32,28 +34,9 @@ Item {
 
   signal backRequested()
 
-  function installedEntries() {
-    var library = shell && "appLibrary" in shell ? shell.appLibrary : null
-    if (!library || typeof library.sortedEntries !== "function") return []
-    var values = library.sortedEntries("") || []
-    var result = []
-    for (var index = 0; index < values.length; index++) {
-      var value = values[index]
-      var desktopId = String((value && value.id) || "")
-      if (!desktopId) continue
-      var startupClass = String((value && value.startupClass) || "")
-      result.push({
-        id: "desktop:" + desktopId,
-        kind: "desktop",
-        desktopId: desktopId,
-        name: String(library.entryName(value) || desktopId),
-        iconText: "",
-        iconSource: String(library.iconSource(value.icon) || ""),
-        classes: startupClass ? [startupClass, desktopId] : [desktopId]
-      })
-    }
-    return result
-  }
+  LauncherCatalog { id: appCatalog; shell: root.shell }
+  LauncherListModel { id: launcherModel; entries: root.entries }
+  function installedEntries() { return appCatalog.entries }
 
   function pinnedEntries() {
     var stored = controller ? controller.entries() : []
@@ -83,6 +66,7 @@ Item {
 
   function invoke(entry) {
     if (!entry) return
+    if (entry.kind === "command") { if (controller) controller.runCommand(entry.id); return }
     if (entry.kind === "application" || entry.kind === "desktop") {
       focusOrLaunch(entry)
       return
@@ -148,7 +132,7 @@ Item {
       height: parent.height
       text: root.catalogOpen ? "Apps" : "Home"
       iconText: "󰅁"
-      bordered: true
+      bordered: false
       tooltipText: root.catalogOpen ? "Return to applications" : "Return to Command Center"
       onClicked: {
         if (root.catalogOpen) root.catalogOpen = false
@@ -180,13 +164,11 @@ Item {
         height: parent.height
         text: "Add"
         iconText: "󰐕"
-        bordered: true
+        bordered: false
         tooltipText: "Add an application or shortcut"
         onClicked: {
-          root.catalogOpen = true
-          root.selectedId = ""
-          if (root.shell && "appLibrary" in root.shell && root.shell.appLibrary)
-            root.shell.appLibrary.refreshIcons()
+          if (root.deck && typeof root.deck.editLauncher === "function") root.deck.editLauncher(true)
+          else { root.catalogOpen = true; root.selectedId = ""; appCatalog.refresh() }
         }
       }
 
@@ -195,12 +177,12 @@ Item {
         visible: !root.catalogOpen
         width: Style.space(92)
         height: parent.height
-        text: root.editing ? "Done" : "Arrange"
+        text: root.editing ? "Done" : "Edit"
         iconText: root.editing ? "󰄬" : "󰏫"
         selected: root.editing
-        bordered: true
+        bordered: false
         tooltipText: root.editing ? "Finish arranging" : "Arrange applications"
-        onClicked: root.editing ? root.finishEditing() : root.beginEditing("")
+        onClicked: { if (root.deck && typeof root.deck.editLauncher === "function") root.deck.editLauncher(false); else if (root.editing) root.finishEditing(); else root.beginEditing("") }
       }
     }
   }
@@ -212,31 +194,33 @@ Item {
     anchors.topMargin: Style.spacing.panelGap
     anchors.left: parent.left
     anchors.right: parent.right
-    anchors.bottom: editToolbar.visible ? editToolbar.top : parent.bottom
+    anchors.bottom: editToolbar.visible ? editToolbar.top : actionNotice.top
     anchors.bottomMargin: editToolbar.visible ? Style.spacing.controlGap : 0
     cellWidth: Math.max(Style.space(116), width / Math.max(1, Math.floor(width / Style.space(138))))
     cellHeight: Style.space(82)
     clip: true
-    model: root.entries
+    model: launcherModel
+    boundsBehavior: Flickable.StopAtBounds; boundsMovement: Flickable.StopAtBounds
+    flickableDirection: Flickable.VerticalFlick
+    maximumFlickVelocity: Math.max(Style.space(320), height * 2.5)
+    flickDeceleration: Style.space(3000)
 
     delegate: Item {
       id: launcherCell
-      required property var modelData
+      required property string entryJson
+      readonly property var modelData: JSON.parse(entryJson)
       width: launcherGrid.cellWidth
       height: launcherGrid.cellHeight
 
-      BorderSurface {
+      Rectangle {
         id: launcherButton
         objectName: "launcherEntry-" + launcherCell.modelData.id
         anchors.fill: parent
         anchors.margins: Style.spacing.controlGap / 2
-        color: launcherTap.pressed ? Style.pressedFill
-          : launcherHover.hovered ? Style.hoverFill
-          : root.selectedId === launcherCell.modelData.id ? Style.selectedFillFor(Color.foreground, Color.accent)
-          : Style.normalFill
+        color: launcherTap.pressed ? Style.pressedFill : "transparent"
         radius: Style.cornerRadius
-        borderSpec: Border.controlSpec(root.selectedId === launcherCell.modelData.id ? "selected" : launcherHover.hovered ? "hover" : "normal",
-          Color.foreground, Color.accent, Color.urgent)
+        border.width: root.selectedId === launcherCell.modelData.id ? 2 : 0
+        border.color: Color.accent
 
         Column {
           anchors.centerIn: parent
@@ -276,12 +260,9 @@ Item {
           }
         }
 
-        HoverHandler { id: launcherHover }
         TapHandler {
           id: launcherTap
-          longPressThreshold: 0.5
           onTapped: root.activate(launcherCell.modelData)
-          onLongPressed: if (!root.catalogOpen) root.beginEditing(launcherCell.modelData.id)
         }
       }
     }
@@ -294,6 +275,15 @@ Item {
       font.family: Style.font.family
       font.pixelSize: Style.font.body
     }
+  }
+
+  Text {
+    id: actionNotice
+    anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
+    height: text ? implicitHeight + Style.spacing.controlGap : 0
+    text: root.controller ? String(root.controller.actionNotice || "") : ""
+    color: DeckColors.secondaryText; font.family: Style.font.family; font.pixelSize: Style.font.caption
+    wrapMode: Text.Wrap; textFormat: Text.PlainText
   }
 
   Row {
@@ -312,7 +302,7 @@ Item {
       height: parent.height
       text: "Move left"
       iconText: "󰁍"
-      bordered: true
+      bordered: false
       enabled: root.selectedIndex > 0
       onClicked: root.moveSelected(-1)
     }
@@ -321,7 +311,7 @@ Item {
       height: parent.height
       text: "Remove"
       iconText: "󰅖"
-      bordered: true
+      bordered: false
       foreground: Color.urgent
       enabled: root.selectedIndex >= 0
       onClicked: root.removeSelected()
@@ -331,7 +321,7 @@ Item {
       height: parent.height
       text: "Move right"
       iconText: "󰁔"
-      bordered: true
+      bordered: false
       enabled: root.selectedIndex >= 0 && root.selectedIndex < root.entries.length - 1
       onClicked: root.moveSelected(1)
     }

@@ -108,6 +108,7 @@ def bounded_payload(directory: int) -> bytes:
         entry = read_entry(directory, name)
         if entry is None:
             continue
+        entry["fileName"] = name
         row = json.dumps(entry, ensure_ascii=False, separators=(",", ":")).encode("utf-8") + b"\n"
         if used + len(row) > MAX_OUTPUT_BYTES:
             break
@@ -117,17 +118,29 @@ def bounded_payload(directory: int) -> bytes:
 
 
 def main() -> int:
-    if len(sys.argv) != 2:
-        raise RuntimeError("usage: notification-history HISTORY_DIRECTORY")
-    try:
-        directory = checked_directory(sys.argv[1])
-    except FileNotFoundError:
-        return 0
-    try:
-        sys.stdout.buffer.write(bounded_payload(directory))
-        return 0
-    finally:
-        os.close(directory)
+    if len(sys.argv) not in (2, 3):
+        raise RuntimeError("usage: notification-history HISTORY_DIRECTORY [POPUP_DIRECTORY]")
+    output = bytearray()
+    # Preserve the original one-directory interface. With both directories,
+    # pending rows win deduplication and the total payload remains bounded.
+    sources = [(sys.argv[1], False)] if len(sys.argv) == 2 else [(sys.argv[2], True), (sys.argv[1], False)]
+    for path, live in sources:
+        try:
+            directory = checked_directory(path)
+        except FileNotFoundError:
+            continue
+        try:
+            payload = bounded_payload(directory)
+        finally:
+            os.close(directory)
+        for row in payload.splitlines():
+            entry = json.loads(row)
+            entry["live"] = live
+            encoded = json.dumps(entry, ensure_ascii=False, separators=(",", ":")).encode("utf-8") + b"\n"
+            if len(output) + len(encoded) <= MAX_OUTPUT_BYTES:
+                output.extend(encoded)
+    sys.stdout.buffer.write(output)
+    return 0
 
 
 if __name__ == "__main__":

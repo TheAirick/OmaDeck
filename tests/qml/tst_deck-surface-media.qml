@@ -634,6 +634,30 @@ TestCase {
     compare(deck.openOverlayName, "")
   }
 
+  function test_launcherTypingOwnsKeysOnlyInActiveUnlockedEditor() {
+    var deck = createDeck()
+    deck.editLauncher(true)
+    wait(300)
+    var preferences = findChild(deck, "preferencesPresenter")
+    var editor = findChild(preferences, "launcherPreferences")
+    compare(deck.launcherKeyboardRequested, false)
+    editor.editField("query")
+    compare(deck.launcherKeyboardRequested, true)
+    lockFixture.locked = true
+    compare(deck.launcherKeyboardRequested, false)
+    lockFixture.locked = false
+    compare(deck.launcherKeyboardRequested, true)
+    preferences.selectedCategory = "timer"
+    compare(deck.launcherKeyboardRequested, false)
+    compare(editor.inputField, "")
+    preferences.selectedCategory = "launcher"
+    editor.editField("query")
+    compare(deck.launcherKeyboardRequested, true)
+    deck.closeOverlay()
+    compare(deck.launcherKeyboardRequested, false)
+    compare(editor.inputField, "")
+  }
+
   function test_preferencesLauncherOpensAppEditorWithoutHostSettings() {
     shellFixture.resetPreferencesState()
     var deck = createDeck()
@@ -643,10 +667,10 @@ TestCase {
     clickItem(deck, findChild(preferences, "preferenceCategory:launcher"))
     compare(preferences.selectedCategory, "launcher")
     wait(30)
-    clickItem(deck, findChild(preferences, "preferencesLauncherApps"))
-    wait(280)
-    compare(deck.commandCenterPage, "applications")
-    compare(deck.openOverlayName, "")
+    verify(findChild(preferences, "launcherPreferences").visible)
+    clickItem(deck, findChild(preferences, "launcherBrowseApps"))
+    compare(findChild(preferences, "launcherPreferences").page, "apps")
+    compare(deck.openOverlayName, "preferences")
     compare(shellFixture.shellMutationCalls, 0)
   }
 

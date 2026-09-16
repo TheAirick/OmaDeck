@@ -137,6 +137,15 @@ scratchpad shortcut works with `Super + S`, then inspect `hyprctl configerrors`.
 **Park focused window** acts on the last focused application because the deck
 layer surface intentionally never requests keyboard focus.
 
+## A custom launcher button does not run
+
+Open Preferences → Launcher → Buttons, select the button, and choose Edit command.
+Check the command, working folder, and terminal option. Non-executable shell scripts
+can be run as `bash ~/Scripts/example.sh`; paths with spaces need shell quoting.
+Save changes and resolve any visible save error before running the button.
+“Started” reports launch acceptance, not the command's eventual success.
+For commands that need interaction or show text output, enable Run in a terminal.
+
 ## A launcher opens another copy
 
 Compare the live application's class with its installed desktop-entry identity.

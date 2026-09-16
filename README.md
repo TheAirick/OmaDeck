@@ -22,16 +22,21 @@ live system information.
 - Keeps Now Playing, Clock/Weather, and Command Center mounted as the permanent
   dashboard while horizontal drawers reserve animated edge geometry.
 - Layers Notifications and Workspaces above the dashboard without collapsing or
-  dismissing an open Volume or System drawer.
+  dismissing an open Volume or System drawer. Notifications combine recent
+  history, a full-message reader, and quick controls.
 - Responsively simplifies dense modules while space is constrained, restoring
   their selected detail as panels expand.
 - Controls MPRIS media with artwork, seeking, and transport controls.
-- Controls PipeWire output and microphone volume, with Media, Games, Voice,
+- Selects output and microphone devices and controls their volume, with Media, Games, Voice,
   and Other aggregate playback categories. Individual app sliders and EQ presets
   are not part of this release.
+- Adds installed apps and custom script/command buttons through Preferences,
+  with searchable app discovery and touch or physical keyboard editing.
 - Focuses an existing Hyprland window before launching another copy.
-- Switches workspaces on the primary monitor without moving touch focus there.
-- Optional monitor input controls configured for your own displays and sources.
+- Shows apps across workspaces 1–5 and a tap-to-toggle scratchpad, switching
+  workspaces on the primary monitor without moving touch focus there.
+- Optional monitor input controls configured for your own displays and sources,
+  with guided DDC/CI setup.
 - Exposes live CPU, GPU, memory, temperature, network, and storage information.
 - Provides a touch task manager with Focus, Close, and confirmed Force Kill.
 - Browses native Omarchy clipboard history with text and image previews.
@@ -68,7 +73,7 @@ live system information.
 
 ### Workspaces and scratchpad
 
-![OmaDeck Overview with workspaces and scratchpad controls](assets/screenshots/overview.png)
+![OmaDeck workspaces and scratchpad controls](assets/screenshots/overview.png)
 
 <p align="center">
   <img src="assets/omadeck-overlays.gif" alt="OmaDeck Overview and Preferences overlay animations" width="100%">
@@ -152,6 +157,7 @@ leave its geometry and drawer state untouched.
 
 ## Documentation
 
+- [v0.9.0 release notes](docs/releases/v0.9.0.md)
 - [User guide](docs/USER_GUIDE.md)
 - [Configuration](docs/CONFIGURATION.md)
 - [Troubleshooting](docs/TROUBLESHOOTING.md)

@@ -6,6 +6,7 @@ QtObject {
   property bool blockWrites: false
   property bool printErrors: true
   property bool watchChanges: false
+  property bool preload: false
   property string storedText: ""
   signal loaded()
   signal loadFailed(var error)

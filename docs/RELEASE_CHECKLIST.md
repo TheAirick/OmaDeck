@@ -186,6 +186,40 @@ submission. The user-owned lock integration remains optional; standard mode
 requires no compilation. Setup documentation now consistently keeps the actual
 touchscreen enabled and mapped for compositor fallback.
 
+## v0.9.0 release verification — 2026-09-15
+
+The user requested publication of the accumulated dashboard, workspace,
+monitor-switching, notification, audio, timer, and launcher changes after local
+use and refinement. This is authorization to release; it does not imply that
+all generic v1 acceptance gates below were repeated.
+
+- `scripts/check`: **237 tests passed, zero failures/skips**, including the
+  private native Release build and three CTests. The release run is repeated
+  after final packaging and is bound to the exact pushed commit through CI.
+- Launcher regression testing first reproduced metadata refresh resetting a
+  scrolled list to the top, then verified position/delegate retention with the
+  stable model. Rendered tests cover wide/compact layouts, bounded swipes,
+  search reset, end-of-content bounds, and drag-versus-activation behavior.
+- Isolated launcher persistence tests cover migration, recreation, edits, and
+  removal without rewriting the old settings. Command tests exercise quoting,
+  working folders, terminal arguments, immediate failure, and detached jobs;
+  saving/editing never executes a command.
+- Live Omarchy `4.0.0.r2131.g86a2e58-1`, Quickshell 0.3.1, Qt 6.11.2: the updated
+  launcher was inspected after shell reload; ping returned `ok`, doctor reported
+  a healthy connected touchscreen, guarded native touch was active, and
+  Hyprland configuration errors were empty. The bounded OmaDeck warning scan
+  was empty; unrelated host Bluetooth-plugin teardown warnings are outside this
+  release’s evidence.
+- No fresh lock/suspend/USB-disconnect cycle or clean-session installation is
+  claimed. Broader monitor compatibility, multi-timer support, and workspace
+  previews remain outside this release.
+
+Rollback: restore the previous source and rebuild matching optional native
+artifacts before reloading. The old layout/launcher files are retained; new
+settings stay in separate files, so an old release cannot erase custom commands
+or the new dashboard layout. GitHub release notes record exact commit/CI links;
+marketplace promotion is tracked separately against that published SHA.
+
 ## Automated gates
 
 - [x] `git diff --check` passes.

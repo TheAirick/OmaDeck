@@ -112,6 +112,7 @@ Item {
 
   LauncherController {
     id: launcherStore
+    pluginDir: root.pluginDir
   }
 
   TimerController {

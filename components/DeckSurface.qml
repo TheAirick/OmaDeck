@@ -104,10 +104,17 @@ PanelWindow {
   color: "transparent"
   exclusionMode: ExclusionMode.Ignore
   WlrLayershell.namespace: "omadeck"
-  WlrLayershell.layer: WlrLayer.Bottom
-  // OmaDeck never requests compositor keyboard focus. Its direct-touch bridge
-  // owns the Xeneon evdev node and injects events only into this backing window.
-  WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+  WlrLayershell.layer: launcherKeyboardRequested ? WlrLayer.Top : WlrLayer.Bottom
+  // Request keys only during explicit launcher text entry. Direct touch
+  // bypasses compositor pointer focus. Exclusive keys need the top layer;
+  // closing, changing category or locking
+  // releases keyboard ownership immediately.
+  readonly property bool launcherKeyboardRequested: interactionAllowed && openOverlayName === "preferences" && preferencesPresenter.selectedCategory === "launcher" && preferencesPresenter.keyboardRequested
+  WlrLayershell.keyboardFocus: launcherKeyboardRequested ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+  function editLauncher(addApp) {
+    showPreferences("launcher")
+    if (addApp) preferencesPresenter.browseLauncherApps()
+  }
 
   OptionalTouchBridge {
     id: directTouch

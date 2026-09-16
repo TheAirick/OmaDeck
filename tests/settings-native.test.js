@@ -86,7 +86,7 @@ for (const upgrade of [false, true]) test(upgrade
     assert.equal(written.timerSound, "bell")
     assert.equal(written.timerStatus, "idle")
     const settings = path.join(home, ".config/omadeck")
-    for (const file of ["appearance.json", "hardware.json", upgrade ? "layout.json" : "dashboard-layout.json", "launcher.json", "timer-settings.json"])
+    for (const file of ["appearance.json", "hardware.json", upgrade ? "layout.json" : "dashboard-layout.json", upgrade ? "launcher.json" : "launcher-v2.json", "timer-settings.json"])
       assert.doesNotThrow(() => JSON.parse(fs.readFileSync(path.join(settings, file), "utf8")))
     assert.deepEqual(run(upgrade ? "snapshot" : "read"), written)
     if (!upgrade) {
