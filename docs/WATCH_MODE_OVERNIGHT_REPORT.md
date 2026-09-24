@@ -59,8 +59,8 @@ also passed.
    A non-disruptive rescan retained the old live QML. The owner then approved the
    documented shell reload, which completed successfully with the fix at
    `628a0641fe3a289d84023ef7f21f108eeb34cc8b`. Shell ping and doctor passed,
-   Watch returned to idle, and the browser bridge reconnected. Physical Watch-mode
-   alignment acceptance after the reload remains for the owner to confirm.
+   Watch returned to idle, and the browser bridge reconnected. The owner then
+   confirmed that the alignment fix works after the reload.
 
 ## Results so far
 
@@ -239,6 +239,12 @@ Do not substitute simulated MPRIS for real discovery to turn a failure into a pa
 ## Release and activation gates
 
 - Keep v0.10.0 draft; no marketplace submission or release publication tonight.
+- The overnight evidence commit `f7215ef6fa1d3dfbc08ec5263ecae084ada41a2a`
+  passed hosted CI. A later run for the monitor-layout fix failed the existing
+  Clock timer hold/cancel test: `slide-away` allowed an extra minute increment
+  (1260 seconds versus 1200). See [the failed run](https://github.com/TheAirick/OmaDeck/actions/runs/35985884657).
+  This is separate from the passing Watch scenarios and monitor-layout checks;
+  its cause remains unconfirmed and needs investigation before release.
 - The existing draft package still targets the original release-preparation
   commit `eaafb8d71e25a6fe3e2bae7f0f0b54c771efafbe`. Repackage/re-pin after fixes
   and verification before any release; the draft is not the tested new tree.
