@@ -2,7 +2,8 @@
 
 **Release held in draft. Overnight automated coverage is complete. The September
 24 owner test passed the main Zen/Edge workflow and found a rapid-seek issue;
-its correction still needs activation and owner acceptance. This is not release approval.**
+its correction is now loaded after an owner-approved reload and still needs
+owner acceptance. This is not release approval.**
 
 The product fixes and original expanded test report are committed and pushed as
 `455f746acd18c665eded96247486175602d306a1`. Later commits may refine the test harness
@@ -254,7 +255,11 @@ and expires an unconfirmed target after four seconds. Immediate Return preserves
 the requested target. Watch and Now Playing now share one circular icon component.
 Nine focused automated checks passed, including actual offscreen DeckSurface
 touch controls and new rapid-seek, stale-report, timeout, and immediate-Return
-regressions. These changes still need a live shell reload and owner acceptance.
+regressions. The owner subsequently returned playback to Zen and explicitly
+approved the shell reload. The reload completed; shell ping and doctor passed,
+Watch was idle and available, and the browser bridge reconnected with one
+candidate. No matching Watch/icon QML load errors appeared in the bounded
+journal check. The rapid-seek correction and icons still need owner acceptance.
 
 Real-network Zen and Chromium both reached 100 seconds after four rapid forward
 skips from 60, then 70 after three backward skips. An added immediate Return to
@@ -293,8 +298,8 @@ it is not reported as a complete passing integration run.
   captions, focused mode, panel navigation, current-timestamp Return, and closing
   the original tab followed by closing the old Edge session and transferring a
   second video. Rapid repeated forward taps exposed reuse of the last reported
-  playhead; this correction and circular seek icons remain to be activated and
-  accepted. Do not count the correction as covered by that earlier acceptance.
+  playhead; this correction and circular seek icons are now loaded and await
+  acceptance. Do not count the correction as covered by that earlier acceptance.
 - Authentication/age restrictions,
   ads, native-player network loss/recovery, lock/suspend and real monitor-input switching are
   not certified by these runs.
