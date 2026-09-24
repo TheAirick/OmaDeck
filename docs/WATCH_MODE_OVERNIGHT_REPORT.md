@@ -1,6 +1,7 @@
 # Watch mode pre-release stress test — September 23–24, 2026
 
-**Release held in draft. Testing is in progress; this is not release approval.**
+**Release held in draft. Overnight automated coverage is complete; activation and
+owner-profile/physical acceptance remain outstanding. This is not release approval.**
 
 The product fixes and original expanded test report are committed and pushed as
 `455f746acd18c665eded96247486175602d306a1`. Later commits may refine the test harness
@@ -57,18 +58,18 @@ also passed.
 | Background source handoff, seek, pause/play, timestamp return | Pass | Pass |
 | Captions off by default, on/off toggle | Pass | Covered by common player; no separate Zen live toggle claim |
 | Ended source closed; a new document stays untouched | Pass | Pass |
-| Five consecutive transfers with settled timestamp returns | Pass | Stress run blocked by missing browser MPRIS after original tab closure |
-| Originally paused source returns paused | Pass | Same prerequisite under investigation |
-| Ended video returns with original tab still open | Pass | Same prerequisite under investigation |
-| Double Watch / double Return | Pass | Same prerequisite under investigation |
-| Cancel during launch | Pass | Same prerequisite under investigation |
-| Thirty focus/resize cycles retaining the same native process | Pass | Same prerequisite under investigation |
-| Close playing source; play and transfer a different second video | Pass | Same prerequisite under investigation |
-| Navigate source to a second video; close old Watch safely | Pass | Same prerequisite under investigation |
-| Return to original document while a second video plays | Pass | Same prerequisite under investigation |
-| Reload source document, then close old Watch | Pass | Same prerequisite under investigation |
-| Source closes during startup, then recover | Pass | Same prerequisite under investigation |
-| Home-to-watch same-document navigation | Pass | Pending completed stress result |
+| Five consecutive transfers with settled timestamp returns | Pass | Pass with corrected private-audio fixture |
+| Originally paused source returns paused | Pass | Pass |
+| Ended video returns with original tab still open | Pass | Pass |
+| Double Watch / double Return | Pass | Pass |
+| Cancel during launch | Pass | Pass |
+| Thirty focus/resize cycles retaining the same native process | Pass | Pass |
+| Close playing source; play and transfer a different second video | Pass | Pass |
+| Navigate source to a second video; close old Watch safely | Pass | Pass |
+| Return to original document while a second video plays | Pass | Pass |
+| Reload source document, then close old Watch | Pass | Pass |
+| Source closes during startup, then recover | Pass | Pass |
+| Home-to-watch same-document navigation | Pass | Pass |
 | Owned renderer killed; browser restored | Pass | Not separately exercised in Zen |
 | Test browser exits; Watch cleaned up | Pass | Not separately exercised in Zen |
 | Source browser offline, return to buffered timestamp | Pass | Not separately exercised in Zen |
@@ -88,7 +89,7 @@ resized the same native video layer; overlays and Applications preserved it.
 The original player process, paused position and final geometry were unchanged.
 The shell ping and doctor also passed afterward.
 
-### Unresolved Zen observation
+### Zen test-environment finding
 
 After the baseline closes its original source tab, some headless Zen runs still
 send valid extension candidates and play video, but no longer expose a Firefox
@@ -103,7 +104,52 @@ The harness now stops dependent scenarios after two prerequisite failures.
 A subsequent sequential run using a unique test host/extension ID reproduced
 the missing-MPRIS prerequisite, so the earlier shared-registration collision
 does not explain it.
+The September 24 follow-up reproduced this with stock Firefox 156.0.1 as well
+as Zen 1.22.3b (Gecko 156.0.1). Gecko's media log reported
+`Delay starting: controllable source not yet audible` for subsequent videos.
+The fixture had globally zeroed browser volume and provided no working audio
+graph in its private runtime. This made the missing MPRIS result unsuitable as
+evidence of an owner-visible browser or OmaDeck defect.
+
+A corrected fixture uses normal internal browser volume and an actual private
+PipeWire null sink. It loads no hardware discovery modules or session manager,
+connects only its own test streams, and shuts down with the test. The user's
+audio graph and volume remain untouched. Five consecutive Zen transfers and
+settled returns then passed with real MPRIS. Subsequent scenario coverage is
+recorded below. No fake MPRIS player or product workaround was introduced.
 The owner's current paused session and normal shell remain healthy.
+
+### September 24 repeat after idle
+
+- Chromium passed all **14/14 stress scenarios** in one run, including both
+  offline/reconnection cases, plus baseline/captions and renderer/browser-loss
+  cleanup. Its five warm handoffs measured 1.401–1.406 seconds.
+- The initial Zen repeat reproduced the original silent-fixture MPRIS failure;
+  baseline and source-tab closure still passed. Dependent cases were blocked,
+  not counted as product failures or passes.
+- The matched stock Firefox control reproduced the same prerequisite failure.
+- The corrected private-audio Zen diagnostic passed five transfers after source
+  closure. Subsequent full runs exercised the remaining scenarios.
+- Two initial scenario failures required fixture corrections: the short source
+  reached its end while loading a second tab and the next candidate had a new
+  video ID at time zero (consistent with YouTube autoplay); another case used
+  the same video ID in two tabs, allowing a stale candidate to satisfy readiness.
+  The ownership check now uses a long source, and the startup-closure check uses
+  different IDs so it can prove which tab is selected.
+- The second full Zen run passed **11/12 scenarios**. Its remaining ownership
+  check exposed another fixture error: the native Qt player became the generic
+  active MPRIS player. Firefox's real MPRIS service was still present, but the
+  fixture asked for a Chromium candidate and got none. Both browser fixtures
+  now retain the original browser's key while Watch is active, still requiring
+  its real MPRIS object. The focused multi-tab Return retest then passed in
+  **both Zen and Chromium**. Across the corrected full run and focused retest,
+  all **12 shared scenarios have passing Zen coverage**; this is not a claim
+  that the earlier 11/12 run itself passed. No additional product changes were
+  needed during this follow-up.
+- Cleanup verified across 11 disposable labs: no remaining test processes or
+  test native-host registrations. The owner's paused Watch position remained
+  237.782631 seconds; shell ping and doctor remained healthy. No owner tabs,
+  shell reload, pointer events, monitor switches or store publication occurred.
 
 ## Local evidence
 
@@ -125,13 +171,32 @@ Logs are under `$HOME/.cache/omadeck/overnight-2026-09-23/`:
 - `live-panels.json`: 36 live panel/geometry checks and before/after state.
 - `doctor.log`: post-test host health.
 
+Follow-up logs are under `$HOME/.cache/omadeck/overnight-2026-09-24/`:
+
+- `chromium-repeat.log`: 14/14 stress pass plus baseline and process-loss checks.
+- `zen-repeat.log`: original silent-fixture failure reproduced after idle.
+- `firefox-control.log`, `firefox-media.log*.moz_log`: matched stock Firefox
+  control and Gecko's inaudible-media diagnostic.
+- `zen-private-audio-linked-control.log`: private-audio diagnostic, five cycles pass.
+- `zen-corrected-full.log`: first private-audio full run, with the two ambiguous
+  scenario failures described above.
+- `zen-final-full.log`: 11/12 pass; native-player selection error in the fixture.
+- `zen-pinned-source.log`, `chromium-pinned-source.log`: focused multi-tab Return
+  retests with the fixture attached to its original browser.
+- `chromium-long-source.log`, `chromium-distinct-source.log`: both adjusted
+  ownership/startup scenarios passed independently in Chromium.
+- `doctor.log`: post-repeat host health.
+- `cleanup.json`: scoped process/registration cleanup and preserved owner state.
+
 Each integration log prints its private lab directory and `stress-results.json`.
 Test profiles are isolated; media/page logs contain only the public test videos.
 Do not publish raw owner desktop diagnostics.
 
 ## Repeatable overnight verification
 
-The task follow-up is scheduled for 2 AM Pacific, then an 8 AM morning report.
+The intended 2 AM follow-up actually arrived at 1:01 AM Pacific (08:01 UTC).
+The remaining one-time report was corrected to 15:00 UTC / 8 AM Pacific on
+September 24. This is not an ongoing monitor.
 Use a private D-Bus configuration **without service activation** so the fixtures
 cannot spawn disposable desktop portals. The existing local dependency bundle is
 at `/tmp/omadeck-watch-e2e/`; verify it exists before running:
@@ -149,6 +214,8 @@ dbus-run-session --config-file=/tmp/omadeck-watch-e2e/no-activation-bus.conf -- 
 ```
 
 Run Zen fixtures sequentially to keep resource/timing measurements comparable.
+The Firefox/Zen fixture also requires the installed `pipewire`, `pw-dump`,
+`pw-cli` and `pw-link` tools for its disposable silent audio graph.
 Each now registers a distinct `.test_<pid>` native host and restores/removes it
 in `finally`. Early overlapping fixture runs could restore each other's shared
 `.test` registration; those two stale test-only manifests were identified,
@@ -170,5 +237,7 @@ Do not substitute simulated MPRIS for real discovery to turn a failure into a pa
 - Owner-profile navigation and physical touch, authentication/age restrictions,
   ads, native-player network loss/recovery, lock/suspend and real monitor-input switching are
   not certified by these runs.
-- The morning report must disclose the remaining Zen investigation and any new
-  failures, rather than presenting the passing Chromium suite as universal proof.
+- The morning report must distinguish corrected fixture failures from the four
+  reproduced product defects fixed earlier, and retain the owner-profile, touch
+  and package gates. The original missing-Zen-MPRIS observation was resolved in
+  the isolated test environment; it is not an outstanding reproduced product bug.

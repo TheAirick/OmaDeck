@@ -31,7 +31,10 @@ import "services" as Stores
 ShellRoot {
   id: root
   property string family: "firefox"
-  property string sourceKey: nativeMedia.activePlayer ? nativeMedia.activePlayer.dbusName : "org.mpris.MediaPlayer2." + family + ".integration"
+  // Keep the fixture attached to its browser while the native Qt player also
+  // advertises MPRIS. Discovery and playerForKey still use real browser objects.
+  property string sourceKey: watch.active && watch.source ? watch.source.sourceKey
+    : nativeMedia.activePlayer ? nativeMedia.activePlayer.dbusName : "org.mpris.MediaPlayer2." + family + ".integration"
   Stores.MprisMediaAdapter { id: nativeMedia }
   QtObject { id: player; property bool isPlaying: true; property var metadata: ({}) }
   QtObject { id: sourceMedia; function playerForKey(key) { return nativeMedia.playerForKey(key) } }
@@ -63,7 +66,7 @@ const env={...process.env,XDG_RUNTIME_DIR:runtime,XDG_CONFIG_HOME:config,QT_QPA_
 delete env.WAYLAND_DISPLAY;delete env.DISPLAY;
 const log=fs.openSync(path.join(lab,'quickshell.log'),'w');
 const qs=spawn('qs',['-p',path.join(lab,'shell.qml')],{env,stdio:['ignore',log,log]});
-let context, control; let counter=0; const replies=new Map();
+let context, control, privateAudio; let counter=0; const replies=new Map();
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
 async function waitFor(fn,label,ms=20000) {const end=Date.now()+ms;let v;while(Date.now()<end){v=await fn();if(v)return v;await delay(200)}throw Error('Timed out: '+label)}
 function command(op,extra={}){return new Promise((resolve,reject)=>{const id=++counter;const timer=setTimeout(()=>{replies.delete(id);reject(Error('control timeout'))},5000);replies.set(id,r=>{clearTimeout(timer);resolve(r)});control.write(JSON.stringify({id,op,...extra})+'\n')})}
@@ -71,6 +74,8 @@ async function status(){return (await command('status')).data}
 async function videoState(page){return page.evaluate(()=>{const v=document.querySelector('video');return v?{paused:v.paused,time:v.currentTime,ready:v.readyState,duration:v.duration,error:v.error?.code,muted:v.muted}:null})}
 (async()=>{
   console.log('LAB '+lab);
+  privateAudio=await require('./watch-private-audio.cjs')(lab,env);
+  Object.assign(env,privateAudio.env);
   await waitFor(()=>fs.existsSync(path.join(runtime,'control.sock')),'QML control');
   control=net.createConnection(path.join(runtime,'control.sock'));let buffer='';
   control.on('data',d=>{buffer+=d;while(buffer.includes('\n')){const p=buffer.indexOf('\n');const m=JSON.parse(buffer.slice(0,p));buffer=buffer.slice(p+1);replies.get(m.id)?.(m);replies.delete(m.id)}});
@@ -80,7 +85,9 @@ async function videoState(page){return page.evaluate(()=>{const v=document.query
     manifests.push({file,original});fs.writeFileSync(file,JSON.stringify({name:testNativeName,description:'Isolated OmaDeck test',path:path.join(lab,'relay'),type:'stdio',allowed_extensions:[testAddonId]}),{mode:0o600});
   }
   const options=new firefox.Options().setBinary(firefoxPath).addArguments('-headless','--no-remote');
-  options.setPreference('zen.welcome-screen.seen',true); options.setPreference('media.autoplay.default',0); options.setPreference('media.volume_scale','0.0');
+  // Zeroing Gecko's volume suppresses MPRIS after navigation. The private null
+  // sink keeps the browser genuinely audible internally without producing sound.
+  options.setPreference('zen.welcome-screen.seen',true); options.setPreference('media.autoplay.default',0); options.setPreference('media.volume_scale','1.0');
   options.setPreference('browser.tabs.warnOnClose',false); options.setPreference('browser.warnOnQuit',false);
   const driver=await new Builder().forBrowser('firefox').setFirefoxOptions(options).setFirefoxService(new firefox.ServiceBuilder(geckodriverPath).setEnvironment(env).addArguments('--allow-system-access')).build();
   context={close:()=>driver.quit()};
@@ -155,4 +162,12 @@ async function videoState(page){return page.evaluate(()=>{const v=document.query
     await require('./watch-stress-scenarios.cjs')({page:stressPage,context,command,status,waitFor,videoState,delay,runtime,lab});
   }
 
-})().catch(e=>{console.error(e.stack);process.exitCode=1}).finally(async()=>{if(context)await context.close();for(const {file,original} of manifests){if(original===null)fs.unlinkSync(file);else fs.writeFileSync(file,original)}if(control)control.destroy();qs.kill('SIGTERM');fs.closeSync(log);console.log('LOG '+path.join(lab,'quickshell.log'))});
+})().catch(e=>{console.error(e.stack);process.exitCode=1}).finally(async()=>{
+  try {if(context)await context.close()}
+  finally {
+    for(const {file,original} of manifests){if(original===null)fs.unlinkSync(file);else fs.writeFileSync(file,original)}
+    if(control)control.destroy();qs.kill('SIGTERM');
+    if(privateAudio)await privateAudio.close();
+    fs.closeSync(log);console.log('LOG '+path.join(lab,'quickshell.log'));
+  }
+});

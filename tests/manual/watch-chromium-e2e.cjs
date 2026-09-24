@@ -30,7 +30,10 @@ import "services" as Stores
 ShellRoot {
   id: root
   property string family: "chromium"
-  property string sourceKey: nativeMedia.activePlayer ? nativeMedia.activePlayer.dbusName : "org.mpris.MediaPlayer2." + family + ".integration"
+  // Keep the fixture attached to its browser while the native Qt player also
+  // advertises MPRIS. Discovery and playerForKey still use real browser objects.
+  property string sourceKey: watch.active && watch.source ? watch.source.sourceKey
+    : nativeMedia.activePlayer ? nativeMedia.activePlayer.dbusName : "org.mpris.MediaPlayer2." + family + ".integration"
   Stores.MprisMediaAdapter { id: nativeMedia }
   Stores.BrowserWatchBridge { id: bridge }
   Stores.WatchController { id: watch; pluginDir: ${JSON.stringify(lab)}; media: nativeMedia; browserBridge: bridge }

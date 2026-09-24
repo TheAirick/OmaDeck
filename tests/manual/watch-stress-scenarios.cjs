@@ -122,8 +122,12 @@ module.exports = async function stress(t) {
     assert.equal(after.paused,false);assert.ok(after.time>=before.time-.1&&after.time<before.time+3);
   });
   await scenario('Return targets original document while another video plays',async()=>{
+    // Loading another real YouTube page can outlast the 19-second sample.
+    // Use the long clip as the source so this measures tab ownership rather
+    // than the site's end-of-video autoplay. Ended Return is tested separately.
+    await load(page,second);
     await begin();await seek(8);
-    const other=await context.newPage();await load(other,second);
+    const other=await context.newPage();await load(other,first);
     const before=await videoState(other);await returned();const after=await videoState(other);
     assert.equal(after.paused,false);assert.ok(after.time>=before.time&&after.time<before.time+6);
   });
@@ -134,7 +138,9 @@ module.exports = async function stress(t) {
     assert.equal(after.paused,false);assert.ok(after.time>=before.time-.1&&after.time<before.time+3);
   });
   await scenario('source closes during startup without stranding Watch',async()=>{
-    const source=await context.newPage();await load(source,first);
+    // A distinct video proves the selected candidate belongs to the tab closed
+    // below, rather than a same-video report left over from the reset tab.
+    const source=await context.newPage();await load(source,second);
     await command('begin');await source.close();await idle();
     await load(page,first);await begin();await returned();
   });
