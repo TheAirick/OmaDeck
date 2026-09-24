@@ -9,9 +9,13 @@ BorderSurface {
   property var controller: null
   readonly property var monitor: controller ? controller.selectedMonitor : null
   readonly property bool multipleMonitors: controller && controller.monitors.length > 1
-  readonly property bool centeredMonitor: monitor && monitor.sources.length === 2 && width >= Style.space(360)
   readonly property real navigationWidth: multipleMonitors ? Style.space(48) : 0
-  readonly property real monitorLabelWidth: centeredMonitor ? Math.min(Style.space(128), width * 0.24) : 0
+  readonly property real centeredLabelWidth: Math.min(Style.space(128), width * 0.24)
+  // Drawer animation should not rearrange the inputs while the centered row
+  // still fits its label, navigation and two generous touch targets.
+  readonly property bool centeredMonitor: monitor && monitor.sources.length === 2
+    && width - contentLeftInset - contentRightInset - navigationWidth * 2 - centeredLabelWidth >= Style.space(64) * 2
+  readonly property real monitorLabelWidth: centeredMonitor ? centeredLabelWidth : 0
   height: Style.space(104)
   color: Style.normalFill
   radius: Style.cornerRadius

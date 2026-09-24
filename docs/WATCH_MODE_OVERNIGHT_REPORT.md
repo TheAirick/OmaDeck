@@ -50,6 +50,14 @@ also passed.
    now stays disabled with a brief Closing state until that process is gone.
    The integration fixture waits for this same UI readiness condition, verifies
    zero remaining owned renderer sockets/processes, and then starts the next run.
+5. **Volume drawer made the monitor switcher shrink and rearrange.** Reported by
+   the owner after the overnight run and reproduced on the physical Edge. A
+   fixed 360-unit cutoff forced a stacked layout despite enough available room.
+   The switcher now measures the label, navigation and two 64-unit touch targets
+   before falling back. Regression coverage spans six widths (304–480), including
+   four that failed before the fix; 11 focused monitor/responsive tests pass.
+   A non-disruptive rescan retained the old live QML. Activation requires the
+   documented shell reload; the paused owner video was preserved pending approval.
 
 ## Results so far
 

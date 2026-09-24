@@ -1,5 +1,6 @@
 import QtQuick
 import QtTest
+import qs.Commons
 import "../../modules" as Modules
 import "../../services" as Stores
 
@@ -131,24 +132,35 @@ TestCase {
     compare(module.monitor, null)
   }
 
-  function test_monitorNavigationDoesNotOverlapSourceButtons() {
+  function test_monitorNavigationDoesNotOverlapSourceButtons_data() {
+    return [480, 360, 352, 336, 320, 304].map(function(width) {
+      return { tag: "width-" + width, panelWidth: width }
+    })
+  }
+
+  function test_monitorNavigationDoesNotOverlapSourceButtons(data) {
     var store = controller()
     verify(store.addMonitor("b".repeat(64)))
     verify(store.addMonitor("a".repeat(64)))
     verify(store.setShown(true))
     verify(store.setSource("a".repeat(64), "0f", true, "Omarchy"))
     verify(store.setSource("a".repeat(64), "11", true, "Mac"))
-    var module = createTemporaryObject(moduleComponent, testCase, { controller: store, width: 480, height: 104 })
+    var module = createTemporaryObject(moduleComponent, testCase, { controller: store, width: data.panelWidth, height: 104 })
     wait(20)
     var left = findChild(module, "monitorSource:0f")
     var right = findChild(module, "monitorSource:11")
     var details = findChild(module, "monitorDetails")
     var previous = findChild(module, "previousMonitor")
     var next = findChild(module, "nextMonitor")
+    verify(module.centeredMonitor, "drawer resizing should retain the single row while its touch targets fit")
+    verify(left.width >= 64 && right.width >= 64)
+    compare(left.mapToItem(module, 0, 0).y, details.mapToItem(module, 0, 0).y)
+    compare(left.height, details.height)
+    compare(findChild(module, "monitorSourceIcon:0f").font.pixelSize, Style.font.displayLarge)
     verify(left.mapToItem(module, 0, 0).x >= previous.mapToItem(module, previous.width, 0).x)
-    verify(left.mapToItem(module, left.width, 0).x <= details.mapToItem(module, 0, 0).x)
-    verify(right.mapToItem(module, 0, 0).x >= details.mapToItem(module, details.width, 0).x)
-    verify(right.mapToItem(module, right.width, 0).x <= next.mapToItem(module, 0, 0).x)
+    verify(left.mapToItem(module, left.width, 0).x <= details.mapToItem(module, 0, 0).x + 0.01)
+    verify(right.mapToItem(module, 0, 0).x >= details.mapToItem(module, details.width, 0).x - 0.01)
+    verify(right.mapToItem(module, right.width, 0).x <= next.mapToItem(module, 0, 0).x + 0.01)
     compare(findChild(module, "monitorSourceIcon:0f").font.family, "omarchy")
     compare(findChild(module, "monitorSourceIcon:11").text, "󰀵")
     click(details)
