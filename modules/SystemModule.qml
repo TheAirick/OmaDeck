@@ -43,6 +43,11 @@ Item {
       if (!next || !next.performance || !next.network || !next.storage
           || !Array.isArray(next.clients) || !Array.isArray(next.clipboard)) throw new Error("invalid snapshot")
       stats = next
+      // Rows keep their delegates unless the list itself changed, so a refresh
+      // cannot destroy a row in the middle of a press or hold.
+      var addresses = next.clients.map(function(client) { return client.address })
+      if (JSON.stringify(addresses) !== JSON.stringify(clientAddresses)) clientAddresses = addresses
+      if (JSON.stringify(next.clipboard) !== JSON.stringify(clipboardRows)) clipboardRows = next.clipboard
       cpuHistory = appendSample(cpuHistory, next.performance.cpu)
       gpuHistory = appendSample(gpuHistory, next.performance.gpu)
       memoryHistory = appendSample(memoryHistory, next.performance.memory)
@@ -70,6 +75,8 @@ Item {
   property var selectedClipboard: null
   property string selectedClientAddress: ""
   property bool forceKillArmed: false
+  property int forceKillArmedPid: 0
+  onSelectedClientAddressChanged: forceKillArmed = false
   property string clipboardNotice: ""
   property bool clipboardSaveSucceeded: false
   property string clipboardCopyText: ""
@@ -84,6 +91,8 @@ Item {
     storage: { used: 0, total: 0, free: 0, percent: 0 },
     clients: [], clipboard: []
   })
+  property var clientAddresses: []
+  property var clipboardRows: []
 
   function percent(value) { return Math.max(0, Math.min(100, Number(value || 0))) }
   function bytes(value) {
@@ -166,6 +175,7 @@ Item {
         "/usr/bin/wl-copy", "--type", "text/plain;charset=utf-8"
       ]
     }
+    noticeTimer.stop()
     clipboardNotice = "Copying…"
     clipboardCopyProcess.stdinEnabled = true
     clipboardCopyProcess.running = true
@@ -256,10 +266,11 @@ Item {
     return "󰣆"
   }
   function inspectClient(client) { if (client) selectedClientAddress = client.address || "" }
-  function currentClient() {
-    for (var i = 0; i < stats.clients.length; i++) if (stats.clients[i].address === selectedClientAddress) return stats.clients[i]
+  function clientByAddress(address) {
+    for (var i = 0; i < stats.clients.length; i++) if (stats.clients[i].address === address) return stats.clients[i]
     return null
   }
+  function currentClient() { return clientByAddress(selectedClientAddress) }
   function processState(client) {
     if (!client) return "Closed"
     var state = String(client.state || "?").charAt(0)
@@ -280,9 +291,17 @@ Item {
     if (client && client.address) Quickshell.execDetached(["/usr/bin/hyprctl", "dispatch", "closewindow", "address:" + client.address])
   }
   function forceKillClient(client) {
-    if (!client || !client.pid) return
-    if (!forceKillArmed) { forceKillArmed = true; killTimer.restart(); return }
-    Quickshell.execDetached(["/usr/bin/kill", "-KILL", String(client.pid)])
+    if (!client) return
+    // kill treats 0 and negative values as process groups or every user process.
+    var pid = Number(client.pid)
+    if (!Number.isInteger(pid) || pid <= 1) return
+    if (!forceKillArmed || forceKillArmedPid !== pid) {
+      forceKillArmed = true
+      forceKillArmedPid = pid
+      killTimer.restart()
+      return
+    }
+    Quickshell.execDetached(["/usr/bin/kill", "-KILL", String(pid)])
     forceKillArmed = false
     selectedClientAddress = ""
   }
@@ -667,8 +686,8 @@ Item {
   Component { id: applicationList
     Flickable { clip: true; contentHeight: appsColumn.height; boundsBehavior: Flickable.StopAtBounds
       Column { id: appsColumn; width: parent.width; spacing: Style.spacing.controlGap
-        Repeater { model: root.stats.clients
-          SystemStrip { required property var modelData; iconText: root.applicationIcon(modelData); title: modelData.class || "Application"; summary: root.processState(modelData) + "  ·  " + Number(modelData.cpu || 0).toFixed(1) + "% CPU  ·  " + root.bytes(modelData.rss); onTriggered: root.inspectClient(modelData) }
+        Repeater { model: root.clientAddresses
+          SystemStrip { required property var modelData; readonly property var client: root.clientByAddress(modelData) || ({}); iconText: root.applicationIcon(client); title: client.class || "Application"; summary: root.processState(client) + "  ·  " + Number(client.cpu || 0).toFixed(1) + "% CPU  ·  " + root.bytes(client.rss); onTriggered: root.inspectClient(client) }
         }
       }
     }
@@ -726,7 +745,7 @@ Item {
   Component { id: clipboardList
     Flickable { clip: true; contentHeight: clipboardColumn.height; boundsBehavior: Flickable.StopAtBounds
       Column { id: clipboardColumn; width: parent.width; spacing: Style.spacing.controlGap
-        Repeater { model: root.stats.clipboard
+        Repeater { model: root.clipboardRows
           BorderSurface {
             id: clipboardRow
             required property var modelData

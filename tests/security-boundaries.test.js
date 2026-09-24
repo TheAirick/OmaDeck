@@ -228,3 +228,24 @@ test("notification history helper enforces file, byte, and directory cardinality
   assert.equal(crowdedResult.stdout, "")
   assert.match(crowdedResult.stderr, /entry limit exceeded/)
 })
+
+test("force kill refuses process-group PIDs and re-arms per application", () => {
+  const system = source("modules/SystemModule.qml")
+  const stats = source("scripts/system-stats")
+
+  assert.match(system, /if \(!Number\.isInteger\(pid\) \|\| pid <= 1\) return/)
+  assert.match(system, /if \(!forceKillArmed \|\| forceKillArmedPid !== pid\)/)
+  assert.match(system, /onSelectedClientAddressChanged: forceKillArmed = false/)
+  assert.match(system, /"\/usr\/bin\/kill", "-KILL", String\(pid\)\]/)
+  assert.match(stats, /if pid < 0:\n\s+pid = 0/)
+})
+
+test("System list rows survive refreshes that do not change the list", () => {
+  const system = source("modules/SystemModule.qml")
+
+  assert.match(system, /if \(JSON\.stringify\(addresses\) !== JSON\.stringify\(clientAddresses\)\) clientAddresses = addresses/)
+  assert.match(system, /if \(JSON\.stringify\(next\.clipboard\) !== JSON\.stringify\(clipboardRows\)\) clipboardRows = next\.clipboard/)
+  assert.match(system, /Repeater \{ model: root\.clientAddresses/)
+  assert.match(system, /Repeater \{ model: root\.clipboardRows/)
+  assert.doesNotMatch(system, /Repeater \{ model: root\.stats\./)
+})

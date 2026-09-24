@@ -38,6 +38,8 @@ Item {
   id: root
   property string pluginDir: ${JSON.stringify(dir)}
   property var stats: ({})
+  property var clientAddresses: []
+  property var clipboardRows: []
   property var cpuHistory: []
   property var gpuHistory: []
   property var memoryHistory: []

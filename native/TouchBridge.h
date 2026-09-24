@@ -66,7 +66,7 @@ private:
     static int selectDeviceIndex(const QStringList &detectedNames, const QStringList &configuredNames);
     QString findTouchscreen(QStringList *detectedNames);
     bool openDevice(const QString &path);
-    void closeDevice(const QString &status);
+    void closeDevice(const QString &status, bool deliverRelease = true);
     void setBackingWindow(QQuickWindow *window);
     bool inputAllowed() const;
     void cancelContact();
@@ -95,6 +95,7 @@ private:
     EvdevTouchState m_inputState;
     bool m_hasMultitouch = false;
     bool m_pointerDown = false;
+    quint64 m_deviceGeneration = 0;
     bool m_touchInProgress = false;
     bool m_wantsActive = false;
     bool m_requireHostGuard = true;

@@ -252,7 +252,7 @@ void TouchBridge::setDeviceNames(const QStringList &deviceNames)
 
     const bool reconnect = m_wantsActive;
     if (active())
-        closeDevice(QStringLiteral("Touchscreen identity changed; reconnecting…"));
+        closeDevice(QStringLiteral("Touchscreen identity changed; reconnecting…"), false);
     m_deviceNames = normalized;
     emit deviceNamesChanged();
     if (reconnect)
@@ -316,6 +316,7 @@ bool TouchBridge::openDevice(const QString &path)
     // or shell restarts, making the replacement bridge look connected while
     // all touch remains permanently blocked.
     m_fd = ::open(path.toUtf8().constData(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+    ++m_deviceGeneration;
     if (m_fd < 0) {
         setStatus(QStringLiteral("Cannot open %1: %2").arg(path, QString::fromLocal8Bit(std::strerror(errno))));
         return false;
@@ -399,7 +400,7 @@ void TouchBridge::stop()
     closeDevice(QStringLiteral("Direct touch stopped"));
 }
 
-void TouchBridge::closeDevice(const QString &status)
+void TouchBridge::closeDevice(const QString &status, bool deliverRelease)
 {
     if (m_fd < 0) {
         if (activeBridge == this)
@@ -411,8 +412,10 @@ void TouchBridge::closeDevice(const QString &status)
 
     const int descriptor = m_fd;
     m_fd = -1;
+    ++m_deviceGeneration;
     const QPointer<QQuickWindow> window = m_window;
-    const bool sendRelease = m_pointerDown && window && inputAllowed();
+    const bool hadContact = m_pointerDown && window;
+    const bool sendRelease = hadContact && deliverRelease && inputAllowed();
     const QPointF releasePosition = m_lastPosition;
     m_pointerDown = false;
     delete m_notifier;
@@ -439,6 +442,15 @@ void TouchBridge::closeDevice(const QString &status)
         QCoreApplication::sendEvent(window.data(), &release);
         QEvent leaveEvent(QEvent::Leave);
         QCoreApplication::sendEvent(window.data(), &leaveEvent);
+    } else if (hadContact && !deliverRelease) {
+        // The user did not lift the finger: a vanished device must not
+        // complete a tap on whatever control the contact was resting on.
+        m_pointerDown = true;
+        cancelContact();
+        if (window) {
+            QEvent leaveEvent(QEvent::Leave);
+            QCoreApplication::sendEvent(window.data(), &leaveEvent);
+        }
     }
     setTouchInProgress(false);
 }
@@ -458,19 +470,24 @@ void TouchBridge::resetInputState()
 
 void TouchBridge::readEvents()
 {
+    if (m_fd < 0)
+        return;
     input_event events[32];
     const ssize_t bytes = ::read(m_fd, events, sizeof(events));
     if (bytes <= 0) {
         if (bytes == 0 || (errno != EAGAIN && errno != EINTR)) {
             qInfo() << "[OmaDeckTouch] device disconnected" << m_devicePath;
-            closeDevice(QStringLiteral("Touch device disconnected; reconnecting…"));
+            closeDevice(QStringLiteral("Touch device disconnected; reconnecting…"), false);
             scheduleReconnect();
         }
         return;
     }
 
+    // Event handlers run synchronously and may stop or reopen the device. The
+    // rest of this buffer then belongs to a device that is no longer read.
+    const quint64 generation = m_deviceGeneration;
     const int count = static_cast<int>(bytes / sizeof(input_event));
-    for (int i = 0; i < count; ++i) {
+    for (int i = 0; i < count && generation == m_deviceGeneration; ++i) {
         if (events[i].type == EV_SYN && events[i].code == SYN_DROPPED)
             qWarning() << "[OmaDeckTouch] event stream overrun; resetting contact state";
         const std::optional<EvdevTouchState::Frame> frame =

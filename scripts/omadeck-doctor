@@ -9,6 +9,7 @@ readonly UDEVADM=/usr/bin/udevadm
 readonly READLINK=/usr/bin/readlink
 readonly SLEEP=/usr/bin/sleep
 readonly SHA256SUM=/usr/bin/sha256sum
+readonly PACMAN=/usr/bin/pacman
 readonly WPCTL=/usr/bin/wpctl
 readonly OMARCHY=/usr/share/omarchy/bin/omarchy
 readonly OMARCHY_SHELL=/usr/share/omarchy/bin/omarchy-shell
@@ -259,6 +260,14 @@ if [[ -x $plugin_dir/native/bin/omadeck-tray ]]; then
     ok "Native artifact integrity record matches the installed binaries"
   else
     warn "Native artifact integrity record is missing or stale; run scripts/build-native"
+  fi
+  platform_record=$plugin_dir/native/build-platform
+  if [[ -f $platform_record && ! -L $platform_record && -x $PACMAN ]]; then
+    if [[ $("$PACMAN" -Q qt6-base qt6-declarative quickshell 2>/dev/null) == "$(<"$platform_record")" ]]; then
+      ok "Native components match the installed Qt and Quickshell"
+    else
+      warn "Qt or Quickshell changed since the native build; run scripts/build-native"
+    fi
   fi
 else
   warn "System-tray controller is not built; run scripts/build-native"

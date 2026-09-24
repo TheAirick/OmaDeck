@@ -127,6 +127,18 @@ artifact_record=$(mktemp --tmpdir="$source_dir" .artifacts.sha256.new.XXXXXXXX)
 chmod 600 "$artifact_record"
 mv -T -- "$artifact_record" "$source_dir/artifacts.sha256"
 
+# Record the Qt and Quickshell packages this build links against so the doctor
+# can report when a system upgrade has made the artifacts stale.
+if [[ -x /usr/bin/pacman ]]; then
+  platform_record=$(mktemp --tmpdir="$source_dir" .build-platform.new.XXXXXXXX)
+  if /usr/bin/pacman -Q qt6-base qt6-declarative quickshell > "$platform_record" 2>/dev/null; then
+    chmod 600 "$platform_record"
+    mv -T -- "$platform_record" "$source_dir/build-platform"
+  else
+    rm -f -- "$platform_record" "$source_dir/build-platform"
+  fi
+fi
+
 printf 'Built OmaDeck native components:\n'
 printf '  %s\n' "$plugin_destination"
 printf '  %s\n' "$tray_destination"

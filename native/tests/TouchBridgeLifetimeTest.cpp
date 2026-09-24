@@ -83,6 +83,8 @@ private slots:
     void directTouchClearsMouseAreaHoverBetweenButtons();
     void touchTransitionsSurviveReadBoundaries();
     void droppedStreamClearsSyntheticPointer();
+    void disconnectCancelsContactWithoutRelease();
+    void stoppingFromAHandlerDiscardsBufferedEvents();
     void disabledDeckCancelsContact_data();
     void disabledDeckCancelsContact();
     void hostGuardLifetimeFailsClosed();
@@ -294,6 +296,78 @@ void TouchBridgeLifetimeTest::syntheticReleaseCannotReenterActiveCleanup()
     QCOMPARE(window.releaseCount, 1);
     QCOMPARE(activeChanges.count(), 1);
     QCOMPARE(deviceChanges.count(), 1);
+
+    ::close(descriptors[1]);
+}
+
+void TouchBridgeLifetimeTest::disconnectCancelsContactWithoutRelease()
+{
+    int descriptors[2];
+    QVERIFY(::pipe(descriptors) == 0);
+
+    TouchBridge bridge;
+    RecordingWindow window;
+    window.resize(100, 100);
+    bridge.setWindow(&window);
+    bridge.m_fd = descriptors[0];
+    bridge.m_pointerDown = true;
+    bridge.m_touchInProgress = true;
+    bridge.m_lastPosition = QPointF(4, 5);
+
+    // Closing the writer makes the next read report end-of-stream, as a
+    // vanished evdev node does.
+    ::close(descriptors[1]);
+    bridge.readEvents();
+
+    QVERIFY(!bridge.active());
+    QVERIFY(!bridge.m_pointerDown);
+    QVERIFY(!bridge.touchInProgress());
+    QCOMPARE(window.releaseCount, 0);
+    bridge.stop();
+}
+
+void TouchBridgeLifetimeTest::stoppingFromAHandlerDiscardsBufferedEvents()
+{
+    int descriptors[2];
+    QVERIFY(::pipe(descriptors) == 0);
+
+    TouchBridge bridge;
+    ReentrantStopWindow window;
+    window.resize(100, 100);
+    window.bridge = &bridge;
+    bridge.setWindow(&window);
+    bridge.m_fd = descriptors[0];
+    bridge.m_hasMultitouch = true;
+    bridge.m_xMin = 0;
+    bridge.m_xMax = 100;
+    bridge.m_yMin = 0;
+    bridge.m_yMax = 100;
+
+    writeEvents(descriptors[1], {
+        inputEvent(EV_ABS, ABS_MT_TRACKING_ID, 7),
+        inputEvent(EV_ABS, ABS_MT_POSITION_X, 25),
+        inputEvent(EV_ABS, ABS_MT_POSITION_Y, 40),
+        inputEvent(EV_SYN, SYN_REPORT, 0),
+    });
+    bridge.readEvents();
+    QVERIFY(bridge.m_pointerDown);
+
+    // One read holds a release, whose handler stops the bridge, followed by
+    // a new press from the device that is no longer being read.
+    writeEvents(descriptors[1], {
+        inputEvent(EV_ABS, ABS_MT_TRACKING_ID, -1),
+        inputEvent(EV_SYN, SYN_REPORT, 0),
+        inputEvent(EV_ABS, ABS_MT_TRACKING_ID, 8),
+        inputEvent(EV_ABS, ABS_MT_POSITION_X, 25),
+        inputEvent(EV_ABS, ABS_MT_POSITION_Y, 40),
+        inputEvent(EV_SYN, SYN_REPORT, 0),
+    });
+    bridge.readEvents();
+
+    QVERIFY(!bridge.active());
+    QCOMPARE(window.releaseCount, 1);
+    QVERIFY(!bridge.m_pointerDown);
+    QVERIFY(!bridge.touchInProgress());
 
     ::close(descriptors[1]);
 }

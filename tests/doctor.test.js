@@ -26,6 +26,8 @@ function createFixture({
   nativeBuilt = true,
   touchMode = "native",
   interactionAllowed = true,
+  builtPlatform = null,
+  installedPlatform = "qt6-base 6.11.2-3\nqt6-declarative 6.11.2-2\nquickshell 0.3.1-1",
 }) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "omadeck-doctor-"))
   const binDir = path.join(root, "bin")
@@ -59,6 +61,8 @@ function createFixture({
       return `${digest}  ${relativePath}`
     }).join("\n") + "\n"
     fs.writeFileSync(path.join(nativeRoot, "artifacts.sha256"), artifactRecord, { mode: 0o600 })
+    if (builtPlatform !== null)
+      fs.writeFileSync(path.join(nativeRoot, "build-platform"), `${builtPlatform}\n`, { mode: 0o600 })
   }
 
   executable(path.join(binDir, "pgrep"), "#!/usr/bin/env bash\n[[ $* == '-x quickshell' ]] || exit 1\nprintf '4242\\n'\n")
@@ -66,6 +70,7 @@ function createFixture({
   executable(path.join(binDir, "udevadm"), `#!/usr/bin/env bash\nprintf 'ID_INPUT_TOUCHSCREEN=1\\nID_MODEL=${touchModel}\\n'\n`)
   executable(path.join(binDir, "sleep"), `#!/usr/bin/env bash\nprintf '%s\\n' "$1" >>'${sleepLog}'\n`)
   executable(path.join(binDir, "omarchy-shell"), `#!/usr/bin/env bash\nif [[ $2 == hardwareState ]]; then\n  printf '%s\\n' '${hardwareState ? JSON.stringify(hardwareState) : ""}'\nfi\nif [[ $2 == touchState ]]; then\n  count=0\n  [[ ! -f '${touchStateCount}' ]] || count=$(<'${touchStateCount}')\n  count=$((count + 1))\n  printf '%s' "$count" >'${touchStateCount}'\n  ((count > ${touchStateFailures})) || exit 1\n  if ((count <= ${touchStateFailures + inactiveTouchStates})); then\n    printf '%s\\n' '${JSON.stringify({ active: false, exclusiveGrab: false, devicePath: "", status: "Direct touch not started" })}'\n  else\n    printf '%s\\n' '${JSON.stringify({ active: bridgeActive, exclusiveGrab: bridgeActive, mode: touchMode, interactionAllowed, devicePath: touchMode === "compositor" ? "" : touchDevice, status: bridgeActive ? "Isolated direct touch" : "Direct touch not started" })}'\n  fi\nfi\n`)
+  executable(path.join(binDir, "pacman"), `#!/usr/bin/env bash\nprintf '%s\\n' '${installedPlatform}'\n`)
   for (const name of ["omarchy", "wpctl"])
     executable(path.join(binDir, name), "#!/usr/bin/env bash\nexit 0\n")
 
@@ -78,6 +83,7 @@ function createFixture({
     READLINK: "/usr/bin/readlink",
     SLEEP: path.join(binDir, "sleep"),
     SHA256SUM: "/usr/bin/sha256sum",
+    PACMAN: path.join(binDir, "pacman"),
     WPCTL: path.join(binDir, "wpctl"),
     OMARCHY: path.join(binDir, "omarchy"),
     OMARCHY_SHELL: path.join(binDir, "omarchy-shell"),
@@ -147,6 +153,33 @@ test("doctor treats an unbuilt native layer as a healthy standard install", t =>
   assert.match(result.stdout, /System-tray controller is not built/)
   assert.match(result.stdout, /Overall: healthy with/)
   assert.equal(fs.existsSync(fixture.touchStateCount), false)
+})
+
+test("doctor confirms native components built against the installed Qt and Quickshell", t => {
+  const fixture = createFixture({
+    bridgeActive: true,
+    shellHasOpenFd: true,
+    builtPlatform: "qt6-base 6.11.2-3\nqt6-declarative 6.11.2-2\nquickshell 0.3.1-1",
+  })
+  t.after(fixture.cleanup)
+
+  const result = runDoctor(fixture)
+
+  assert.equal(result.status, 0, result.stdout + result.stderr)
+  assert.match(result.stdout, /Native components match the installed Qt and Quickshell/)
+})
+
+test("doctor warns when Qt or Quickshell changed since the native build", t => {
+  const fixture = createFixture({
+    bridgeActive: true,
+    shellHasOpenFd: true,
+    builtPlatform: "qt6-base 6.11.1-1\nqt6-declarative 6.11.1-1\nquickshell 0.3.1-1",
+  })
+  t.after(fixture.cleanup)
+
+  const result = runDoctor(fixture)
+
+  assert.match(result.stdout, /Qt or Quickshell changed since the native build; run scripts\/build-native/)
 })
 
 test("doctor recognizes compositor fallback with native artifacts still installed", t => {

@@ -404,6 +404,8 @@ def client_snapshot() -> list[dict[str, Any]]:
             monitor = int(item.get("monitor") or 0)
         except (TypeError, ValueError):
             continue
+        if pid < 0:
+            pid = 0
         client = {
             "address": bounded_string(item.get("address"), 96),
             "title": bounded_string(item.get("title"), 512),

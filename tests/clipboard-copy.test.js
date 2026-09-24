@@ -17,7 +17,7 @@ function harness(text) {
   const context = { ClipboardDeletePolicy: policy, clipboardNotice: "", clipboardCopyText: "",
     clipboardCopyStartTimer: { stop() {}, restart() {} },
     clipboardCopyProcess: { running: false, stdinEnabled: false, write: value => sent.push(value) },
-    clipboardOwner: () => owner, noticeTimer: { restart() {} }, refreshTimer: { restart() {} },
+    clipboardOwner: () => owner, noticeTimer: { restart() {}, stop() {} }, refreshTimer: { restart() {} },
     Quickshell: { execDetached: command => sent.push(command) } }
   context.root = context
   for (const name of ["copyClipboard", "startClipboardCopy", "finishClipboardCopy"]) {

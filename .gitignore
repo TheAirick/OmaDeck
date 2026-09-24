@@ -8,3 +8,4 @@ native/build/
 native/bin/
 native/OmaDeck/Touch/libomadecktouchplugin.so
 native/artifacts.sha256
+native/build-platform
