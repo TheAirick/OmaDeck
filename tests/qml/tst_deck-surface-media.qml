@@ -1143,7 +1143,7 @@ TestCase {
     }
     compare(JSON.parse(socket.sent[0]).seconds, 32)
     compare(JSON.parse(socket.sent[1]).action, "pause")
-    compare(JSON.parse(socket.sent[2]).seconds, 52)
+    compare(JSON.parse(socket.sent[2]).seconds, 42, "back then forward accumulate even before a player report")
     grabImage(deck).save("/tmp/omadeck-watch-layout.png")
     var returnButton = findChild(deck, "watchReturn")
     var returnPoint = returnButton.mapToItem(deck, returnButton.width / 2, returnButton.height / 2)
@@ -1151,6 +1151,71 @@ TestCase {
     wait(20)
     touchEvent(deck).release(0, deck, returnPoint.x, returnPoint.y).commit()
     tryCompare(watch, "state", "idle")
+  }
+
+  function test_watchRapidSeeksAccumulateDespiteStalePlayerReports() {
+    var deck = createDeck(1600, 450)
+    var watch = deck.watchController
+    var socket = findChild(watch, "watchHostSocket")
+    socket.connected = true
+    watch.state = "playing"
+    watch.videoPosition = 60
+    watch.videoDuration = 600
+    watch.seekBy(10)
+    watch.handleMessage('{"event":"position","seconds":60.2}')
+    watch.seekBy(10)
+    watch.handleMessage('{"event":"position","seconds":70}')
+    watch.seekBy(10)
+    compare(JSON.parse(socket.sent[0]).seconds, 70)
+    compare(JSON.parse(socket.sent[1]).seconds, 80)
+    compare(JSON.parse(socket.sent[2]).seconds, 90)
+    compare(watch.videoPosition, 90)
+    watch.seekBy(-10)
+    compare(JSON.parse(socket.sent[3]).seconds, 80, "direction changes use latest intent")
+    watch.handleMessage('{"event":"position","seconds":80.5}')
+    compare(watch.pendingSeekPosition, -1)
+    compare(watch.videoPosition, 80.5)
+    watch.seekTo(120)
+    watch.seekBy(10)
+    compare(watch.videoPosition, 130, "timeline then skip uses timeline target")
+    watch.seekTo(9999)
+    compare(watch.videoPosition, 600)
+    watch.seekBy(-9999)
+    compare(watch.videoPosition, 0)
+    socket.connected = false
+    watch.seekBy(10)
+    compare(watch.videoPosition, 0, "failed sends cannot advance the displayed target")
+    watch.stopHost()
+    compare(watch.pendingSeekPosition, -1)
+  }
+
+  function test_watchRejectedSeekEventuallyRestoresActualPosition() {
+    var deck = createDeck(1600, 450)
+    var watch = deck.watchController
+    findChild(watch, "watchHostSocket").connected = true
+    watch.state = "playing"
+    watch.videoPosition = 60
+    watch.seekBy(10)
+    tryCompare(watch, "pendingSeekPosition", -1, 4500)
+    watch.handleMessage('{"event":"position","seconds":61}')
+    compare(watch.videoPosition, 61, "a rejected seek cannot freeze the playhead")
+    watch.stopHost()
+  }
+
+  function test_watchReturnImmediatelyAfterSeekPreservesLatestIntent() {
+    var deck = createDeck(1600, 450)
+    var watch = deck.watchController
+    findChild(watch, "watchHostSocket").connected = true
+    watch.source = { sourceKind: "extension", sourceWasPlaying: true }
+    watch.state = "playing"
+    watch.videoPosition = 60
+    watch.seekBy(10)
+    watch.seekBy(10)
+    watch.returnToSource()
+    compare(watch.pendingSeekPosition, -1)
+    watch.handleMessage('{"event":"returnSnapshot","seconds":60}')
+    compare(watch.lastReturnRequested, 80, "Return cannot undo rapid taps with a stale snapshot")
+    watch.stopHost()
   }
 
   function test_watchHereExplainsMissingBrowserSelectionOnClickAndTouch() {

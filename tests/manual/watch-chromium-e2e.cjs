@@ -38,7 +38,7 @@ ShellRoot {
   Stores.BrowserWatchBridge { id: bridge }
   Stores.WatchController { id: watch; pluginDir: ${JSON.stringify(lab)}; media: nativeMedia; browserBridge: bridge }
   function snapshot() { return { state:watch.state, notice:watch.notice, available:watch.hostAvailable,
-    position:watch.videoPosition, duration:watch.videoDuration, playing:watch.videoPlaying, shuttingDown:watch.shuttingDown,
+    position:watch.videoPosition, pendingSeek:watch.pendingSeekPosition, duration:watch.videoDuration, playing:watch.videoPlaying, shuttingDown:watch.shuttingDown,
     captionsAvailable:watch.captionsAvailable,captionsEnabled:watch.captionsEnabled,sourcePaused:watch.sourcePausedByUs, sourceClosed:watch.sourceClosed, focused:watch.focused, candidate:bridge.candidateForPlayer(sourceKey),
     mprisPlayers:nativeMedia.players.map(p=>p.dbusName), connections:bridge.connections.length, pending:Object.keys(bridge.pendingRequests).length } }
   SocketServer {
@@ -50,6 +50,7 @@ ShellRoot {
         else if(m.op === "captions") watch.toggleCaptions()
         else if(m.op === "toggle") watch.togglePlayback()
         else if(m.op === "seek") watch.seekTo(m.seconds)
+        else if(m.op === "skip") watch.seekBy(m.seconds)
         else if(m.op === "return") watch.returnToSource()
         else if(m.op === "abort") watch.abort()
         else if(m.op === "geometry") ok=watch.setVideoGeometry(m.rect)

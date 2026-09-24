@@ -60,9 +60,31 @@ module.exports = async function stress(t) {
     }
     const start=Date.now();
     try { await reset();await fn();results.push({name,passed:true,ms:Date.now()-start});console.log('STRESS_PASS '+name) }
-    catch(e) {if(String(e.message).includes('candidate and MPRIS'))missingMediaRuns++;results.push({name,passed:false,error:String(e.message),ms:Date.now()-start,deck:await status().catch(()=>null)});console.log('STRESS_FAIL '+name+' '+e.message)}
+    catch(e) {if(String(e.message).includes('candidate and MPRIS'))missingMediaRuns++;results.push({name,passed:false,error:String(e.message),ms:Date.now()-start,deck:await status().catch(()=>null),source:await videoState(page).catch(()=>null)});console.log('STRESS_FAIL '+name+' '+e.message)}
     fs.writeFileSync(path.join(lab,'stress-results.json'),JSON.stringify(results,null,2)+'\n');
   }
+
+  await scenario('rapid skips accumulate and immediate Return keeps the final target',async()=>{
+    await reset(process.env.OMADECK_TEST_SEEK_VIDEO || second);
+    console.log('RAPID_SOURCE_READY '+JSON.stringify(await videoState(page)));
+    await begin();
+    await command('toggle');
+    await waitFor(async()=>!(await status()).playing,'pause for exact rapid-seek targets');
+    await command('seek',{seconds:60});
+    await waitFor(async()=>{const s=await status();return s.pendingSeek<0&&Math.abs(s.position-60)<2},'initial seek settled');
+    for(let i=0;i<4;i++)await command('skip',{seconds:10});
+    await waitFor(async()=>{const s=await status();return s.pendingSeek<0&&Math.abs(s.position-100)<2},'four skips actually settled at 100');
+    for(let i=0;i<3;i++)await command('skip',{seconds:-10});
+    await waitFor(async()=>{const s=await status();return s.pendingSeek<0&&Math.abs(s.position-70)<2},'three backward skips settled at 70');
+    await command('seek',{seconds:120});
+    await command('skip',{seconds:10});
+    await command('skip',{seconds:10});
+    console.log('RAPID_BEFORE_RETURN '+JSON.stringify({source:await videoState(page),deck:await status()}));
+    await command('return');await idle();
+    const returned=await videoState(page);
+    assert.ok(Math.abs(returned.time-140)<3,'immediate Return keeps the latest 140-second target');
+    assert.equal(returned.paused,false,'browser resumes its original playing state');
+  });
 
   await scenario('five consecutive handoffs and settled timestamp returns',async()=>{
     const times=[];

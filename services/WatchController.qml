@@ -18,6 +18,8 @@ Item {
   property bool focused: false
   property bool videoPlaying: false
   property real videoPosition: 0
+  property real pendingSeekPosition: -1
+  property real returnSeekTarget: -1
   property real videoDuration: 0
   property bool captionsEnabled: false
   property bool captionsAvailable: false
@@ -84,6 +86,8 @@ Item {
     focused = false
     videoRect = rect
     videoPosition = candidate.seconds
+    clearPendingSeek()
+    returnSeekTarget = -1
     videoDuration = 0
     captionsEnabled = false
     captionsAvailable = false
@@ -132,8 +136,11 @@ Item {
       var latest = Number(message.seconds)
       if (!isFinite(latest) || latest < 0 || latest > 604800) { returnFailed(false); return }
       awaitingReturnSnapshot = false
-      videoPosition = latest
-      lastReturnRequested = latest
+      // A tap followed immediately by Return owns the requested seek, even if
+      // YouTube has not yet reflected it in its asynchronous playhead report.
+      videoPosition = returnSeekTarget >= 0 ? returnSeekTarget : latest
+      returnSeekTarget = -1
+      lastReturnRequested = videoPosition
       lastReturnConfirmed = -1
       videoPlaying = false
       resumeBrowserAtCurrentPosition()
@@ -171,7 +178,13 @@ Item {
       commitWatch()
     } else if (message.event === "position" && state === "playing") {
       var position = Number(message.seconds)
-      if (isFinite(position) && position >= 0) videoPosition = position
+      if (isFinite(position) && position >= 0) {
+        if (pendingSeekPosition >= 0) {
+          if (Math.abs(position - pendingSeekPosition) > 2) return
+          clearPendingSeek()
+        }
+        videoPosition = position
+      }
     } else if (message.event === "duration" && active) {
       var duration = Number(message.seconds)
       if (isFinite(duration) && duration > 0) videoDuration = duration
@@ -234,15 +247,24 @@ Item {
   }
 
   function seekBy(delta) {
-    if (state !== "playing") return
-    var next = Math.max(0, Math.min(604800, Math.floor(videoPosition + delta)))
-    send({ action: "seek", seconds: next })
+    if (state !== "playing" || !isFinite(Number(delta))) return
+    seekTo((pendingSeekPosition >= 0 ? pendingSeekPosition : videoPosition) + Number(delta))
   }
 
   function seekTo(seconds) {
     if (state !== "playing") return
-    var next = Math.max(0, Math.min(604800, Math.floor(Number(seconds))))
-    if (isFinite(next)) send({ action: "seek", seconds: next })
+    if (!isFinite(Number(seconds))) return
+    var maximum = videoDuration > 0 ? Math.min(604800, videoDuration) : 604800
+    var next = Math.max(0, Math.min(maximum, Math.floor(Number(seconds))))
+    if (!isFinite(next) || !send({ action: "seek", seconds: next })) return
+    pendingSeekPosition = next
+    videoPosition = next
+    seekDeadline.restart()
+  }
+
+  function clearPendingSeek() {
+    pendingSeekPosition = -1
+    seekDeadline.stop()
   }
 
   function toggleCaptions() {
@@ -271,6 +293,8 @@ Item {
     if (sourceClosed) { stopHost(); return }
     if (state === "returning") return
     if (!source) { stopHost(); return }
+    returnSeekTarget = pendingSeekPosition
+    clearPendingSeek()
     state = "returning"
     awaitingReturnSnapshot = true
     returnDeadline.restart()
@@ -322,6 +346,7 @@ Item {
     returnSeekCheck.stop()
     returnSeekPending = false
     awaitingReturnSnapshot = false
+    returnSeekTarget = -1
     notice = resumeHost === false ? "Browser did not confirm. Retry Return or close the video."
       : "Browser tab unavailable; video remains here"
     state = "playing"
@@ -344,6 +369,8 @@ Item {
   }
 
   function stopHost() {
+    clearPendingSeek()
+    returnSeekTarget = -1
     startupDeadline.stop()
     pauseDeadline.stop()
     returnDeadline.stop()
@@ -377,6 +404,14 @@ Item {
   onPluginDirChanged: refreshAvailability()
   Component.onCompleted: refreshAvailability()
   Component.onDestruction: stopHost()
+
+  Timer {
+    id: seekDeadline
+    interval: 4000
+    // If the player rejects a seek, resume reporting its real position rather
+    // than leaving the timeline stuck indefinitely at an optimistic target.
+    onTriggered: root.clearPendingSeek()
+  }
 
   Process {
     id: hostProbe

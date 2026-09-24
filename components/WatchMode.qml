@@ -109,12 +109,16 @@ Item {
           Button {
             objectName: "watchSeekBack"
             Accessible.name: "Back 10 seconds"
-            text: "−10"
             foreground: Color.accent
             background: "transparent"; bordered: false; borderSpec: Border.none()
             Layout.preferredWidth: Style.space(44); Layout.preferredHeight: Style.space(44)
             enabled: root.watch && root.watch.state === "playing"
             onClicked: { root.revealControls(); root.watch.seekBy(-10) }
+            CircularSeekIcon {
+              anchors.centerIn: parent
+              width: Style.space(24); height: Style.space(24)
+              forward: false
+            }
           }
           Button {
             objectName: "watchTogglePlayback"
@@ -130,12 +134,16 @@ Item {
           Button {
             objectName: "watchSeekForward"
             Accessible.name: "Forward 10 seconds"
-            text: "+10"
             foreground: Color.accent
             background: "transparent"; bordered: false; borderSpec: Border.none()
             Layout.preferredWidth: Style.space(44); Layout.preferredHeight: Style.space(44)
             enabled: root.watch && root.watch.state === "playing"
             onClicked: { root.revealControls(); root.watch.seekBy(10) }
+            CircularSeekIcon {
+              anchors.centerIn: parent
+              width: Style.space(24); height: Style.space(24)
+              forward: true
+            }
           }
           Text {
             text: root.watch ? root.formatTime(root.watch.videoPosition) : "0:00"

@@ -1,7 +1,8 @@
 # Watch mode pre-release stress test — September 23–24, 2026
 
-**Release held in draft. Overnight automated coverage is complete; browser-extension
-activation and owner-profile/physical acceptance remain outstanding. This is not release approval.**
+**Release held in draft. Overnight automated coverage is complete. The September
+24 owner test passed the main Zen/Edge workflow and found a rapid-seek issue;
+its correction still needs activation and owner acceptance. This is not release approval.**
 
 The product fixes and original expanded test report are committed and pushed as
 `455f746acd18c665eded96247486175602d306a1`. Later commits may refine the test harness
@@ -238,6 +239,41 @@ Do not substitute simulated MPRIS for real discovery to turn a failure into a pa
 
 ## Release and activation gates
 
+### September 24 owner test and rapid-seek follow-up
+
+The owner passed steps 1–5 in normal Zen on the physical Edge: background-tab
+handoff, touch/player controls and drawers, updated-timestamp Return, and
+closing the original browser tab while watching A, starting B, closing A on the
+Edge without affecting B, then transferring B. The reported exception was rapid
+forward tapping reusing the last reported playhead. The owner also requested
+the circular Now Playing seek icons in Watch mode.
+
+The correction accumulates accepted seeks from the latest pending target,
+ignores stale position samples until that target settles, clamps to duration,
+and expires an unconfirmed target after four seconds. Immediate Return preserves
+the requested target. Watch and Now Playing now share one circular icon component.
+Nine focused automated checks passed, including actual offscreen DeckSurface
+touch controls and new rapid-seek, stale-report, timeout, and immediate-Return
+regressions. These changes still need a live shell reload and owner acceptance.
+
+Real-network Zen and Chromium both reached 100 seconds after four rapid forward
+skips from 60, then 70 after three backward skips. An added immediate Return to
+140 seconds failed confirmation in both disposable browsers; Zen also failed
+on a second public video. Chromium reported an unready source video afterward.
+A separate Chromium control with **no extension or OmaDeck** likewise remained
+seeking for all four samples over eight seconds after a direct HTML-video seek
+from about four seconds to 140. This narrows the failure but does not establish
+its cause or certify long-distance Return. An experimental play-before-seek-wait
+change did not fix it and was reverted. Browser-extension source remains unchanged.
+The owner has been asked to check a comparable larger jump on the normal profile.
+
+Evidence: `$HOME/.cache/omadeck/rapid-seek-2026-09-24/` contains `zen.log`,
+`chromium.log`, `zen-control.log`, `chromium-play-seek.log`, and `browser-only.log`.
+The new optional manual scenario retains this failure for further investigation;
+it is not reported as a complete passing integration run.
+
+### Outstanding gates
+
 - Keep v0.10.0 draft; no marketplace submission or release publication tonight.
 - The overnight evidence commit `f7215ef6fa1d3dfbc08ec5263ecae084ada41a2a`
   passed hosted CI. A later run for the monitor-layout fix failed the existing
@@ -250,9 +286,16 @@ Do not substitute simulated MPRIS for real discovery to turn a failure into a pa
   and verification before any release; the draft is not the tested new tree.
 - The owner approved a shell reload after reporting the monitor-switcher layout
   issue. Current shell-side fixes are now loaded and health checks passed. The
-  temporary browser extension still needs its separate reload/page refresh;
-  shell restart alone does not activate extension changes.
-- Owner-profile navigation and physical touch, authentication/age restrictions,
+  temporary browser extension received a separate reload/page refresh during
+  the owner's September 24 test. Any subsequent extension fix needs another
+  reload/page refresh; shell restart alone does not activate extension changes.
+- The owner confirmed normal-profile Zen background-tab handoff, touch controls,
+  captions, focused mode, panel navigation, current-timestamp Return, and closing
+  the original tab followed by closing the old Edge session and transferring a
+  second video. Rapid repeated forward taps exposed reuse of the last reported
+  playhead; this correction and circular seek icons remain to be activated and
+  accepted. Do not count the correction as covered by that earlier acceptance.
+- Authentication/age restrictions,
   ads, native-player network loss/recovery, lock/suspend and real monitor-input switching are
   not certified by these runs.
 - The morning report must distinguish corrected fixture failures from the four

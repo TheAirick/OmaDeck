@@ -7,6 +7,8 @@ const nowPlayingModule = fs.readFileSync(
   path.join(__dirname, "..", "modules/NowPlayingModule.qml"),
   "utf8",
 )
+const circularSeekIcon = fs.readFileSync(
+  path.join(__dirname, "..", "components/CircularSeekIcon.qml"), "utf8")
 
 test("playback controls form one compact touch row", () => {
   assert.match(nowPlayingModule, /Row \{\s*id: controls/)
@@ -15,9 +17,9 @@ test("playback controls form one compact touch row", () => {
   assert.match(nowPlayingModule, /id: playPauseControl[\s\S]*iconSize: Style\.font\.displayLarge \* 2/)
   assert.equal((nowPlayingModule.match(/width: Style\.space\(52\); height: Style\.space\(72\)/g) || []).length, 4)
   assert.equal((nowPlayingModule.match(/iconSize: Style\.font\.iconLarge \* 2\.2/g) || []).length, 2)
-  assert.match(nowPlayingModule, /component CircularSeekIcon:\s*Canvas/)
-  assert.match(nowPlayingModule, /width:\s*Style\.space\(34\)[\s\S]*height:\s*Style\.space\(34\)/)
-  assert.match(nowPlayingModule, /context\.lineWidth = Style\.space\(3\)/)
+  assert.match(circularSeekIcon, /Canvas \{/)
+  assert.match(circularSeekIcon, /width:\s*Style\.space\(34\)[\s\S]*height:\s*Style\.space\(34\)/)
+  assert.match(circularSeekIcon, /context\.lineWidth = Style\.space\(3\)/)
   assert.match(nowPlayingModule, /objectName: "seekBackwardControl"[\s\S]*root\.skip\(-10\)[\s\S]*CircularSeekIcon \{[\s\S]*forward:\s*false/)
   assert.match(nowPlayingModule, /objectName: "seekForwardControl"[\s\S]*root\.skip\(10\)[\s\S]*CircularSeekIcon \{[\s\S]*forward:\s*true/)
   assert.equal((nowPlayingModule.match(/color: "transparent"; borderSpec: Border\.none\(\)/g) || []).length, 5)
