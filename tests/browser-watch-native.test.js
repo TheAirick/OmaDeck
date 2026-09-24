@@ -81,6 +81,35 @@ test('Return restores the original paused state without starting browser audio',
   assert.equal(fixture.video.paused, true)
 })
 
+test('navigation during Return must not pause the next video in the reused player', async () => {
+  let played
+  const fixture = contentFixture(() => new Promise(resolve => { played = resolve }))
+  const pending = fixture.command({ action: 'resume', seconds: 55, wasPlaying: true })
+  fixture.context.location.href = 'https://www.youtube.com/watch?v=jNQXAC9IVRw'
+  fixture.video.currentTime = 2
+  fixture.video.paused = false
+  played()
+  assert.equal((await pending).ok, false)
+  assert.equal(fixture.video.currentTime, 2)
+  assert.equal(fixture.video.paused, false, 'a superseded Return must not pause the replacement video')
+})
+
+test('Return at the end accepts a naturally finished video instead of retrying playback', async () => {
+  let plays = 0
+  const fixture = contentFixture(async () => {
+    plays++
+    fixture.video.currentTime = fixture.video.duration
+    fixture.video.ended = true
+    fixture.video.paused = true
+  })
+  fixture.video.duration = 19.021
+  const result = await fixture.command({ action: 'resume', seconds: 19, wasPlaying: true })
+  assert.equal(result.ok, true)
+  assert.equal(plays, 1, 'Return must not restart an ended video')
+  assert.equal(fixture.video.paused, true)
+  assert.equal(fixture.video.currentTime, fixture.video.duration)
+})
+
 function frame(message) {
   const body = Buffer.from(JSON.stringify(message))
   const size = Buffer.alloc(4)
@@ -144,6 +173,9 @@ test('both browser packages share the same tab handoff code', () => {
   for (const manifest of [firefox, chromium]) {
     assert.deepEqual(manifest.permissions, ['nativeMessaging'])
     assert.equal(manifest.content_scripts[0].js[0], 'content.js')
+    assert.deepEqual(manifest.content_scripts[0].matches,
+      ['https://www.youtube.com/*', 'https://m.youtube.com/*'],
+      'reporter must be present before YouTube navigates from Home/search to a video')
   }
   assert.equal(firefox.background.scripts[0], 'background.js')
   assert.equal(chromium.background.service_worker, 'background.js')
@@ -218,4 +250,17 @@ test('extension retains background media and clears only closed or navigated sou
   listeners.pageClosed()
   assert.deepEqual({ ...sent[9] }, { type: 'clear' })
   assert.deepEqual({ ...sent[10] }, { type: 'sourceClosed', tabId: 1000000 })
+  const homePage = { ...page, sender: { url: 'https://www.youtube.com/' } }
+  listeners.page(homePage)
+  listeners.pageReport({ ...report, visible: true })
+  assert.equal(sent.at(-1).videoId, report.videoId,
+    'a trusted YouTube document can navigate from Home to a video without reloading')
+  listeners.pageReport({ ...report, videoId: 'jNQXAC9IVRw', visible: true })
+  assert.equal(sent.at(-1).videoId, 'jNQXAC9IVRw', 'same document can report its next video')
+  const validCount = sent.length
+  listeners.pageReport({ ...report, videoId: 'invalid', visible: true })
+  assert.equal(sent.length, validCount, 'origin validation still requires a valid video ID')
+  listeners.page({ ...page, sender: { url: 'https://youtube.com.evil.test/' } })
+  listeners.pageReport({ ...report, visible: true })
+  assert.equal(sent.length, validCount, 'untrusted origins cannot become candidates')
 })

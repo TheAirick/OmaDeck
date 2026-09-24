@@ -22,7 +22,8 @@ watchApi.runtime.onConnect.addListener(port => {
       if (pending && pending.pageId === pageId) pending.resolve(message)
       return
     }
-    if (message.type !== 'candidate' || !senderMatchesVideo(sender, message.videoId)
+    if (message.type !== 'candidate' || !senderIsYouTube(sender)
+        || !videoPattern.test(String(message.videoId || ''))
         || !Number.isFinite(message.seconds) || message.seconds < 0 || message.seconds > 604800) return
     // Media selection survives focus and tab changes. A playing background
     // video can become the source, but an unrelated hidden paused page cannot.
@@ -69,6 +70,17 @@ function senderMatchesVideo(sender, videoId) {
     return url.protocol === 'https:'
       && ['youtube.com', 'www.youtube.com', 'm.youtube.com'].includes(url.hostname)
       && url.pathname === '/watch' && url.searchParams.get('v') === videoId
+  } catch { return false }
+}
+
+function senderIsYouTube(sender) {
+  // Port sender.url can retain the document's original URL after YouTube's
+  // same-document navigation. The trusted content script checks the live watch
+  // URL; authenticate its browser-provided origin here, not its old video ID.
+  try {
+    const url = new URL(sender.url || '')
+    return url.protocol === 'https:'
+      && ['youtube.com', 'www.youtube.com', 'm.youtube.com'].includes(url.hostname)
   } catch { return false }
 }
 

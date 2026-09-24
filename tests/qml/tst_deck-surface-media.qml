@@ -1329,6 +1329,21 @@ TestCase {
     }
   }
 
+  function test_sourceNavigatesDuringReturnClosesWithoutTouchingReplacement() {
+    var deck = createDeck(1600, 450)
+    var watch = deck.watchController
+    var bridge = deck.browserWatchBridge
+    var socket = createTemporaryObject(browserSocketComponent, testCase)
+    bridge.register(socket)
+    bridge.receive(socket, '{"type":"hello","browser":"firefox"}')
+    watch.source = ({ sourceKind: "extension", connectionId: socket.connectionId,
+      tabId: 1000000, videoId: "M7lc1UVf-VE", browser: "firefox" })
+    watch.state = "returning"
+    bridge.receive(socket, '{"type":"sourceClosed","tabId":1000000}')
+    compare(watch.state, "idle")
+    compare(socket.sent.length, 0, "closing during Return must not command the replacement")
+  }
+
   function test_watchReturnRejectsSuccessWithWrongOrMissingTimestamp() {
     var deck = createDeck(1600, 450)
     var watch = deck.watchController

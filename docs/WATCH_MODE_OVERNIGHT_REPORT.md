@@ -1,0 +1,159 @@
+# Watch mode pre-release stress test — September 23–24, 2026
+
+**Release held in draft. Testing is in progress; this is not release approval.**
+
+## Evidence boundary
+
+- Real network integration runs use disposable Zen/Chromium profiles, real
+  browser extensions/native messaging, real MPRIS discovery, the actual Watch
+  controller and the native Qt WebEngine YouTube player rendered offscreen.
+- The owner's Zen window is not exposed through the available computer-use
+  connection. Its existing tabs were not automated or changed. These results
+  do not certify that profile or its currently loaded temporary extension.
+- Live Edge checks used OmaDeck's public panel IPC while preserving the owner's
+  paused Watch session. They exercise real shell/native-layer geometry, not
+  physical finger input. No shell reload, lock, monitor input switch or audio
+  routing change was performed.
+- The expanded suite is repeatable. YouTube network failures, unavailable MPRIS,
+  fixture timing and product defects are tracked separately.
+
+## Confirmed findings and fixes
+
+1. **Return could pause a replacement video during navigation.** A deterministic
+   content-script regression reproduced the old Return request pausing the same
+   HTML video element after YouTube reused it for another ID. The error handler
+   now checks ownership before pausing. Regression passes.
+2. **Home/search-to-video navigation lacked extension coverage.** The content
+   script only matched direct watch URLs. Both manifests now load on YouTube
+   pages, while reporting only valid watch URLs. Document-port validation accepts
+   the trusted YouTube origin instead of requiring a stale sender video URL.
+   Invalid IDs and deceptive origins remain rejected. Chromium's corrected
+   same-document navigation scenario passes; an initial fixture attempt ran
+   before Home navigation settled and was discarded as invalid evidence. An A/B
+   run using the original committed extension and the corrected fixture still
+   failed, with the browser confirmed on the watch URL and no reporter port.
+3. **Return at natural end could fail playback confirmation.** Reproduced with
+   the actual Chromium/YouTube/Qt player and separately in a unit regression.
+   A video ending naturally near the requested timestamp now counts as a
+   successful return, without repeatedly restarting playback. If the source
+   disappears during an already requested Return, Watch closes without issuing
+   commands to the replacement page. Live-network Chromium retest passes.
+4. **Immediate re-entry during native shutdown could be rejected.** An early
+   stress run reached idle just before the old native process exited. Watch here
+   now stays disabled with a brief Closing state until that process is gone.
+   The integration fixture waits for this same UI readiness condition, verifies
+   zero remaining owned renderer sockets/processes, and then starts the next run.
+
+## Results so far
+
+| Scenario | Chromium | Zen |
+| --- | --- | --- |
+| Background source handoff, seek, pause/play, timestamp return | Pass | Pass |
+| Captions off by default, on/off toggle | Pass | Covered by common player; no separate Zen live toggle claim |
+| Ended source closed; a new document stays untouched | Pass | Pass |
+| Five consecutive transfers with settled timestamp returns | Pass | Stress run blocked by missing browser MPRIS after original tab closure |
+| Originally paused source returns paused | Pass | Same prerequisite under investigation |
+| Ended video returns with original tab still open | Pass | Same prerequisite under investigation |
+| Double Watch / double Return | Pass | Same prerequisite under investigation |
+| Cancel during launch | Pass | Same prerequisite under investigation |
+| Thirty focus/resize cycles retaining the same native process | Pass | Same prerequisite under investigation |
+| Close playing source; play and transfer a different second video | Pass | Same prerequisite under investigation |
+| Navigate source to a second video; close old Watch safely | Pass | Same prerequisite under investigation |
+| Return to original document while a second video plays | Pass | Same prerequisite under investigation |
+| Reload source document, then close old Watch | Pass | Same prerequisite under investigation |
+| Source closes during startup, then recover | Pass | Same prerequisite under investigation |
+| Home-to-watch same-document navigation | Pass | Pending completed stress result |
+| Owned renderer killed; browser restored | Pass | Not separately exercised in Zen |
+| Test browser exits; Watch cleaned up | Pass | Not separately exercised in Zen |
+| Source browser offline, return to buffered timestamp | Pass | Not separately exercised in Zen |
+| Source reloads offline, close Watch, reconnect and transfer again | Pass | Not separately exercised in Zen |
+
+Chromium's final stress run passed **12/12 scenarios**, and a subsequent focused
+run passed **2/2 browser-offline scenarios**, in addition to baseline, captions and
+process-loss checks. Five measured handoffs took 1.402–1.404 seconds each in the
+warm, offscreen fixture; this is not a cold-start timing guarantee for the Edge.
+The complete repository suite passed **255 tests,
+0 failures, 0 skipped**, including actual offscreen DeckSurface interaction tests,
+private native builds and touch/lifecycle checks.
+
+The live Edge passed **36 panel transitions** (three cycles through Volume,
+System, Notifications, Workspaces, Preferences and Applications). Volume/System
+resized the same native video layer; overlays and Applications preserved it.
+The original player process, paused position and final geometry were unchanged.
+The shell ping and doctor also passed afterward.
+
+### Unresolved Zen observation
+
+After the baseline closes its original source tab, some headless Zen runs still
+send valid extension candidates and play video, but no longer expose a Firefox
+MPRIS player. OmaDeck correctly rejects a direct test-controller Begin without
+the Now Playing player prerequisite. Do not count downstream timeouts as twelve
+distinct product bugs or as passes. Determine whether this is a disposable
+profile/headless browser limitation or an owner-visible browser lifecycle defect.
+An independent query of the fixture's D-Bus confirmed no MPRIS service, rather
+than only a missing row in OmaDeck. A ten-minute second video also failed this
+prerequisite, so the observation is not limited to the 19-second sample clip.
+The harness now stops dependent scenarios after two prerequisite failures.
+The owner's current paused session and normal shell remain healthy.
+
+## Local evidence
+
+Logs are under `$HOME/.cache/omadeck/overnight-2026-09-23/`:
+
+- `zen-baseline.log`, `chromium-baseline.log`: initial real-network baselines.
+- `return-navigation-regression.log`, `ended-return-regression.log`: reproduced
+  content-script failures before fixes.
+- `chromium-stress.log`, `chromium-stress-fixed.log`: exploratory runs; retain
+  their fixture and shutdown-readiness qualifications above.
+- `chromium-final.log`: 12/12 stress pass plus baseline and cleanup checks.
+- `chromium-offline.log`: 2/2 browser-offline/recovery passes.
+- `chromium-spa-original-proof.log`: old-extension A/B failure on the corrected fixture.
+- `zen-final.log`: stress investigation; inspect final results before summarizing.
+- `zen-long-video.log`: same missing-MPRIS observation with a longer clip.
+- `fixed-check.log`: complete 255-test pass.
+- `live-panels.json`: 36 live panel/geometry checks and before/after state.
+- `doctor.log`: post-test host health.
+
+Each integration log prints its private lab directory and `stress-results.json`.
+Test profiles are isolated; media/page logs contain only the public test videos.
+Do not publish raw owner desktop diagnostics.
+
+## Repeatable overnight verification
+
+The task follow-up is scheduled for 2 AM Pacific, then an 8 AM morning report.
+Use a private D-Bus configuration **without service activation** so the fixtures
+cannot spawn disposable desktop portals. The existing local dependency bundle is
+at `/tmp/omadeck-watch-e2e/`; verify it exists before running:
+
+```bash
+export NODE_PATH=/tmp/omadeck-watch-e2e/node_modules
+export OMADECK_TEST_STRESS=1
+export OMADECK_TEST_FIREFOX=/opt/zen-browser-bin/zen-bin
+export OMADECK_TEST_GECKODRIVER=/tmp/omadeck-watch-e2e/geckodriver
+export OMADECK_TEST_CHROMIUM="$HOME/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome"
+dbus-run-session --config-file=/tmp/omadeck-watch-e2e/no-activation-bus.conf -- \
+  node tests/manual/watch-firefox-e2e.cjs
+dbus-run-session --config-file=/tmp/omadeck-watch-e2e/no-activation-bus.conf -- \
+  node tests/manual/watch-chromium-e2e.cjs
+```
+
+Run Zen fixtures sequentially: they temporarily register a distinct `.test`
+native host and restore it in `finally`. Never point test extensions at the live
+OmaDeck bridge. `OMADECK_TEST_SCENARIO` selects a scenario by name substring;
+Chromium also supports `OMADECK_TEST_EXTENSION_REF` for a Git-snapshot comparison.
+Do not substitute simulated MPRIS for real discovery to turn a failure into a pass.
+
+## Release and activation gates
+
+- Keep v0.10.0 draft; no marketplace submission or release publication tonight.
+- The existing draft package still targets the original release-preparation
+  commit `eaafb8d71e25a6fe3e2bae7f0f0b54c771efafbe`. Repackage/re-pin after fixes
+  and verification before any release; the draft is not the tested new tree.
+- Source fixes have not been loaded into the owner's running shell or temporary
+  browser extension. Applying them requires extension reload/page refresh and a
+  shell reload after safely returning/closing the paused Watch session.
+- Owner-profile navigation and physical touch, authentication/age restrictions,
+  ads, native-player network loss/recovery, lock/suspend and real monitor-input switching are
+  not certified by these runs.
+- The morning report must disclose the remaining Zen investigation and any new
+  failures, rather than presenting the passing Chromium suite as universal proof.

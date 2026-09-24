@@ -36,8 +36,8 @@ ShellRoot {
   Stores.BrowserWatchBridge { id: bridge }
   Stores.WatchController { id: watch; pluginDir: "${lab}"; media: sourceMedia; browserBridge: bridge }
   function snapshot() { return { state:watch.state, notice:watch.notice, available:watch.hostAvailable,
-    position:watch.videoPosition, duration:watch.videoDuration, playing:watch.videoPlaying,
-    sourcePaused:watch.sourcePausedByUs, sourceClosed:watch.sourceClosed, candidate:bridge.candidateForPlayer(sourceKey),
+    position:watch.videoPosition, duration:watch.videoDuration, playing:watch.videoPlaying, shuttingDown:watch.shuttingDown,
+    sourcePaused:watch.sourcePausedByUs, sourceClosed:watch.sourceClosed, focused:watch.focused, candidate:bridge.candidateForPlayer(sourceKey),
     mprisPlayers:nativeMedia.players.map(p=>p.dbusName), connections:bridge.connections.length, pending:Object.keys(bridge.pendingRequests).length } }
   SocketServer {
     path: "${runtime}/control.sock"; active:true
@@ -49,6 +49,8 @@ ShellRoot {
         else if(m.op === "seek") watch.seekTo(m.seconds)
         else if(m.op === "return") watch.returnToSource()
         else if(m.op === "abort") watch.abort()
+        else if(m.op === "geometry") ok=watch.setVideoGeometry(m.rect)
+        else if(m.op === "focus") ok=watch.setFocus(m.focused,m.rect)
         else if(m.op === "family") root.family=m.family
         client.write(JSON.stringify({id:m.id,ok:ok,data:root.snapshot()})+"\\n");client.flush()
       } }
@@ -77,6 +79,7 @@ async function videoState(page){return page.evaluate(()=>{const v=document.query
   }
   const options=new firefox.Options().setBinary(firefoxPath).addArguments('-headless','--no-remote');
   options.setPreference('zen.welcome-screen.seen',true); options.setPreference('media.autoplay.default',0); options.setPreference('media.volume_scale','0.0');
+  options.setPreference('browser.tabs.warnOnClose',false); options.setPreference('browser.warnOnQuit',false);
   const driver=await new Builder().forBrowser('firefox').setFirefoxOptions(options).setFirefoxService(new firefox.ServiceBuilder(geckodriverPath).setEnvironment(env).addArguments('--allow-system-access')).build();
   context={close:()=>driver.quit()};
   console.log('EXTENSION '+await driver.installAddon(extension,true)); await driver.setContext('chrome'); console.log('PERMISSIONS '+JSON.stringify(await driver.executeScript("const p=WebExtensionPolicy.getByID('pretty.omadeck.watch.test@theairick'); return {active:p.active, origins:p.allowedOrigins.patterns, url:p.getURL('')};"))); await driver.setContext('content');
@@ -84,7 +87,7 @@ async function videoState(page){return page.evaluate(()=>{const v=document.query
   const page={goto:url=>driver.get(url),evaluate:fn=>driver.executeScript('return ('+fn.toString()+')()')};
   await page.goto('https://www.youtube.com/watch?v=jNQXAC9IVRw',{waitUntil:'domcontentloaded',timeout:45000});
   await waitFor(async()=>{const v=await videoState(page);return v?.ready>=2?v:null},'YouTube source ready',45000);
-  await page.evaluate(async()=>{const v=document.querySelector('video');v.muted=true;v.currentTime=2;await v.play()});
+  await page.evaluate(async()=>{const v=document.querySelector('video');v.muted=false;v.currentTime=2;await v.play()});
   console.log('SOURCE '+JSON.stringify(await videoState(page)));
   await waitFor(async()=>{const s=await status();return s.candidate?.sourceWasPlaying?s:null},'extension candidate').catch(async e=>{console.log('DEBUG '+JSON.stringify({deck:await status()}));await driver.setContext('chrome');console.log('GECKO_DEBUG '+JSON.stringify(await driver.executeScript("const e=ChromeUtils.importESModule('resource://gre/modules/ExtensionParent.sys.mjs').ExtensionParent.GlobalManager.getExtension('pretty.omadeck.watch.test@theairick');return {views:[...e.views].map(v=>v.viewType),messages:Services.console.getMessageArray().filter(m=>String(m.sourceName||'').includes('moz-extension')).map(m=>({error:m.errorMessage,source:m.sourceName}))};")));await driver.setContext('content');throw e});
   await waitFor(async()=>(await status()).mprisPlayers.some(k=>/firefox|zen/i.test(k)),'real Zen MPRIS');
@@ -123,7 +126,7 @@ async function videoState(page){return page.evaluate(()=>{const v=document.query
   await waitFor(async()=>(await status()).sourceClosed,'original tab closure');
   await page.goto('https://www.youtube.com/watch?v=jNQXAC9IVRw');
   await waitFor(async()=>{const v=await videoState(page);return v?.ready>=2},'new video ready',45000);
-  await page.evaluate(async()=>{const v=document.querySelector('video');v.muted=true;v.currentTime=2;await v.play()});
+  await page.evaluate(async()=>{const v=document.querySelector('video');v.muted=false;v.currentTime=2;await v.play()});
   const beforeClose=await videoState(page);
   await command('return');
   await waitFor(async()=>(await status()).state==='idle','close orphaned Watch');
@@ -131,5 +134,23 @@ async function videoState(page){return page.evaluate(()=>{const v=document.query
   if(afterClose.paused||afterClose.time<beforeClose.time-0.1||afterClose.time>beforeClose.time+3)
     throw Error('Closing old Watch altered the new browser video');
   console.log('PASS ended video, original tab closed, new browser video untouched '+JSON.stringify({beforeClose,afterClose}));
+
+  if(process.env.OMADECK_TEST_STRESS==='1') {
+    // Adapt the shared integration scenarios to Selenium-owned windows only.
+    const ownedPages=[];
+    function wrap(handle) {
+      const tab={
+        async goto(url) {await driver.switchTo().window(handle);await driver.get(url)},
+        async evaluate(fn,arg) {await driver.switchTo().window(handle);return driver.executeScript('return ('+fn.toString()+')(arguments[0])',arg===undefined?null:arg)},
+        async bringToFront() {await driver.switchTo().window(handle)},
+        async close() {await driver.switchTo().window(handle);await driver.close();ownedPages.splice(ownedPages.indexOf(tab),1);if(ownedPages.length)await ownedPages[0].bringToFront()},
+      };
+      ownedPages.push(tab);return tab;
+    }
+    const stressPage=wrap(await driver.getWindowHandle());
+    context.pages=()=>ownedPages.slice();
+    context.newPage=async()=>{await driver.switchTo().newWindow('tab');return wrap(await driver.getWindowHandle())};
+    await require('./watch-stress-scenarios.cjs')({page:stressPage,context,command,status,waitFor,videoState,delay,runtime,lab});
+  }
 
 })().catch(e=>{console.error(e.stack);process.exitCode=1}).finally(async()=>{if(context)await context.close();for(const {file,original} of manifests){if(original===null)fs.unlinkSync(file);else fs.writeFileSync(file,original)}if(control)control.destroy();qs.kill('SIGTERM');fs.closeSync(log);console.log('LOG '+path.join(lab,'quickshell.log'))});

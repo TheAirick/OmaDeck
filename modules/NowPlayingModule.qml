@@ -271,7 +271,8 @@ Item {
         anchors.margins: Style.spacing.controlGap
         width: Style.space(104)
         height: Style.space(44)
-        text: root.deck && root.deck.watchController.active ? "Opening…" : "Watch here"
+        text: root.deck && root.deck.watchController.active ? "Opening…"
+          : root.deck && root.deck.watchController.shuttingDown ? "Closing…" : "Watch here"
         fontSize: Style.font.caption
         tooltipText: root.watchCandidate && root.watchCandidate.sourceKind === "extension"
           ? "Watch this video on the Edge" : "Load or reload the OmaDeck Watch browser add-on"
@@ -280,7 +281,7 @@ Item {
         bordered: false
         borderSpec: Border.none()
         visible: !!root.watchCandidate && !!root.deck
-        enabled: visible && !root.deck.watchController.active
+        enabled: visible && !root.deck.watchController.active && !root.deck.watchController.shuttingDown
         z: 4
         onClicked: root.deck.startWatch(root.watchCandidate)
       }

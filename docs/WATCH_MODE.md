@@ -70,7 +70,8 @@ must remain in the browser. A load failure leaves browser playback untouched.
 The native player's profile is temporary and does not reuse browser sign-in
 cookies. Handoff starts a new player and can take a few seconds.
 
-The extension runs only on YouTube watch pages and needs `nativeMessaging`.
+The extension loads on YouTube pages to follow Home/search-to-video navigation
+without a refresh, and reports only watch pages. It needs `nativeMessaging`.
 It sends video IDs, playback positions and per-document identifiers through a
 local owner-only socket; it does not transmit browser history or cookies to
 OmaDeck. The embedded player makes normal requests to YouTube. There is no

@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const net = require('node:net');
-const {spawn} = require('node:child_process');
+const {spawn,execFileSync} = require('node:child_process');
 const {chromium} = require('playwright-core');
 // Optional live network check. Requires playwright-core on NODE_PATH and a
 // Chromium build supporting unpacked extensions. Uses only disposable profiles.
@@ -13,8 +13,12 @@ const lab = fs.mkdtempSync('/tmp/omadeck-watch-live-');
 const runtime = path.join(lab,'runtime'); fs.mkdirSync(runtime,{mode:0o700});
 const config = path.join(lab,'config'); fs.mkdirSync(config);
 const extension = path.join(lab,'extension'); fs.mkdirSync(extension);
-for(const f of ['background.js','content.js']) fs.copyFileSync(path.join(repo,'browser/watch-extension',f),path.join(extension,f));
-fs.copyFileSync(path.join(repo,'browser/watch-extension/manifest.chromium.json'),path.join(extension,'manifest.json'));
+for(const f of ['background.js','content.js','manifest.chromium.json']) {
+  const bytes=process.env.OMADECK_TEST_EXTENSION_REF
+    ? execFileSync('git',['show',process.env.OMADECK_TEST_EXTENSION_REF+':browser/watch-extension/'+f],{cwd:repo})
+    : fs.readFileSync(path.join(repo,'browser/watch-extension',f));
+  fs.writeFileSync(path.join(extension,f.startsWith('manifest.')?'manifest.json':f),bytes);
+}
 fs.symlinkSync(path.join(repo,'services'),path.join(lab,'services'));
 fs.mkdirSync(path.join(lab,'native/bin'),{recursive:true});
 fs.writeFileSync(path.join(lab,'native/bin/omadeck-watch-host'),`#!/bin/sh\nexec ${shellQuote(path.join(repo,'native/bin/omadeck-watch-host'))} --offscreen-host "$@"\n`,{mode:0o755});
@@ -31,8 +35,8 @@ ShellRoot {
   Stores.BrowserWatchBridge { id: bridge }
   Stores.WatchController { id: watch; pluginDir: ${JSON.stringify(lab)}; media: nativeMedia; browserBridge: bridge }
   function snapshot() { return { state:watch.state, notice:watch.notice, available:watch.hostAvailable,
-    position:watch.videoPosition, duration:watch.videoDuration, playing:watch.videoPlaying,
-    captionsAvailable:watch.captionsAvailable,captionsEnabled:watch.captionsEnabled,sourcePaused:watch.sourcePausedByUs, candidate:bridge.candidateForPlayer(sourceKey),
+    position:watch.videoPosition, duration:watch.videoDuration, playing:watch.videoPlaying, shuttingDown:watch.shuttingDown,
+    captionsAvailable:watch.captionsAvailable,captionsEnabled:watch.captionsEnabled,sourcePaused:watch.sourcePausedByUs, sourceClosed:watch.sourceClosed, focused:watch.focused, candidate:bridge.candidateForPlayer(sourceKey),
     mprisPlayers:nativeMedia.players.map(p=>p.dbusName), connections:bridge.connections.length, pending:Object.keys(bridge.pendingRequests).length } }
   SocketServer {
     path: "${runtime}/control.sock"; active:true
@@ -45,6 +49,8 @@ ShellRoot {
         else if(m.op === "seek") watch.seekTo(m.seconds)
         else if(m.op === "return") watch.returnToSource()
         else if(m.op === "abort") watch.abort()
+        else if(m.op === "geometry") ok=watch.setVideoGeometry(m.rect)
+        else if(m.op === "focus") ok=watch.setFocus(m.focused,m.rect)
         else if(m.op === "family") root.family=m.family
         client.write(JSON.stringify({id:m.id,ok:ok,data:root.snapshot()})+"\\n");client.flush()
       } }
@@ -73,7 +79,7 @@ async function videoState(page){return page.evaluate(()=>{const v=document.query
   const page=context.pages()[0]||await context.newPage();
   await page.goto('https://www.youtube.com/watch?v=jNQXAC9IVRw',{waitUntil:'domcontentloaded',timeout:45000});
   await waitFor(async()=>{const v=await videoState(page);return v?.ready>=2?v:null},'YouTube source ready',45000);
-  await page.evaluate(async()=>{const v=document.querySelector('video');v.muted=true;v.currentTime=2;await v.play()});
+  await page.evaluate(async()=>{const v=document.querySelector('video');v.muted=false;v.currentTime=2;await v.play()});
   console.log('SOURCE '+JSON.stringify(await videoState(page)));
   await waitFor(async()=>{const s=await status();return s.candidate?.sourceWasPlaying?s:null},'extension candidate').catch(async e=>{console.log('DEBUG '+JSON.stringify({deck:await status(),extension:await worker.evaluate(()=>({lastCandidate,nativeConnected:!!nativePort}))}));throw e});
   const offered=await status();
@@ -100,6 +106,9 @@ async function videoState(page){return page.evaluate(()=>{const v=document.query
   if(returned.paused||Math.abs(returned.time-returnedAt)>3)throw Error('Return playback or position mismatch');
   console.log('PASS chromium background YouTube handoff, seek, pause/play, return to background tab');
   await otherPage.close();await page.bringToFront();
+  if (process.env.OMADECK_TEST_STRESS === '1') {
+    await require('./watch-stress-scenarios.cjs')({page,context,worker,command,status,waitFor,videoState,delay,runtime,lab});
+  }
   async function beginAgain(){await page.evaluate(async()=>{const v=document.querySelector('video');v.currentTime=2;await v.play()});await waitFor(async()=>{const c=(await status()).candidate;return c&&c.sourceWasPlaying&&c.seconds<5},'fresh next session');await command('begin');await waitFor(async()=>(await status()).state==='playing','next session playing');}
   await beginAgain();
   const hostSocket=fs.readdirSync(runtime).find(n=>{if(!/^omadeck-watch-[0-9]+-[0-9a-f]+\.sock$/.test(n))return false;try{process.kill(Number(n.split('-')[2]),0);return true}catch{return false}});

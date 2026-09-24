@@ -1,4 +1,5 @@
-// Runs only on YouTube watch pages. Page scripts cannot send these extension
+// Loads on YouTube so Home/search -> watch navigation needs no page refresh.
+// Reports only valid watch pages. Page scripts cannot send these extension
 // messages or receive the native host's tab-targeted commands.
 const watchApi = globalThis.browser || globalThis.chrome
 const videoPattern = /^[A-Za-z0-9_-]{11}$/
@@ -100,7 +101,9 @@ async function applyCommand(message) {
               checkSource()
               const elapsed = message.wasPlaying ? (Date.now() - startedAt) / 1000 : 0
               const rate = Number(video.playbackRate) || 1
-              if (video.seeking || video.paused === message.wasPlaying
+              const finished = video.ended && Number.isFinite(video.duration)
+                && seconds >= video.duration - 1 && video.currentTime >= video.duration - 0.25
+              if (video.seeking || (!finished && video.paused === message.wasPlaying)
                   || video.currentTime < seconds - 1
                   || video.currentTime > seconds + elapsed * rate + 2) {
                 stable = false
@@ -116,7 +119,9 @@ async function applyCommand(message) {
         })
       ])
     } catch {
-      video.pause()
+      // YouTube reuses its video element across same-document navigation.
+      // A failed Return owns only the original video, never its replacement.
+      if (currentVideoId() === message.videoId && currentVideo() === video) video.pause()
       return { ok: false, seconds: video.currentTime }
     } finally {
       cancelled = true

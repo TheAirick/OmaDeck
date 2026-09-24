@@ -33,6 +33,7 @@ Item {
   property int pendingPauseRequest: -1
   property int pendingReturnRequest: -1
   property bool hostAvailable: false
+  readonly property bool shuttingDown: closing && hostProcess.running
   property string lastHostSocketPath: ""
   readonly property bool active: state === "launching" || state === "loading" || state === "pausing"
     || state === "playing" || state === "returning"
@@ -444,11 +445,13 @@ Item {
       if (!root.active || !root.source || root.source.sourceKind !== "extension"
           || root.source.connectionId !== connectionId || root.source.tabId !== tabId) return
       root.sourceClosed = true
-      if (root.state === "launching" || root.state === "loading" || root.state === "pausing") {
+      if (root.state === "launching" || root.state === "loading" || root.state === "pausing"
+          || root.state === "returning") {
+        // Return already asks to leave Watch. If navigation/autoplay replaces
+        // the source during that handshake, close without touching its successor.
         root.stopHost()
         return
       }
-      if (root.state === "returning") root.returnFailed(false)
       root.notice = "Original tab closed. Close the video when finished."
     }
     function onPauseResult(requestId, ok, seconds) {
