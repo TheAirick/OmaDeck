@@ -1,7 +1,7 @@
 # Watch mode pre-release stress test — September 23–24, 2026
 
-**Release held in draft. Overnight automated coverage is complete; activation and
-owner-profile/physical acceptance remain outstanding. This is not release approval.**
+**Release held in draft. Overnight automated coverage is complete; browser-extension
+activation and owner-profile/physical acceptance remain outstanding. This is not release approval.**
 
 The product fixes and original expanded test report are committed and pushed as
 `455f746acd18c665eded96247486175602d306a1`. Later commits may refine the test harness
@@ -56,8 +56,11 @@ also passed.
    The switcher now measures the label, navigation and two 64-unit touch targets
    before falling back. Regression coverage spans six widths (304–480), including
    four that failed before the fix; 11 focused monitor/responsive tests pass.
-   A non-disruptive rescan retained the old live QML. Activation requires the
-   documented shell reload; the paused owner video was preserved pending approval.
+   A non-disruptive rescan retained the old live QML. The owner then approved the
+   documented shell reload, which completed successfully with the fix at
+   `628a0641fe3a289d84023ef7f21f108eeb34cc8b`. Shell ping and doctor passed,
+   Watch returned to idle, and the browser bridge reconnected. Physical Watch-mode
+   alignment acceptance after the reload remains for the owner to confirm.
 
 ## Results so far
 
@@ -239,9 +242,10 @@ Do not substitute simulated MPRIS for real discovery to turn a failure into a pa
 - The existing draft package still targets the original release-preparation
   commit `eaafb8d71e25a6fe3e2bae7f0f0b54c771efafbe`. Repackage/re-pin after fixes
   and verification before any release; the draft is not the tested new tree.
-- Source fixes have not been loaded into the owner's running shell or temporary
-  browser extension. Applying them requires extension reload/page refresh and a
-  shell reload after safely returning/closing the paused Watch session.
+- The owner approved a shell reload after reporting the monitor-switcher layout
+  issue. Current shell-side fixes are now loaded and health checks passed. The
+  temporary browser extension still needs its separate reload/page refresh;
+  shell restart alone does not activate extension changes.
 - Owner-profile navigation and physical touch, authentication/age restrictions,
   ads, native-player network loss/recovery, lock/suspend and real monitor-input switching are
   not certified by these runs.
