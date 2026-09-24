@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "OmaDeck Watch",
   "version": "0.10.0",
-  "description": "Watch a YouTube video in OmaDeck with touch controls and return to its original browser tab.",
+  "description": "Share YouTube video IDs and playback state with the local OmaDeck app to watch there and return at the same timestamp.",
   "permissions": [
     "nativeMessaging"
   ],
@@ -25,7 +25,12 @@
   ],
   "browser_specific_settings": {
     "gecko": {
-      "id": "pretty.omadeck.watch@theairick"
+      "id": "pretty.omadeck.watch@theairick",
+      "strict_min_version": "140.0",
+      "update_url": "https://raw.githubusercontent.com/TheAirick/OmaDeck/main/browser/watch-extension/firefox-updates.json",
+      "data_collection_permissions": {
+        "required": ["browsingActivity", "websiteActivity"]
+      }
     }
   }
 }

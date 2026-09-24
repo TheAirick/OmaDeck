@@ -1,0 +1,93 @@
+#!/usr/bin/python3
+"""Prepare an unsigned, unlisted Mozilla submission from a committed snapshot.
+
+No account access, signing, upload, release publication or browser changes.
+"""
+import argparse
+import hashlib
+import io
+import json
+from pathlib import Path
+import re
+import subprocess
+import zipfile
+
+ROOT = Path(__file__).resolve().parent.parent
+EXTENSION = 'browser/watch-extension/'
+ADDON_ID = 'pretty.omadeck.watch@theairick'
+UPDATE_URL = ('https://raw.githubusercontent.com/TheAirick/OmaDeck/main/'
+              + EXTENSION + 'firefox-updates.json')
+
+
+def git(*args):
+    return subprocess.check_output(['git', '-C', str(ROOT), *args])
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--ref', default='HEAD', help='committed source revision')
+    parser.add_argument('--output', required=True, type=Path,
+                        help='new or empty submission directory')
+    args = parser.parse_args()
+    commit = git('rev-parse', '--verify', args.ref + '^{commit}').decode().strip()
+
+    def source(path):
+        return git('show', commit + ':' + path)
+
+    manifest = json.loads(source(EXTENSION + 'manifest.firefox.json'))
+    version = manifest['version']
+    if not re.fullmatch(r'\d+\.\d+\.\d+', version):
+        raise SystemExit('Expected a numeric Firefox release version')
+    if version != json.loads(source('manifest.json'))['version']:
+        raise SystemExit('Plugin and Firefox versions must match for this submission')
+    gecko = manifest['browser_specific_settings']['gecko']
+    if gecko['id'] != ADDON_ID or gecko.get('update_url') != UPDATE_URL:
+        raise SystemExit('Unexpected extension identity or update URL')
+    if (gecko.get('strict_min_version') != '140.0'
+            or set(gecko.get('data_collection_permissions', {}).get('required', []))
+            != {'browsingActivity', 'websiteActivity'}):
+        raise SystemExit('Review the Firefox compatibility and consent declarations')
+
+    # Prepare all bytes before creating output. Only committed, explicit files
+    # enter the archive; credentials, profiles and working-tree edits cannot.
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
+        for name in ('background.js', 'content.js', 'README.md', 'PRIVACY.md',
+                     'manifest.json', 'LICENSE'):
+            path = ('LICENSE' if name == 'LICENSE' else EXTENSION
+                    + ('manifest.firefox.json' if name == 'manifest.json' else name))
+            entry = zipfile.ZipInfo(name, (1980, 1, 1, 0, 0, 0))
+            entry.compress_type = zipfile.ZIP_DEFLATED
+            entry.external_attr = 0o100644 << 16
+            archive.writestr(entry, source(path))
+    upload = f'omadeck-watch-firefox-v{version}-unsigned.zip'
+    files = {upload: buffer.getvalue()}
+    # Full companion source is useful if a reviewer needs to inspect native IPC.
+    files['companion-source.zip'] = git('archive', '--format=zip', commit)
+    for name, path in {
+        'START-HERE.md': 'docs/FIREFOX_SIGNING.md',
+        'REVIEWER-NOTES.md': 'docs/FIREFOX_REVIEWER_NOTES.md',
+        'PRIVACY.md': EXTENSION + 'PRIVACY.md',
+    }.items():
+        files[name] = source(path)
+    files['submission.json'] = (json.dumps({
+        'channel': 'unlisted', 'signed': False, 'addonId': ADDON_ID,
+        'version': version, 'commit': commit, 'upload': upload,
+        'sourceUrl': 'https://github.com/TheAirick/OmaDeck/tree/' + commit,
+        'updateUrl': UPDATE_URL,
+    }, indent=2) + '\n').encode()
+    files['SHA256SUMS'] = ''.join(
+        hashlib.sha256(data).hexdigest() + '  ' + name + '\n'
+        for name, data in files.items()).encode()
+    if args.output.exists() and any(args.output.iterdir()):
+        raise SystemExit('Output directory must be empty; preserve previous submission kits')
+    args.output.mkdir(parents=True, exist_ok=True)
+    for name, data in files.items():
+        (args.output / name).write_bytes(data)
+    print(args.output.resolve())
+    print('Unsigned upload: ' + upload)
+    print('Source commit: ' + commit)
+
+
+if __name__ == '__main__':
+    main()

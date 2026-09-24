@@ -26,6 +26,12 @@ The unpacked add-ons are written under
 
 ### Firefox and Zen
 
+Permanent distribution is being prepared through Mozilla's **unlisted signing**
+process. Until its signed XPI is available, the ZIP remains a temporary developer
+install. Maintainers: see [signing and release steps](FIREFOX_SIGNING.md).
+Firefox 140+ or a compatible Zen build is required for the built-in data consent
+prompt.
+
 Open `about:debugging#/runtime/this-firefox`, choose **Load Temporary Add-on**,
 and select `firefox/manifest.json` in that folder. The helper registers both
 Firefox and Zen native-host locations. Refresh an existing YouTube page afterward.
@@ -33,6 +39,10 @@ Firefox and Zen native-host locations. Refresh an existing YouTube page afterwar
 This is currently a development add-on: it must be loaded again after restarting
 the browser. The packaged ZIP is unsigned; a permanent Firefox/Zen installation
 requires Mozilla signing, which is not included in the OmaDeck plugin package.
+When the signed XPI is released, use `about:addons` → gear menu → **Install
+Add-on From File** and select it. Accept the permissions/consent prompt, then
+refresh YouTube. The native-host registration remains necessary. Signed installs
+will use the configured update feed; it currently advertises no versions.
 
 ### Chromium
 
@@ -72,10 +82,13 @@ cookies. Handoff starts a new player and can take a few seconds.
 
 The extension loads on YouTube pages to follow Home/search-to-video navigation
 without a refresh, and reports only watch pages. It needs `nativeMessaging`.
-It sends video IDs, playback positions and per-document identifiers through a
-local owner-only socket; it does not transmit browser history or cookies to
-OmaDeck. The embedded player makes normal requests to YouTube. There is no
-remote-control listener or persistent media daemon.
+While enabled, it reports video IDs, playback positions/state and temporary
+document identifiers to the local app, including before Watch here is pressed.
+The reported video ID identifies a page you visited; Firefox asks consent for
+browsing and website activity. It does not read the browser history database or
+send cookies. The embedded player makes normal requests to YouTube, and Firefox
+checks GitHub for extension updates. See the full
+[privacy notice](../browser/watch-extension/PRIVACY.md).
 
 See [verification evidence](WATCH_MODE_TEST_REPORT.md) for tested paths and
 remaining physical-device/release acceptance limits.
