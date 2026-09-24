@@ -2,6 +2,12 @@
 
 **Release held in draft. Testing is in progress; this is not release approval.**
 
+The product fixes and original expanded test report are committed and pushed as
+`455f746acd18c665eded96247486175602d306a1`. Later commits may refine the test harness
+or update this report. No owner-session reload accompanied that commit.
+Its [hosted CI run](https://github.com/TheAirick/OmaDeck/actions/runs/35951870093)
+also passed.
+
 ## Evidence boundary
 
 - Real network integration runs use disposable Zen/Chromium profiles, real
@@ -94,6 +100,9 @@ An independent query of the fixture's D-Bus confirmed no MPRIS service, rather
 than only a missing row in OmaDeck. A ten-minute second video also failed this
 prerequisite, so the observation is not limited to the 19-second sample clip.
 The harness now stops dependent scenarios after two prerequisite failures.
+A subsequent sequential run using a unique test host/extension ID reproduced
+the missing-MPRIS prerequisite, so the earlier shared-registration collision
+does not explain it.
 The owner's current paused session and normal shell remain healthy.
 
 ## Local evidence
@@ -110,6 +119,8 @@ Logs are under `$HOME/.cache/omadeck/overnight-2026-09-23/`:
 - `chromium-spa-original-proof.log`: old-extension A/B failure on the corrected fixture.
 - `zen-final.log`: stress investigation; inspect final results before summarizing.
 - `zen-long-video.log`: same missing-MPRIS observation with a longer clip.
+- `zen-unique-host.log`: sequential run with an isolated native-host identity;
+  baseline passes, subsequent MPRIS prerequisite still fails.
 - `fixed-check.log`: complete 255-test pass.
 - `live-panels.json`: 36 live panel/geometry checks and before/after state.
 - `doctor.log`: post-test host health.
@@ -137,8 +148,12 @@ dbus-run-session --config-file=/tmp/omadeck-watch-e2e/no-activation-bus.conf -- 
   node tests/manual/watch-chromium-e2e.cjs
 ```
 
-Run Zen fixtures sequentially: they temporarily register a distinct `.test`
-native host and restore it in `finally`. Never point test extensions at the live
+Run Zen fixtures sequentially to keep resource/timing measurements comparable.
+Each now registers a distinct `.test_<pid>` native host and restores/removes it
+in `finally`. Early overlapping fixture runs could restore each other's shared
+`.test` registration; those two stale test-only manifests were identified,
+backed up with the local evidence and removed. The normal owner registrations
+were untouched. Never point test extensions at the live
 OmaDeck bridge. `OMADECK_TEST_SCENARIO` selects a scenario by name substring;
 Chromium also supports `OMADECK_TEST_EXTENSION_REF` for a Git-snapshot comparison.
 Do not substitute simulated MPRIS for real discovery to turn a failure into a pass.

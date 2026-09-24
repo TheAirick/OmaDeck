@@ -10,13 +10,15 @@ const firefoxPath=process.env.OMADECK_TEST_FIREFOX;
 const geckodriverPath=process.env.OMADECK_TEST_GECKODRIVER;
 if(!firefoxPath||!geckodriverPath)throw Error('Set OMADECK_TEST_FIREFOX and OMADECK_TEST_GECKODRIVER');
 const lab = fs.mkdtempSync('/tmp/omadeck-watch-live-');
+const testNativeName='pretty.omadeck.watch.test_'+process.pid;
+const testAddonId=testNativeName+'@theairick';
 const shellQuote=value=>"'"+value.replaceAll("'","'\"'\"'")+"'";
 const runtime = path.join(lab,'runtime'); fs.mkdirSync(runtime,{mode:0o700});
 const config = path.join(lab,'config'); fs.mkdirSync(config);
 const extension = path.join(lab,'extension'); fs.mkdirSync(extension);
 for(const f of ['background.js','content.js']) fs.copyFileSync(path.join(repo,'browser/watch-extension',f),path.join(extension,f));
 fs.copyFileSync(path.join(repo,'browser/watch-extension/manifest.firefox.json'),path.join(extension,'manifest.json'));
-for(const file of ['manifest.json','background.js']){const target=path.join(extension,file);fs.writeFileSync(target,fs.readFileSync(target,'utf8').replaceAll('pretty.omadeck.watch','pretty.omadeck.watch.test'));}
+for(const file of ['manifest.json','background.js']){const target=path.join(extension,file);fs.writeFileSync(target,fs.readFileSync(target,'utf8').replaceAll('pretty.omadeck.watch',testNativeName));}
 
 fs.symlinkSync(path.join(repo,'services'),path.join(lab,'services'));
 fs.mkdirSync(path.join(lab,'native/bin'),{recursive:true});
@@ -74,22 +76,22 @@ async function videoState(page){return page.evaluate(()=>{const v=document.query
   control.on('data',d=>{buffer+=d;while(buffer.includes('\n')){const p=buffer.indexOf('\n');const m=JSON.parse(buffer.slice(0,p));buffer=buffer.slice(p+1);replies.get(m.id)?.(m);replies.delete(m.id)}});
   for(const base of ['.mozilla','.zen']) {
     const dir=path.join(os.homedir(),base,'native-messaging-hosts');fs.mkdirSync(dir,{recursive:true});
-    const file=path.join(dir,'pretty.omadeck.watch.test.json');const original=fs.existsSync(file)?fs.readFileSync(file):null;
-    manifests.push({file,original});fs.writeFileSync(file,JSON.stringify({name:'pretty.omadeck.watch.test',description:'Isolated OmaDeck test',path:path.join(lab,'relay'),type:'stdio',allowed_extensions:['pretty.omadeck.watch.test@theairick']}),{mode:0o600});
+    const file=path.join(dir,testNativeName+'.json');const original=fs.existsSync(file)?fs.readFileSync(file):null;
+    manifests.push({file,original});fs.writeFileSync(file,JSON.stringify({name:testNativeName,description:'Isolated OmaDeck test',path:path.join(lab,'relay'),type:'stdio',allowed_extensions:[testAddonId]}),{mode:0o600});
   }
   const options=new firefox.Options().setBinary(firefoxPath).addArguments('-headless','--no-remote');
   options.setPreference('zen.welcome-screen.seen',true); options.setPreference('media.autoplay.default',0); options.setPreference('media.volume_scale','0.0');
   options.setPreference('browser.tabs.warnOnClose',false); options.setPreference('browser.warnOnQuit',false);
   const driver=await new Builder().forBrowser('firefox').setFirefoxOptions(options).setFirefoxService(new firefox.ServiceBuilder(geckodriverPath).setEnvironment(env).addArguments('--allow-system-access')).build();
   context={close:()=>driver.quit()};
-  console.log('EXTENSION '+await driver.installAddon(extension,true)); await driver.setContext('chrome'); console.log('PERMISSIONS '+JSON.stringify(await driver.executeScript("const p=WebExtensionPolicy.getByID('pretty.omadeck.watch.test@theairick'); return {active:p.active, origins:p.allowedOrigins.patterns, url:p.getURL('')};"))); await driver.setContext('content');
+  console.log('EXTENSION '+await driver.installAddon(extension,true)); await driver.setContext('chrome'); console.log('PERMISSIONS '+JSON.stringify(await driver.executeScript("const p=WebExtensionPolicy.getByID(arguments[0]); return {active:p.active, origins:p.allowedOrigins.patterns, url:p.getURL('')};",testAddonId))); await driver.setContext('content');
   const worker={evaluate:async()=>({native:'Firefox browser native messaging'})};
   const page={goto:url=>driver.get(url),evaluate:fn=>driver.executeScript('return ('+fn.toString()+')()')};
   await page.goto('https://www.youtube.com/watch?v=jNQXAC9IVRw',{waitUntil:'domcontentloaded',timeout:45000});
   await waitFor(async()=>{const v=await videoState(page);return v?.ready>=2?v:null},'YouTube source ready',45000);
   await page.evaluate(async()=>{const v=document.querySelector('video');v.muted=false;v.currentTime=2;await v.play()});
   console.log('SOURCE '+JSON.stringify(await videoState(page)));
-  await waitFor(async()=>{const s=await status();return s.candidate?.sourceWasPlaying?s:null},'extension candidate').catch(async e=>{console.log('DEBUG '+JSON.stringify({deck:await status()}));await driver.setContext('chrome');console.log('GECKO_DEBUG '+JSON.stringify(await driver.executeScript("const e=ChromeUtils.importESModule('resource://gre/modules/ExtensionParent.sys.mjs').ExtensionParent.GlobalManager.getExtension('pretty.omadeck.watch.test@theairick');return {views:[...e.views].map(v=>v.viewType),messages:Services.console.getMessageArray().filter(m=>String(m.sourceName||'').includes('moz-extension')).map(m=>({error:m.errorMessage,source:m.sourceName}))};")));await driver.setContext('content');throw e});
+  await waitFor(async()=>{const s=await status();return s.candidate?.sourceWasPlaying?s:null},'extension candidate').catch(async e=>{console.log('DEBUG '+JSON.stringify({deck:await status()}));await driver.setContext('chrome');console.log('GECKO_DEBUG '+JSON.stringify(await driver.executeScript("const e=ChromeUtils.importESModule('resource://gre/modules/ExtensionParent.sys.mjs').ExtensionParent.GlobalManager.getExtension(arguments[0]);return {views:[...e.views].map(v=>v.viewType),messages:Services.console.getMessageArray().filter(m=>String(m.sourceName||'').includes('moz-extension')).map(m=>({error:m.errorMessage,source:m.sourceName}))};",testAddonId)));await driver.setContext('content');throw e});
   await waitFor(async()=>(await status()).mprisPlayers.some(k=>/firefox|zen/i.test(k)),'real Zen MPRIS');
   console.log('CANDIDATE '+JSON.stringify(await status()));
   const sourceHandle=await driver.getWindowHandle();
