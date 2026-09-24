@@ -75,10 +75,90 @@ PanelWindow {
   readonly property var hostMedia: shell && typeof shell.serviceFor === "function"
     ? shell.serviceFor("omarchy.media") : null
   readonly property var dashboardMedia: hostMedia || nativeMedia
+  readonly property var watchController: watchSession
+  readonly property var browserWatchBridge: browserWatch
+  readonly property bool watchAvailable: watchSession.hostAvailable
+  property var pendingWatchCandidate: null
   property var timerCompanion: null
   readonly property bool timerPanelOpen: !!(timerCompanion && timerCompanion.timerPanelOpen)
-  MprisMediaAdapter { id: nativeMedia; enabled: !root.hostMedia }
+  MprisMediaAdapter {
+    id: nativeMedia
+    enabled: !root.hostMedia || typeof root.hostMedia.playerForKey !== "function"
+  }
+  BrowserWatchBridge { id: browserWatch; enabled: root.isTarget }
+  WatchController {
+    id: watchSession
+    pluginDir: root.pluginDir
+    targetScreen: root.targetScreen
+    media: root.hostMedia && typeof root.hostMedia.playerForKey === "function"
+      ? root.hostMedia : nativeMedia
+    browserBridge: browserWatch
+  }
   function openTimerPanel() { if (timerCompanion) timerCompanion.openTimer() }
+
+  function watchVideoRect(focused) {
+    // Preserve the video share as drawers reserve space in the dashboard.
+    var videoShare = Math.min(root.usableHeight * 16 / 9, root.usableWidth * 0.64) / Math.max(1, root.usableWidth)
+    var width = Math.floor(Math.min(centerCanvas.height * 16 / 9,
+      centerCanvas.width * (focused ? 1 : videoShare)))
+    var height = Math.min(Math.floor(centerCanvas.height), Math.round(width * 9 / 16))
+    return { left: Math.floor(centerCanvas.x + (focused ? (centerCanvas.width - width) / 2 : 0)),
+      top: Math.floor(centerCanvas.y + (centerCanvas.height - height) / 2),
+      width: width, height: height }
+  }
+
+  function syncWatchGeometry() {
+    if (watchController.active)
+      watchController.setVideoGeometry(watchVideoRect(watchController.focused))
+  }
+  Connections {
+    target: centerCanvas
+    function onXChanged() { Qt.callLater(root.syncWatchGeometry) }
+    function onYChanged() { Qt.callLater(root.syncWatchGeometry) }
+    function onWidthChanged() { Qt.callLater(root.syncWatchGeometry) }
+    function onHeightChanged() { Qt.callLater(root.syncWatchGeometry) }
+  }
+
+  function toggleWatchFocus() {
+    if (!interactionAllowed || !watchController.active) return false
+    var focused = !watchController.focused
+    return watchController.setFocus(focused, watchVideoRect(focused))
+  }
+
+  function startWatch(candidate) {
+    if (!interactionAllowed || customizing || watchController.active) return false
+    if (!candidate || candidate.sourceKind !== "extension") {
+      watchController.notice = "Open the YouTube tab, then try again."
+      return false
+    }
+    if (!watchAvailable) {
+      watchController.notice = "Watch player unavailable."
+      return false
+    }
+    if (openDrawer !== "") {
+      pendingWatchCandidate = candidate
+      setOpenDrawer("", "watch:start")
+      watchStartDelay.restart()
+      return true
+    }
+    var started = watchController.begin(candidate, watchVideoRect())
+    if (!started) watchController.notice = "Reconnect the YouTube tab, then try again."
+    return started
+  }
+
+  Timer {
+    id: watchStartDelay
+    interval: 250
+    onTriggered: {
+      var candidate = root.pendingWatchCandidate
+      root.pendingWatchCandidate = null
+      if (candidate && root.interactionAllowed && root.isTarget)
+        root.watchController.begin(candidate, root.watchVideoRect())
+    }
+  }
+
+  onInteractionAllowedChanged: if (!interactionAllowed) watchSession.abort()
+  onIsTargetChanged: if (!isTarget) watchSession.abort()
 
   function beginCustomize() {
     if (!layoutController) return
@@ -104,7 +184,7 @@ PanelWindow {
   color: "transparent"
   exclusionMode: ExclusionMode.Ignore
   WlrLayershell.namespace: "omadeck"
-  WlrLayershell.layer: launcherKeyboardRequested ? WlrLayer.Top : WlrLayer.Bottom
+  WlrLayershell.layer: watchSession.active ? WlrLayer.Overlay : launcherKeyboardRequested ? WlrLayer.Top : WlrLayer.Bottom
   // Request keys only during explicit launcher text entry. Direct touch
   // bypasses compositor pointer focus. Exclusive keys need the top layer;
   // closing, changing category or locking
@@ -309,7 +389,25 @@ PanelWindow {
   Rectangle {
     id: deckBackground
     anchors.fill: parent
-    color: Color.background
+    color: watchSession.active ? "transparent" : Color.background
+
+    // Leave only the video rectangle transparent. The native player sits on
+    // the Top layer; our controls stay in the existing guarded touch window.
+    Repeater {
+      model: watchSession.active ? [
+        Qt.rect(0, 0, root.width, watchSession.videoRect.top),
+        Qt.rect(0, watchSession.videoRect.top, watchSession.videoRect.left, watchSession.videoRect.height),
+        Qt.rect(watchSession.videoRect.left + watchSession.videoRect.width, watchSession.videoRect.top,
+          Math.max(0, root.width - watchSession.videoRect.left - watchSession.videoRect.width), watchSession.videoRect.height),
+        Qt.rect(0, watchSession.videoRect.top + watchSession.videoRect.height, root.width,
+          Math.max(0, root.height - watchSession.videoRect.top - watchSession.videoRect.height))
+      ] : []
+      Rectangle {
+        required property var modelData
+        x: modelData.x; y: modelData.y; width: modelData.width; height: modelData.height
+        color: watchSession.focused ? "black" : Color.background
+      }
+    }
 
     HoverHandler {
       id: backgroundHover
@@ -382,6 +480,7 @@ PanelWindow {
     launcherController: root.launcherController
     weatherController: root.weatherController
     timerController: root.timerController
+    watchController: root.watchController
   }
 
   DeckOverlay {

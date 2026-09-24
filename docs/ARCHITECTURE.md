@@ -3,6 +3,18 @@
 OmaDeck is a keep-loaded Omarchy shell service written in QML. It does not run
 a web server, Electron process, or separate system daemon.
 
+Optional Watch mode starts one short-lived Qt WebEngine layer surface on demand.
+The main shell cannot initialize WebEngine after its application has started.
+`WatchController` supervises this child over an owner-only Unix socket and
+closes it when Watch mode ends or the shell releases it. Browser extensions use
+a separate native messaging relay to send exact YouTube tab identity and
+position into `BrowserWatchBridge`; no browser page gets a shell command
+channel. The temporary `WatchMode` center presentation leaves the saved split
+tree untouched and keeps OmaDeck's touch controls, Clock, and Weather visible.
+If Omarchy exposes only its scoped media proxy to plugins, Watch mode uses
+Quickshell's shared MPRIS discovery model to resolve and control the exact
+player bus name; the ordinary Now Playing presenter keeps its existing proxy.
+
 ## Entry points
 
 - `manifest.json` declares the `pretty.omadeck` service plugin.

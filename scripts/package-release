@@ -1,0 +1,51 @@
+#!/usr/bin/python3
+"""Package a committed OmaDeck snapshot and its optional browser companions."""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import zipfile
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--ref', default='HEAD')
+parser.add_argument('--output', type=Path)
+args = parser.parse_args()
+root = Path(__file__).resolve().parent.parent
+
+
+def git(*argv):
+    return subprocess.check_output(['git', '-C', str(root), *argv])
+
+
+commit = git('rev-parse', '--verify', args.ref + '^{commit}').decode().strip()
+manifest = json.loads(git('show', commit + ':manifest.json'))
+version = manifest['version']
+if not re.fullmatch(r'\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?', version):
+    raise SystemExit('Invalid release version')
+output = args.output or Path(os.environ.get('XDG_CACHE_HOME', Path.home() / '.cache')) / 'omadeck/releases' / ('v' + version)
+output.mkdir(parents=True, exist_ok=True)
+source_name = 'omadeck-v' + version + '.tar.gz'
+(output / source_name).write_bytes(git('archive', '--format=tar.gz', '--prefix=omadeck-v' + version + '/', commit))
+files = [source_name]
+for browser in ('firefox', 'chromium'):
+    filename = 'omadeck-watch-' + browser + '-v' + version + '.zip'
+    with zipfile.ZipFile(output / filename, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
+        for name in ('background.js', 'content.js', 'README.md', 'manifest.json'):
+            source = 'browser/watch-extension/' + ('manifest.' + browser + '.json' if name == 'manifest.json' else name)
+            entry = zipfile.ZipInfo(name, (1980, 1, 1, 0, 0, 0))
+            entry.compress_type = zipfile.ZIP_DEFLATED
+            entry.external_attr = 0o100644 << 16
+            archive.writestr(entry, git('show', commit + ':' + source))
+        archive.writestr('LICENSE', git('show', commit + ':LICENSE'))
+    files.append(filename)
+metadata = {'pluginId': manifest['id'], 'version': version, 'commit': commit,
+            'repository': 'https://github.com/TheAirick/OmaDeck',
+            'browserExtensions': 'unsigned development packages; optional native build required'}
+(output / 'release.json').write_text(json.dumps(metadata, indent=2) + '\n')
+files.append('release.json')
+(output / 'SHA256SUMS').write_text(''.join(hashlib.sha256((output / name).read_bytes()).hexdigest() + '  ' + name + '\n' for name in files))
+print(output)
+print('Commit: ' + commit)

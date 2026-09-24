@@ -221,6 +221,20 @@ Item {
 
     function scanMonitors(): bool { return monitorInputStore.scan() }
 
+    function watchState(): string {
+      var surface = root.activeSurface
+      if (!surface || !surface.watchController) return JSON.stringify({ available: false })
+      var watch = surface.watchController
+      var bridge = surface.browserWatchBridge
+      return JSON.stringify({ available: watch.hostAvailable, state: watch.state,
+        position: watch.videoPosition, playing: watch.videoPlaying, focused: watch.focused,
+        returnRequested: watch.lastReturnRequested, returnConfirmed: watch.lastReturnConfirmed,
+        captionsAvailable: watch.captionsAvailable, captionsEnabled: watch.captionsEnabled,
+        sourceKind: watch.source ? watch.source.sourceKind : "",
+        notice: watch.notice, browserConnections: bridge ? bridge.connections.length : 0,
+        browserCandidates: bridge ? bridge.connections.filter(function(e) { return !!e.candidate }).length : 0 })
+    }
+
     function drawerState(): string {
       if (root.activeSurface) return root.activeSurface.drawerState()
       return JSON.stringify({

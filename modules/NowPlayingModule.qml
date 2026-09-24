@@ -3,16 +3,21 @@ import qs.Commons
 import "../theme"
 import qs.Ui
 import "MediaArtwork.js" as MediaArtwork
+import "../services/WatchSource.js" as WatchSource
 
 Item {
   id: root
   objectName: "nowPlayingPresenter"
 
   property var media: null
+  property var deck: null
   readonly property var player: media ? media.activePlayer : null
   readonly property bool hasPlayer: !!player
   readonly property string playerKey: player && media && typeof media.playerKey === "function"
     ? media.playerKey(player) : ""
+  readonly property var watchCandidate: (deck && deck.browserWatchBridge
+      ? deck.browserWatchBridge.candidateForPlayer(playerKey) : null)
+    || WatchSource.candidate(player, playerKey)
   readonly property bool canPlayPause: hasPlayer && !!(player.canTogglePlaying
     || (player.isPlaying ? player.canPause : player.canPlay))
   readonly property string playbackStatus: !media ? "Media service unavailable"
@@ -215,8 +220,9 @@ Item {
       anchors.top: parent.top
       anchors.horizontalCenter: parent.horizontalCenter
       width: Math.min(parent.width, Style.space(360))
-      height: Math.max(0, Math.min(width * 0.6,
-        parent.height - timeline.height - Style.space(88)))
+      height: Math.max(0, Math.min(width * 9 / 16,
+        parent.height - timeline.height - metadataOverlay.height - Style.space(72)
+          - Style.spacing.controlGap * 3))
       radius: Style.cornerRadius
       color: Style.normalFill
       borderSpec: Border.controlSpec("normal", Color.foreground, Color.accent, Color.urgent)
@@ -243,44 +249,70 @@ Item {
         font.pixelSize: Style.font.displayLarge
       }
 
-      Rectangle {
-        id: metadataOverlay
-        objectName: "nowPlayingMetadataOverlay"
-        anchors.left: parent.left
+    }
+
+    Rectangle {
+      id: metadataOverlay
+      objectName: "nowPlayingMetadataOverlay"
+      anchors.left: artwork.left
+      anchors.right: artwork.right
+      anchors.top: artwork.bottom
+      height: Math.max(metadataColumn.implicitHeight, watchHere.visible ? watchHere.height : 0)
+        + Style.spacing.controlGap * 2
+      color: DeckColors.surface
+      z: 2
+
+      Button {
+        id: watchHere
+        objectName: "watchHereButton"
+        Accessible.name: "Watch this video on the Edge"
+        anchors.verticalCenter: parent.verticalCenter
         anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        anchors.margins: artwork.borderLeft
-        height: Math.min(parent.height,
-          metadataColumn.implicitHeight + Style.spacing.controlGap * 2)
-        color: DeckColors.surface
-        z: 2
+        anchors.margins: Style.spacing.controlGap
+        width: Style.space(104)
+        height: Style.space(44)
+        text: root.deck && root.deck.watchController.active ? "Opening…" : "Watch here"
+        fontSize: Style.font.caption
+        tooltipText: root.watchCandidate && root.watchCandidate.sourceKind === "extension"
+          ? "Watch this video on the Edge" : "Load or reload the OmaDeck Watch browser add-on"
+        background: "transparent"
+        foreground: Color.accent
+        bordered: false
+        borderSpec: Border.none()
+        visible: !!root.watchCandidate && !!root.deck
+        enabled: visible && !root.deck.watchController.active
+        z: 4
+        onClicked: root.deck.startWatch(root.watchCandidate)
+      }
 
-        Column {
-          id: metadataColumn
-          anchors.fill: parent
-          anchors.margins: Style.spacing.controlGap
-          spacing: Style.spacing.labelGap
+      Column {
+        id: metadataColumn
+        anchors.fill: parent
+        anchors.rightMargin: watchHere.visible ? watchHere.width + Style.spacing.controlGap * 2 : Style.spacing.controlGap
+        anchors.margins: Style.spacing.controlGap
+        spacing: Style.spacing.labelGap
 
-          Text {
-            width: parent.width
-            text: root.player ? (root.player.trackTitle || root.playbackStatus) : root.playbackStatus
-            color: Color.foreground
-            font.family: Style.font.family
-            font.pixelSize: Style.font.subtitle
-            font.bold: true
-            maximumLineCount: 1
-            elide: Text.ElideRight
-          }
-          Text {
-            width: parent.width
-            text: root.player ? [root.player.trackArtist || root.player.identity || "", root.playbackStatus].filter(Boolean).join(" · ")
-              : root.media ? "Compatible players appear here." : "Waiting for Omarchy media."
-            color: DeckColors.secondaryText
-            font.family: Style.font.family
-            font.pixelSize: Style.font.body
-            maximumLineCount: 1
-            elide: Text.ElideRight
-          }
+        Text {
+          width: parent.width
+          text: root.player ? (root.player.trackTitle || root.playbackStatus) : root.playbackStatus
+          color: Color.foreground
+          font.family: Style.font.family
+          font.pixelSize: Style.font.subtitle
+          font.bold: true
+          maximumLineCount: 1
+          elide: Text.ElideRight
+        }
+        Text {
+          width: parent.width
+          text: root.deck && root.deck.watchController.notice && !root.deck.watchController.active
+              ? root.deck.watchController.notice
+              : root.player ? [root.player.trackArtist || root.player.identity || "", root.playbackStatus].filter(Boolean).join(" · ")
+            : root.media ? "Compatible players appear here." : "Waiting for Omarchy media."
+          color: DeckColors.secondaryText
+          font.family: Style.font.family
+          font.pixelSize: Style.font.body
+          maximumLineCount: 1
+          elide: Text.ElideRight
         }
       }
     }
@@ -290,7 +322,7 @@ Item {
       objectName: "nowPlayingControlBand"
       anchors.left: parent.left
       anchors.right: parent.right
-      anchors.top: artwork.bottom
+      anchors.top: metadataOverlay.bottom
       anchors.topMargin: Style.spacing.controlGap
       anchors.bottom: timeline.top
       anchors.bottomMargin: Style.spacing.controlGap

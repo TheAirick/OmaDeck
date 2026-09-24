@@ -18,6 +18,7 @@ Item {
   property var launcherController: null
   property var weatherController: null
   property var timerController: null
+  property var watchController: null
   property var deck: null
   property var shell: null
   property string primaryMonitor: "DP-1"
@@ -33,11 +34,14 @@ Item {
   Rectangle {
     anchors.fill: parent
     color: Color.background
+    visible: !(root.watchController && root.watchController.active)
   }
 
   SplitNode {
     objectName: "deckRootSplit"
     anchors.fill: parent
+    visible: !(root.watchController && root.watchController.active)
+    enabled: visible
     controller: root.layoutController
     path: ""
     deck: root.deck
@@ -47,6 +51,24 @@ Item {
     launcherController: root.launcherController
     weatherController: root.weatherController
     timerController: root.timerController
+  }
+
+  Loader {
+    objectName: "watchModeLoader"
+    anchors.fill: parent
+    active: !!(root.watchController && root.watchController.active)
+    sourceComponent: WatchMode {
+      canvasX: root.x
+      canvasY: root.y
+      deck: root.deck
+      shell: root.shell
+      launcherController: root.launcherController
+      primaryMonitor: root.primaryMonitor
+      watch: root.watchController
+      appearanceController: root.appearanceController
+      weatherController: root.weatherController
+      timerController: root.timerController
+    }
   }
 
   HoverHandler {

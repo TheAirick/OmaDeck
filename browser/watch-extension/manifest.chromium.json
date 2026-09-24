@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "OmaDeck Watch",
+  "version": "0.10.0",
+  "description": "Watch a YouTube video in OmaDeck with touch controls and return to its original browser tab.",
+  "permissions": [
+    "nativeMessaging"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.youtube.com/watch*",
+        "https://m.youtube.com/watch*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

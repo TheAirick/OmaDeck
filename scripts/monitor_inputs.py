@@ -73,6 +73,22 @@ def discover(runner, deadline, drm_root):
     return result
 
 
+def connected_identities(drm_root):
+    """Resolve saved hardware from the kernel without probing every DDC bus."""
+    result = []
+    for connector in sorted(Path(drm_root).glob('card*-*')):
+        if not re.fullmatch(r'card\d+-[A-Za-z0-9-]{1,48}', connector.name):
+            continue
+        try:
+            if (connector / 'status').read_text().strip() != 'connected':
+                continue
+            edid = read_edid(connector.name, drm_root)
+        except (OSError, MonitorError):
+            continue
+        result.append({'id': hashlib.sha256(edid).hexdigest(), 'edid': edid.hex()})
+    return result
+
+
 def parse_inputs(text):
     match = re.search(r'(?:^|[\s(])60\(([^()]{0,1024})\)', text, re.I)
     if not match:
@@ -110,11 +126,13 @@ def execute(arguments, runner=run_ddc, drm_root='/sys/class/drm'):
     if len(arguments) != 3 or arguments[0] != 'switch' or not re.fullmatch(r'[0-9a-f]{64}', arguments[1]) \
             or not re.fullmatch(r'[0-9a-f]{2}', arguments[2]) or arguments[2] == '00':
         raise MonitorError('Invalid monitor input request.')
-    matches = [row for row in discover(runner, deadline, drm_root) if row['id'] == arguments[1]]
+    matches = [row for row in connected_identities(drm_root) if row['id'] == arguments[1]]
     if len(matches) != 1:
         raise MonitorError('The saved monitor is disconnected or ambiguous. Scan again.')
     # Match EDID again inside ddcutil; display numbers and I2C buses can change.
-    runner(['--edid', matches[0]['edid'], 'setvcp', '0x60', '0x' + arguments[2], '--noverify'], deadline)
+    # This is a previously configured DDC monitor. Avoid redundant feature
+    # support probes on unrelated displays for each input request.
+    runner(['--skip-ddc-checks', '--edid', matches[0]['edid'], 'setvcp', '0x60', '0x' + arguments[2], '--noverify'], deadline)
     return {'ok': True, 'message': 'Input switch requested'}
 
 

@@ -1,0 +1,69 @@
+#!/usr/bin/python3
+"""Install browser native-host manifests after loading the extension.
+
+Use --chromium-id with the ID shown on chrome://extensions for an unpacked
+Chromium install. No browser settings or extension data are otherwise changed.
+"""
+
+import argparse
+import json
+import os
+from pathlib import Path
+import re
+import sys
+import tempfile
+
+HOST_NAME = "pretty.omadeck.watch"
+FIREFOX_ID = "pretty.omadeck.watch@theairick"
+CHROMIUM_ID = re.compile(r"^[a-p]{32}$")
+
+
+def write_manifest(directory, contents):
+    directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if directory.is_symlink() or directory.stat().st_uid != os.getuid():
+        raise ValueError("unsafe native messaging directory")
+    descriptor, temporary = tempfile.mkstemp(prefix=".omadeck-watch-", dir=directory)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            json.dump(contents, stream, indent=2)
+            stream.write("\n")
+        os.chmod(temporary, 0o600)
+        os.replace(temporary, directory / f"{HOST_NAME}.json")
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--chromium-id", help="ID shown for the unpacked Chromium extension")
+    arguments = parser.parse_args()
+    if arguments.chromium_id and not CHROMIUM_ID.fullmatch(arguments.chromium_id):
+        parser.error("Chromium extension ID must be 32 letters from a to p")
+
+    project = Path(__file__).resolve().parent.parent
+    executable = project / "scripts" / "browser-watch-native-host"
+    if not executable.is_file() or not os.access(executable, os.X_OK):
+        raise ValueError("native messaging host is missing or not executable")
+    base = {"name": HOST_NAME, "description": "OmaDeck Watch browser bridge",
+            "path": str(executable), "type": "stdio"}
+    home = Path.home()
+    write_manifest(home / ".mozilla" / "native-messaging-hosts",
+                   {**base, "allowed_extensions": [FIREFOX_ID]})
+    write_manifest(home / ".zen" / "native-messaging-hosts",
+                   {**base, "allowed_extensions": [FIREFOX_ID]})
+    if arguments.chromium_id:
+        write_manifest(home / ".config" / "chromium" / "NativeMessagingHosts",
+                       {**base, "allowed_origins": [
+                           f"chrome-extension://{arguments.chromium_id}/"]})
+    print("Installed Firefox and Zen native messaging manifests")
+    if arguments.chromium_id:
+        print("Installed Chromium native messaging manifest")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, ValueError) as error:
+        print(str(error), file=sys.stderr)
+        sys.exit(1)

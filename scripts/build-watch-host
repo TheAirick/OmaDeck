@@ -1,0 +1,23 @@
+#!/usr/bin/bash
+set -euo pipefail
+
+umask 077
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+project_dir=$(cd -- "$script_dir/.." && pwd)
+source_dir="$project_dir/native/watch"
+build_dir="${XDG_CACHE_HOME:-$HOME/.cache}/omadeck-watch-build"
+target_dir="$project_dir/native/bin"
+
+cmake -S "$source_dir" -B "$build_dir" -DCMAKE_BUILD_TYPE=Release
+cmake --build "$build_dir" --parallel
+
+mkdir -p -- "$target_dir"
+if [[ -L $target_dir ]]; then
+  printf 'Refusing symlinked artifact directory: %s\n' "$target_dir" >&2
+  exit 1
+fi
+temporary=$(mktemp --tmpdir="$target_dir" .omadeck-watch-host.new.XXXXXXXX)
+trap 'rm -f -- "$temporary"' EXIT
+install -m 0755 -- "$build_dir/omadeck-watch-host" "$temporary"
+mv -T -- "$temporary" "$target_dir/omadeck-watch-host"
+printf 'Built %s\n' "$target_dir/omadeck-watch-host"

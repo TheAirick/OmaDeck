@@ -300,3 +300,31 @@ a test without permission.
 - [ ] Publish/tag only with explicit authorization. If tracked on Kanban, add
   card-specific evidence and remaining gates before moving an accepted card
   to done; implementation alone is not release acceptance.
+
+## v0.10.0 package verification — 2026-09-23
+
+The owner requested consolidation into main, commit/push, and plugin-store
+packaging. The full local `scripts/check` run passed 253 tests with zero failures
+or skips. This includes the existing private native build/CTest coverage and a
+new private build plus local-page WebEngine probe of the optional Watch host.
+The latter uses a private D-Bus configuration without service activation.
+An obsolete assertion expecting metadata over the thumbnail was updated to the
+accepted footer-below-artwork layout; the complete suite then passed.
+
+Live doctor reports healthy, shell ping passes, and isolated native touch is
+active. Watch handoff and Return were accepted by the owner during development;
+real Zen/Chromium checks and the ended-video/source-close regression are recorded
+in `WATCH_MODE_TEST_REPORT.md`. This release does not claim new physical lock,
+suspend or USB recovery acceptance, or a clean-machine Watch installation.
+
+Optional browser companions are unsigned development packages. Firefox/Zen needs
+temporary add-on loading until signed distribution is arranged; Chromium uses
+Load unpacked. Embedded playback restrictions remain visible and documented.
+Main's source snapshot and extension archives are packaged with the full commit
+and SHA-256 checksums. Hosted CI is checked against the pushed exact commit.
+
+Store publication is a separate maintainer workflow. The current catalog reports
+v0.9.0 with update-unverified coverage, manual setup, and no install command;
+the listed validation SHA remains the earlier v0.8.1 snapshot. The v0.9.0 update
+request #7129 is still open with security-review-required. A new exact-SHA review
+request is prepared with this package; packaging is not store approval.

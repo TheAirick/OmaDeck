@@ -31,7 +31,7 @@ tray changes should be checked through the live Omarchy system tray and
 
 Run `./scripts/check` as an ordinary user for the automated acceptance checks.
 It requires Node, Python with `dbus` and PyGObject, D-Bus, jq, Quickshell,
-Qt 6 Declarative (including `qmltestrunner`), a C++ compiler, CMake, and Git with
+Qt 6 Declarative (including `qmltestrunner`), Qt 6 WebEngine, LayerShellQt, a C++ compiler, CMake, and Git with
 the repository history. It uses private homes, a private media bus, offscreen
 rendering, and a private native build. The rollback fixture uses the pinned
 published snapshot from Git history; shallow checkouts need that history first.

@@ -161,7 +161,7 @@ Item {
 
   Component {
     id: mediaComponent
-    MediaModule { shell: root.shell; providedMedia: root.deck ? root.deck.dashboardMedia : null }
+    MediaModule { shell: root.shell; providedMedia: root.deck ? root.deck.dashboardMedia : null; deck: root.deck }
   }
   Component {
     id: clockComponent

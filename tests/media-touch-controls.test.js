@@ -23,10 +23,10 @@ test("playback controls form one compact touch row", () => {
   assert.equal((nowPlayingModule.match(/color: "transparent"; borderSpec: Border\.none\(\)/g) || []).length, 5)
 })
 
-test("centered artwork overlays metadata above a dedicated controls and timeline stack", () => {
+test("centered artwork places metadata below the image above the controls and timeline", () => {
   assert.match(nowPlayingModule, /id: artwork[\s\S]*anchors\.top: parent\.top[\s\S]*anchors\.horizontalCenter: parent\.horizontalCenter/)
-  assert.match(nowPlayingModule, /id: metadataOverlay[\s\S]*anchors\.bottom: parent\.bottom/)
-  assert.match(nowPlayingModule, /id: controlBand[\s\S]*anchors\.top: artwork\.bottom[\s\S]*anchors\.bottom: timeline\.top/)
+  assert.match(nowPlayingModule, /id: metadataOverlay[\s\S]*anchors\.top: artwork\.bottom/)
+  assert.match(nowPlayingModule, /id: controlBand[\s\S]*anchors\.top: metadataOverlay\.bottom[\s\S]*anchors\.bottom: timeline\.top/)
   assert.match(nowPlayingModule, /id: controls[\s\S]*anchors\.centerIn: parent/)
   assert.match(nowPlayingModule, /id: timeline[\s\S]*anchors\.left: parent\.left[\s\S]*anchors\.right: parent\.right[\s\S]*anchors\.bottom: parent\.bottom/)
 })

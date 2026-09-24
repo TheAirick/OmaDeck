@@ -7,6 +7,7 @@ Item {
   objectName: "staticMediaPanel"
 
   property var shell: null
+  property var deck: null
   property var providedMedia: null
   readonly property var hostMedia: shell && typeof shell.serviceFor === "function"
     ? shell.serviceFor("omarchy.media") : null
@@ -28,6 +29,7 @@ Item {
       anchors.fill: parent
       clip: true
       media: root.media
+      deck: root.deck
     }
   }
 }

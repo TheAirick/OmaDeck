@@ -1,6 +1,7 @@
 import QtQuick
 import QtTest
 import Quickshell.Services.Pipewire as Pw
+import Quickshell.Services.Mpris as Mp
 import Quickshell.Hyprland as Hl
 import "../../components" as Components
 import "../../services" as Stores
@@ -38,6 +39,8 @@ TestCase {
     layoutFixture.retryCalls = 0
     launcherFixture.retryCalls = 0
     mediaFixture.activePlayer = playerFixture
+    shellFixture.mediaOverride = null
+    Mp.Mpris.players.values = []
     var sinkAudio = createTemporaryObject(audioComponent, testCase, { volume: 0.7 })
     var sourceAudio = createTemporaryObject(audioComponent, testCase, { volume: 0.5 })
     var sink = createTemporaryObject(nodeComponent, testCase, {
@@ -65,12 +68,12 @@ TestCase {
     Pw.Pipewire.nodes.values = streams.concat([sink, source])
   }
 
-  function createDeck(width, height) {
+  function createDeck(width, height, mediaShell) {
     var deck = createTemporaryObject(deckSurfaceComponent, testCase, {
       width: width || 2560,
       height: height || 720,
       targetScreen: "DP-3",
-      shell: shellFixture,
+      shell: mediaShell || shellFixture,
       layoutController: layoutFixture,
       appearanceController: appearanceFixture,
       launcherController: launcherFixture,
@@ -932,6 +935,449 @@ TestCase {
     compare(presenter.displayedPosition, 95)
   }
 
+  function test_watchModeKeepsFullHeightVideoAndRightCompanionsWithoutSavingLayout() {
+    var deck = createDeck(1600, 450)
+    var before = JSON.stringify(layoutFixture.layout)
+    var split = findChild(deck, "deckRootSplit")
+    verify(split !== null)
+    deck.watchController.videoRect = deck.watchVideoRect()
+    deck.watchController.state = "playing"
+    wait(100)
+
+    var video = findChild(deck, "watchVideoRegion")
+    var controls = findChild(deck, "watchControls")
+    var clock = findChild(deck, "watchClockCard")
+    var weather = findChild(deck, "watchWeatherCard")
+    verify(video !== null && controls !== null && clock !== null && weather !== null)
+    verify(video.height >= 400 && video.width >= 700)
+    compare(video.x, 0)
+    verify(Math.abs(video.width / video.height - 16 / 9) < 0.01)
+    var commandCenter = findChild(deck, "watchCommandCenterCard")
+    verify(commandCenter !== null)
+    verify(commandCenter.x >= clock.mapToItem(video.parent, 0, 0).x + clock.width)
+    compare(commandCenter.x + commandCenter.width, video.parent.width)
+    var bar = findChild(deck, "watchControlBar")
+    verify(bar.height <= 60 && bar.height < video.height * 0.15)
+    compare(controls.parent, video)
+    compare(controls.width, video.width)
+    verify(clock.mapToItem(video.parent, 0, 0).x >= video.x + video.width)
+    verify(weather.mapToItem(video.parent, 0, 0).y
+      >= clock.mapToItem(video.parent, 0, 0).y + clock.height)
+    compare(split.visible, false)
+    compare(JSON.stringify(layoutFixture.layout), before)
+
+    deck.watchController.returnToSource()
+    wait(100)
+    compare(split.visible, true)
+    compare(JSON.stringify(layoutFixture.layout), before)
+  }
+
+  function test_watchFocusCentersVideoAndRestoresCompanionsWithoutReloading() {
+    var deck = createDeck(1600, 450)
+    var watch = deck.watchController
+    var socket = findChild(watch, "watchHostSocket")
+    socket.connected = true
+    var original = deck.watchVideoRect()
+    var layoutBefore = JSON.stringify(layoutFixture.layout)
+    watch.videoRect = original
+    watch.videoPosition = 123
+    watch.videoDuration = 600
+    watch.videoPlaying = true
+    watch.state = "playing"
+    wait(20)
+    var focus = findChild(deck, "watchFocus")
+    var video = findChild(deck, "watchVideoRegion")
+    var clock = findChild(deck, "watchClockCard")
+    var commandCenter = findChild(deck, "watchCommandCenterCard")
+    mouseClick(focus, focus.width / 2, focus.height / 2)
+    verify(watch.focused)
+    verify(!clock.visible && !commandCenter.visible)
+    compare(video.x, Math.floor((video.parent.width - video.width) / 2))
+    compare(watch.videoRect.left, original.left + video.x)
+    compare(watch.videoRect.width, original.width)
+    compare(watch.videoPosition, 123)
+    verify(watch.videoPlaying)
+    compare(watch.state, "playing")
+    compare(JSON.parse(socket.sent[socket.sent.length - 1]).action, "geometry")
+    grabImage(deck).save("/tmp/omadeck-watch-focus-layout.png")
+    var point = focus.mapToItem(testCase, focus.width / 2, focus.height / 2)
+    touchEvent(testCase).press(0, testCase, point.x, point.y).commit()
+    touchEvent(testCase).release(0, testCase, point.x, point.y).commit()
+    tryCompare(watch, "focused", false)
+    verify(clock.visible && commandCenter.visible)
+    compare(video.x, 0)
+    compare(watch.videoRect.left, original.left)
+    compare(JSON.stringify(layoutFixture.layout), layoutBefore)
+    compare(socket.sent.filter(line => JSON.parse(line).action === "load").length, 0)
+    watch.abort()
+  }
+
+  function test_watchDrawersResizeVideoAndOverlaysPreservePlayback() {
+    var deck = createDeck(1600, 450)
+    var watch = deck.watchController
+    var socket = findChild(watch, "watchHostSocket")
+    socket.connected = true
+    watch.videoRect = deck.watchVideoRect()
+    watch.videoPosition = 123
+    watch.videoDuration = 600
+    watch.videoPlaying = true
+    watch.state = "playing"
+    var original = watch.videoRect
+    wait(30)
+    var video = findChild(deck, "watchVideoRegion")
+    var layoutBefore = JSON.stringify(layoutFixture.layout)
+    for (var edge of ["left", "right"]) {
+      deck.setOpenDrawer(edge, "test:video-drawer")
+      wait(300)
+      compare(watch.state, "playing")
+      compare(watch.videoPosition, 123)
+      verify(watch.videoPlaying)
+      verify(watch.videoRect.width < original.width)
+      verify(watch.videoRect.height < original.height)
+      verify(Math.abs(watch.videoRect.width / watch.videoRect.height - 16 / 9) < 0.01)
+      compare(video.mapToItem(deck, 0, 0).x, watch.videoRect.left)
+      compare(video.mapToItem(deck, 0, 0).y, watch.videoRect.top)
+      verify(video.x >= 0 && video.x + video.width <= video.parent.width)
+      for (var controlName of ["watchSeekBack", "watchTogglePlayback", "watchCaptions", "watchFocus", "watchReturn"]) {
+        var control = findChild(video, controlName)
+        var controlBounds = control.mapToItem(video, 0, 0)
+        verify(control.width >= 44 && control.height >= 44)
+        verify(controlBounds.x >= 0 && controlBounds.x + control.width <= video.width)
+      }
+      grabImage(deck).save(edge === "left" ? "/tmp/omadeck-watch-volume-layout.png" : "/tmp/omadeck-watch-system-layout.png")
+      deck.closeDrawer()
+      wait(300)
+      compare(watch.videoRect.width, original.width)
+      compare(watch.videoRect.left, original.left)
+    }
+    for (var overlay of ["notifications", "overview", "preferences"]) {
+      deck.openOverlay(overlay)
+      wait(300)
+      compare(watch.state, "playing")
+      verify(!deck.dashboardInputAllowed)
+      compare(watch.videoRect.width, original.width)
+      verify(watch.videoPlaying)
+      deck.closeOverlay()
+      wait(300)
+      verify(deck.dashboardInputAllowed)
+    }
+    compare(socket.sent.filter(line => ["load", "close", "returnSnapshot", "pause"].indexOf(JSON.parse(line).action) >= 0).length, 0)
+    compare(JSON.stringify(layoutFixture.layout), layoutBefore)
+    watch.abort()
+  }
+
+  function test_watchHandoffWaitsForSourcePauseAndReturnsToTheSamePlayer() {
+    var deck = createDeck(1600, 450)
+    var watch = deck.watchController
+    var before = JSON.stringify(layoutFixture.layout)
+    mediaFixture.actions = []
+    playerFixture.seeks = []
+    playerFixture.isPlaying = true
+    playerFixture.position = 42
+    playerFixture.metadata = ({ "xesam:url": "https://www.youtube.com/watch?v=M7lc1UVf-VE" })
+    try {
+      var candidate = findChild(deck, "nowPlayingPresenter").watchCandidate
+      verify(candidate !== null)
+      watch.hostAvailable = true
+      verify(watch.begin(candidate, deck.watchVideoRect()))
+      compare(watch.state, "launching")
+
+      var socket = findChild(watch, "watchHostSocket")
+      verify(socket !== null)
+      socket.connected = true
+      watch.handleMessage('{"event":"connected"}')
+      compare(watch.state, "loading")
+      watch.handleMessage('{"event":"primed","seconds":42.3}')
+      compare(watch.state, "pausing")
+      compare(JSON.stringify(mediaFixture.actions), JSON.stringify(["playPause"]))
+      playerFixture.isPlaying = false
+      tryCompare(watch, "state", "playing")
+
+      watch.videoPosition = 50
+      watch.returnToSource()
+      compare(watch.state, "returning")
+      compare(JSON.parse(socket.sent[socket.sent.length - 1]).action, "returnSnapshot")
+      watch.handleMessage('{"event":"returnSnapshot","seconds":65}')
+      compare(watch.videoPosition, 65, "Return uses a fresh renderer timestamp")
+      compare(JSON.stringify(playerFixture.seeks), JSON.stringify([23]))
+      playerFixture.position = 0
+      watch.checkBrowserReturn()
+      compare(watch.state, "returning", "transient browser zero cannot finish a seek")
+      playerFixture.position = 65
+      watch.checkBrowserReturn()
+      watch.checkBrowserReturn()
+      compare(watch.state, "returning", "resume still needs playback confirmation")
+      playerFixture.isPlaying = true
+      watch.checkBrowserReturn()
+      watch.checkBrowserReturn()
+      compare(watch.state, "idle")
+      compare(JSON.stringify(mediaFixture.actions), JSON.stringify(["playPause", "playPause"]))
+      compare(JSON.stringify(layoutFixture.layout), before)
+    } finally {
+      playerFixture.metadata = ({})
+      playerFixture.isPlaying = true
+      playerFixture.position = 42
+    }
+  }
+
+  function test_watchControlsRespondToTouchAtEdgeGeometry() {
+    var deck = createDeck(1600, 450)
+    var watch = deck.watchController
+    var socket = findChild(watch, "watchHostSocket")
+    socket.connected = true
+    watch.videoRect = deck.watchVideoRect()
+    watch.videoPosition = 42
+    watch.videoDuration = 180
+    watch.videoPlaying = true
+    watch.state = "playing"
+    wait(100)
+    var names = ["watchSeekBack", "watchTogglePlayback", "watchSeekForward"]
+    for (var name of names) {
+      var button = findChild(deck, name)
+      verify(button !== null && button.enabled)
+      var point = button.mapToItem(deck, button.width / 2, button.height / 2)
+      touchEvent(deck).press(0, deck, point.x, point.y).commit()
+      wait(20)
+      touchEvent(deck).release(0, deck, point.x, point.y).commit()
+      wait(20)
+    }
+    compare(JSON.parse(socket.sent[0]).seconds, 32)
+    compare(JSON.parse(socket.sent[1]).action, "pause")
+    compare(JSON.parse(socket.sent[2]).seconds, 52)
+    grabImage(deck).save("/tmp/omadeck-watch-layout.png")
+    var returnButton = findChild(deck, "watchReturn")
+    var returnPoint = returnButton.mapToItem(deck, returnButton.width / 2, returnButton.height / 2)
+    touchEvent(deck).press(0, deck, returnPoint.x, returnPoint.y).commit()
+    wait(20)
+    touchEvent(deck).release(0, deck, returnPoint.x, returnPoint.y).commit()
+    tryCompare(watch, "state", "idle")
+  }
+
+  function test_watchHereExplainsMissingBrowserSelectionOnClickAndTouch() {
+    var deck = createDeck(1600, 450)
+    playerFixture.metadata = ({ "xesam:url": "https://www.youtube.com/watch?v=M7lc1UVf-VE" })
+    try {
+      wait(20)
+      var button = findChild(deck, "watchHereButton")
+      verify(button !== null && button.visible && button.enabled)
+      mouseClick(button, button.width / 2, button.height / 2)
+      compare(deck.watchController.notice, "Open the YouTube tab, then try again.")
+      compare(deck.watchController.state, "idle")
+      deck.watchController.notice = ""
+      var point = button.mapToItem(testCase, button.width / 2, button.height / 2)
+      touchEvent(testCase).press(0, testCase, point.x, point.y).commit()
+      touchEvent(testCase).release(0, testCase, point.x, point.y).commit()
+      tryCompare(deck.watchController, "notice", "Open the YouTube tab, then try again.")
+    } finally { playerFixture.metadata = ({}) }
+  }
+
+  function test_browserBridgeRetainsConnectedSelectionAndTargetsExactCommands() {
+    var deck = createDeck(1600, 450)
+    var bridge = deck.browserWatchBridge
+    var socket = createTemporaryObject(browserSocketComponent, testCase)
+    verify(socket !== null)
+    bridge.register(socket)
+    bridge.receive(socket, '{"type":"hello","browser":"chromium"}')
+    bridge.receive(socket,
+      '{"type":"candidate","videoId":"M7lc1UVf-VE","seconds":41.5,"tabId":17,"playing":true}')
+
+    compare(bridge.candidateForPlayer("org.mpris.MediaPlayer2.firefox.instance"), null)
+    var candidate = bridge.candidateForPlayer("org.mpris.MediaPlayer2.chromium.instance")
+    verify(candidate !== null)
+    compare(candidate.videoId, "M7lc1UVf-VE")
+    compare(candidate.tabId, 17)
+    bridge.connections[0].seenMs = Date.now() - 120000
+    verify(bridge.candidateForPlayer("org.mpris.MediaPlayer2.chromium.instance") !== null,
+      "covered browser timers must not disable Watch here")
+    verify(bridge.matches(candidate))
+    var requestId = bridge.command(candidate, "pause", 42, false)
+    verify(requestId > 0)
+    compare(JSON.parse(socket.sent[0]).tabId, 17)
+    compare(JSON.parse(socket.sent[0]).videoId, "M7lc1UVf-VE")
+    var acknowledged = 0
+    bridge.pauseResult.connect(function(id, ok) {
+      if (id === requestId && ok) acknowledged++
+    })
+    var other = createTemporaryObject(browserSocketComponent, testCase)
+    bridge.register(other)
+    bridge.receive(other, '{"type":"ack","requestId":' + requestId + ',"ok":true}')
+    compare(acknowledged, 0)
+    bridge.receive(socket, '{"type":"ack","requestId":' + requestId + ',"ok":true}')
+    compare(acknowledged, 1)
+    bridge.receive(socket,
+      '{"type":"candidate","videoId":"bad","seconds":42,"tabId":17,"playing":true}')
+    compare(bridge.candidateForPlayer("org.mpris.MediaPlayer2.chromium.instance").videoId,
+      "M7lc1UVf-VE")
+    bridge.drop(socket)
+    compare(bridge.candidateForPlayer("org.mpris.MediaPlayer2.chromium.instance"), null)
+  }
+
+  function test_chromiumExtensionHandoffPausesAndRestoresTheExactTab() {
+    var deck = createDeck(1600, 450)
+    var bridge = deck.browserWatchBridge
+    var watch = deck.watchController
+    var socket = createTemporaryObject(browserSocketComponent, testCase)
+    var oldKey = playerFixture.dbusName
+    playerFixture.dbusName = "org.mpris.MediaPlayer2.chromium.instance"
+    playerFixture.metadata = ({})
+    mediaFixture.actions = []
+    try {
+      bridge.register(socket)
+      bridge.receive(socket, '{"type":"hello","browser":"chromium"}')
+      bridge.receive(socket,
+        '{"type":"candidate","videoId":"M7lc1UVf-VE","seconds":43,"tabId":17,"playing":true}')
+      wait(20)
+      var candidate = findChild(deck, "nowPlayingPresenter").watchCandidate
+      verify(candidate !== null && candidate.sourceKind === "extension")
+      watch.hostAvailable = true
+      verify(watch.begin(candidate, deck.watchVideoRect()))
+      findChild(watch, "watchHostSocket").connected = true
+      watch.handleMessage('{"event":"connected"}')
+      watch.handleMessage('{"event":"primed","seconds":43.2}')
+      compare(watch.state, "pausing")
+      var pause = JSON.parse(socket.sent[0])
+      compare(pause.action, "pause")
+      compare(pause.tabId, 17)
+      playerFixture.isPlaying = false
+      compare(watch.state, "pausing", "extension acknowledgement owns pause completion")
+      bridge.receive(socket,
+        '{"type":"ack","requestId":' + pause.requestId + ',"ok":true,"seconds":43.5}')
+      compare(watch.state, "playing")
+      compare(watch.videoPosition, 43.5)
+      watch.videoPosition = 55
+      bridge.receive(socket, '{"type":"clear"}')
+      verify(!bridge.matches(candidate), "switching tabs clears the current offer")
+      verify(bridge.connectedSource(candidate), "existing session retains the exact source")
+      watch.returnToSource()
+      watch.handleMessage('{"event":"returnSnapshot","seconds":61.75}')
+      var resume = JSON.parse(socket.sent[1])
+      compare(resume.action, "resume")
+      compare(resume.tabId, 17)
+      compare(resume.videoId, "M7lc1UVf-VE")
+      compare(resume.seconds, 61)
+      compare(watch.state, "returning")
+      bridge.receive(socket,
+        '{"type":"ack","requestId":' + resume.requestId + ',"ok":true,"seconds":62}')
+      compare(watch.state, "idle")
+      compare(JSON.stringify(mediaFixture.actions), JSON.stringify([]))
+    } finally {
+      playerFixture.dbusName = oldKey
+      playerFixture.metadata = ({})
+      playerFixture.isPlaying = true
+    }
+  }
+
+  function test_embedRejectionExplainsFailureWithoutSeekingTheBrowser() {
+    var deck = createDeck(1600, 450)
+    var watch = deck.watchController
+    var bridge = deck.browserWatchBridge
+    var socket = createTemporaryObject(browserSocketComponent, testCase)
+    bridge.register(socket)
+    bridge.receive(socket, '{"type":"hello","browser":"firefox"}')
+    watch.source = ({ sourceKind: "extension", sourceWasPlaying: true,
+      connectionId: socket.connectionId, tabId: 17,
+      videoId: "M7lc1UVf-VE", browser: "firefox" })
+    watch.state = "loading"
+    watch.handleMessage('{"event":"error","code":150}')
+    compare(watch.state, "idle")
+    verify(watch.notice.indexOf("cannot play inside OmaDeck") >= 0)
+    compare(socket.sent.length, 0, "startup failure must leave browser playback untouched")
+  }
+
+  function test_closedSourceAfterEndCanExitWithoutTouchingNewBrowserVideo() {
+    var deck = createDeck(1600, 450)
+    var watch = deck.watchController
+    var bridge = deck.browserWatchBridge
+    var socket = createTemporaryObject(browserSocketComponent, testCase)
+    bridge.register(socket)
+    bridge.receive(socket, '{"type":"hello","browser":"firefox"}')
+    watch.source = ({ sourceKind: "extension", connectionId: socket.connectionId,
+      tabId: 1000000, videoId: "M7lc1UVf-VE", browser: "firefox" })
+    watch.videoRect = deck.watchVideoRect()
+    watch.state = "playing"
+    findChild(watch, "watchHostSocket").connected = true
+    watch.handleMessage('{"event":"state","state":0}')
+    bridge.receive(socket, '{"type":"candidate","tabId":1000001,"videoId":"jNQXAC9IVRw","seconds":14,"playing":true}')
+    bridge.receive(socket, '{"type":"sourceClosed","tabId":1000002}')
+    verify(!watch.sourceClosed, "another tab closing must not affect this video")
+    bridge.receive(socket, '{"type":"sourceClosed","tabId":1000000}')
+    compare(watch.state, "playing")
+    verify(watch.sourceClosed)
+    wait(20)
+    var exit = findChild(deck, "watchReturn")
+    compare(exit.text, "Close")
+    clickItem(deck, exit)
+    compare(watch.state, "idle")
+    compare(socket.sent.length, 0, "never seek or pause the new browser video")
+    verify(!watch.sourceClosed)
+  }
+
+  function test_closeVideoAlwaysExitsIncludingFailedReturnAndStartup() {
+    var deck = createDeck(1600, 450)
+    var watch = deck.watchController
+    watch.videoRect = deck.watchVideoRect()
+    for (var state of ["launching", "playing", "returning"]) {
+      watch.state = state
+      watch.focused = true
+      watch.videoPlaying = false
+      wait(20)
+      var exit = findChild(deck, "watchClose")
+      verify(exit.visible && exit.enabled)
+      verify(exit.width >= 44 && exit.height >= 44)
+      clickItem(deck, exit)
+      compare(watch.state, "idle")
+    }
+  }
+
+  function test_watchReturnRejectsSuccessWithWrongOrMissingTimestamp() {
+    var deck = createDeck(1600, 450)
+    var watch = deck.watchController
+    for (var confirmed of [-1, 40]) {
+      watch.state = "returning"
+      watch.videoPosition = 120
+      watch.pendingReturnRequest = 9
+      deck.browserWatchBridge.pauseResult(9, true, confirmed)
+      compare(watch.state, "playing")
+      verify(watch.notice !== "")
+      compare(watch.videoPlaying, false)
+      compare(watch.lastReturnConfirmed, confirmed)
+    }
+    watch.abort()
+  }
+
+  function test_watchUsesSharedMprisWhenOmarchyMediaProxyLacksExactLookup() {
+    shellFixture.mediaOverride = scopedMediaFixture
+    Mp.Mpris.players.values = [playerFixture]
+    playerFixture.metadata = ({ "xesam:url": "https://www.youtube.com/watch?v=M7lc1UVf-VE" })
+    playerFixture.isPlaying = true
+    try {
+      var deck = createDeck(1600, 450)
+      var watch = deck.watchController
+      verify(watch.media !== scopedMediaFixture)
+      verify(watch.media.enabled, "shared MPRIS adapter should be active")
+      var candidate = findChild(deck, "nowPlayingPresenter").watchCandidate
+      verify(candidate !== null)
+      verify(watch.media.playerForKey(candidate.sourceKey) !== null,
+        "exact MPRIS player should be available: " + candidate.sourceKey)
+      watch.hostAvailable = true
+      verify(watch.begin(candidate, deck.watchVideoRect()))
+      findChild(watch, "watchHostSocket").connected = true
+      watch.handleMessage('{"event":"connected"}')
+      watch.handleMessage('{"event":"primed","seconds":42}')
+      tryCompare(watch, "state", "playing")
+      compare(playerFixture.isPlaying, false)
+      watch.returnToSource()
+      watch.handleMessage('{"event":"returnSnapshot","seconds":42}')
+      tryCompare(watch, "state", "idle")
+      compare(playerFixture.isPlaying, true)
+    } finally {
+      shellFixture.mediaOverride = null
+      Mp.Mpris.players.values = []
+      playerFixture.metadata = ({})
+      playerFixture.isPlaying = true
+    }
+  }
+
   function test_mixerWrappersRevealOnlyUsefulVerticalControlsInsideCard() {
     var deck = createDeck()
     deck.setMediaCompact(true)
@@ -1206,6 +1652,17 @@ TestCase {
   }
 
   Component {
+    id: browserSocketComponent
+    QtObject {
+      property bool connected: true
+      property int connectionId: 0
+      property var sent: []
+      function write(data) { sent = sent.concat([data]) }
+      function flush() {}
+    }
+  }
+
+  Component {
     id: nodeComponent
     QtObject {
       property int id: 0
@@ -1247,11 +1704,12 @@ TestCase {
       idle: { screensaver: 150, lock: 300 }
     })
     property var bar: barFixture
+    property var mediaOverride: null
     property int shellMutationCalls: 0
     property string lastSummonedId: ""
     property string lastSummonedPayload: ""
 
-    function serviceFor(serviceId) { return serviceId === lockRegistryFixture.enabledLockId ? lockFixture : serviceId === "omarchy.media" ? mediaFixture : null }
+    function serviceFor(serviceId) { return serviceId === lockRegistryFixture.enabledLockId ? lockFixture : serviceId === "omarchy.media" ? (mediaOverride || mediaFixture) : null }
     function firstPartyServiceFor(serviceId) {
       if (serviceId === "omarchy.notifications") return notificationFixture
       if (serviceId === "omarchy.nightlight") return nightlightFixture
@@ -1375,6 +1833,13 @@ TestCase {
   }
 
   QtObject {
+    id: scopedMediaFixture
+    property var activePlayer: playerFixture
+    function playerKey(player) { return player.dbusName }
+    function runAction(action, argument, targetKey) {}
+  }
+
+  QtObject {
     id: playerFixture
     property string trackTitle: "Fixture Song"
     property string trackArtist: "Fixture Artist"
@@ -1383,8 +1848,9 @@ TestCase {
     property string trackArtUrl: ""
     property var metadata: ({})
     property string dbusName: "org.mpris.MediaPlayer2.fixture"
-      property bool canPlay: true
-      property bool canPause: true
+    property bool canPlay: true
+    property bool canPause: true
+    property bool canControl: true
       property bool canTogglePlaying: true
       property int playbackState: 1
       property bool isPlaying: true
@@ -1397,6 +1863,8 @@ TestCase {
     property real length: 180
     property var seeks: []
     function seek(seconds) { seeks.push(seconds) }
+    function pause() { isPlaying = false }
+    function play() { isPlaying = true }
   }
 
   Stores.LayoutController {

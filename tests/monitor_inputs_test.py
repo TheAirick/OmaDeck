@@ -20,6 +20,7 @@ class MonitorInputs(unittest.TestCase):
         folder = self.root / 'card1-DP-1'
         folder.mkdir()
         (folder / 'edid').write_bytes(self.edid)
+        (folder / 'status').write_text('connected\n')
         self.key = hashlib.sha256(self.edid).hexdigest()
         self.detect = 'Display 4\n   I2C bus: /dev/i2c-99\n   DRM connector: card1-DP-1\n   Monitor: MFG:Office:serial\n'
         self.calls = []
@@ -44,14 +45,19 @@ class MonitorInputs(unittest.TestCase):
 
     def test_switch_matches_hardware_instead_of_changed_display_or_bus_number(self):
         bridge.execute(['switch', self.key, '11'], self.runner, self.root)
-        self.assertEqual(self.calls[-1], ['--edid', self.edid.hex(), 'setvcp', '0x60', '0x11', '--noverify'])
+        self.assertEqual(len(self.calls), 1)
+        self.assertEqual(self.calls[-1], ['--skip-ddc-checks', '--edid', self.edid.hex(), 'setvcp', '0x60', '0x11', '--noverify'])
         self.assertNotIn('--bus', self.calls[-1])
 
     def test_missing_or_ambiguous_monitor_never_switches(self):
-        self.detect = ''
+        (self.root / 'card1-DP-1/status').write_text('disconnected\n')
         with self.assertRaises(bridge.MonitorError):
             bridge.execute(['switch', self.key, '11'], self.runner, self.root)
-        self.detect = 'Display 1\n DRM connector: card1-DP-1\n Monitor: MFG:Office:s\n' * 2
+        (self.root / 'card1-DP-1/status').write_text('connected\n')
+        duplicate = self.root / 'card1-DP-2'
+        duplicate.mkdir()
+        (duplicate / 'edid').write_bytes(self.edid)
+        (duplicate / 'status').write_text('connected\n')
         with self.assertRaises(bridge.MonitorError):
             bridge.execute(['switch', self.key, '11'], self.runner, self.root)
         self.assertFalse(any('setvcp' in call for call in self.calls))

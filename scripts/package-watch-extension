@@ -1,0 +1,16 @@
+#!/usr/bin/bash
+set -euo pipefail
+
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+project_dir=$(cd -- "$script_dir/.." && pwd)
+source_dir="$project_dir/browser/watch-extension"
+output_dir="${XDG_CACHE_HOME:-$HOME/.cache}/omadeck/watch-extension"
+
+for browser in firefox chromium; do
+  target="$output_dir/$browser"
+  mkdir -p -- "$target"
+  install -m 0644 -- "$source_dir/background.js" "$target/background.js"
+  install -m 0644 -- "$source_dir/content.js" "$target/content.js"
+  install -m 0644 -- "$source_dir/manifest.$browser.json" "$target/manifest.json"
+  printf '%s\n' "$target"
+done

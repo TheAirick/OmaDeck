@@ -27,6 +27,9 @@ live system information.
 - Responsively simplifies dense modules while space is constrained, restoring
   their selected detail as panels expand.
 - Controls MPRIS media with artwork, seeking, and transport controls.
+- Optionally transfers YouTube playback from Firefox/Zen or Chromium into a
+  left-anchored video panel with touch controls, captions and focused viewing.
+  [Watch setup and limits](docs/WATCH_MODE.md).
 - Selects output and microphone devices and controls their volume, with Media, Games, Voice,
   and Other aggregate playback categories. Individual app sliders and EQ presets
   are not part of this release.
@@ -91,6 +94,13 @@ omarchy plugin add https://github.com/TheAirick/OmaDeck.git --enable
 
 It starts with `omarchy-shell` at login; no separate autostart service or build
 step is required. Standard mode uses Hyprland's compositor-managed touch input.
+
+### Optional YouTube Watch mode
+
+Watch mode needs an additional native player build and the companion browser
+extension. It is opt-in; Firefox/Zen currently uses a temporary development
+add-on, and videos that disallow embedded playback remain in the browser.
+Follow the [Watch setup guide](docs/WATCH_MODE.md).
 
 ### Optional native integration
 

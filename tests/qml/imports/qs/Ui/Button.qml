@@ -14,6 +14,7 @@ Rectangle {
   property bool selected: false
   property bool leftAlign: false
   property color foreground: Color.foreground
+  property color background: "transparent"
   property real horizontalPadding: 12
   property real verticalPadding: 8
   signal clicked()
@@ -21,7 +22,7 @@ Rectangle {
   implicitWidth: Math.max(48, label.implicitWidth + 24)
   implicitHeight: 48
   radius: 8
-  color: selected ? Color.accent : bordered ? "#27272a" : "transparent"
+  color: selected ? Color.accent : background.a > 0 ? background : bordered ? "#27272a" : "transparent"
   border.width: bordered ? 1 : 0
   border.color: Color.muted
   opacity: enabled ? 1 : 0.4

@@ -22,7 +22,7 @@ jobs:
         run: >-
           pacman -Syu --noconfirm --needed base-devel cmake git nodejs python
           python-dbus python-gobject dbus jq quickshell qt6-declarative qt6-svg
-          ttf-dejavu procps-ng
+          ttf-dejavu procps-ng qt6-webengine layer-shell-qt
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
