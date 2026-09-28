@@ -12,6 +12,8 @@ Item {
   property bool enabled: true
   property string socketPath: String(Quickshell.env("XDG_RUNTIME_DIR") || "") + "/chi.sock"
   property var tabs: ({})
+  // Chi tab states, so Watch can follow its own PiP presentation.
+  property var states: ({})
   property var tasks: ({})
   property var held: null
   property var queue: []
@@ -28,12 +30,15 @@ Item {
   signal sourceClosed(int tabId)
   signal dropped()
   signal sourcePlaying(int tabId)
+  signal mediaUpdated(int tabId, var media)
+  signal tabStateChanged(int tabId, string from, string to)
 
   function reset() {
     var hadConnection = ready || Object.keys(tasks).length > 0
     ready = false
     epoch++
     tabs = ({})
+    states = ({})
     tasks = ({})
     held = null
     queue = []
@@ -49,6 +54,41 @@ Item {
     else delete next[tabId]
     tabs = next
     if (media && media.playing) sourcePlaying(Number(tabId))
+    mediaUpdated(Number(tabId), media || null)
+  }
+
+  function setState(tabId, from, to) {
+    var next = Object.assign({}, states)
+    next[tabId] = to
+    states = next
+    tabStateChanged(Number(tabId), String(from), String(to))
+  }
+
+  // Chi's own video on the deck: its picture-in-picture presentation in the
+  // Watch rectangle. No second player, page evaluation or focus change.
+  function send(message, onReply) {
+    queue = queue.concat([{ message: message, taskId: -1, onReply: onReply || null }])
+    pump()
+  }
+
+  function place(candidate, rect, monitor, onReply) {
+    if (!connectedSource(candidate) || !monitor || !rect) return false
+    send({ cmd: "pip-place", tab: candidate.tabId, placement: { monitor: String(monitor),
+      x: rect.left, y: rect.top, width: rect.width, height: rect.height } }, onReply)
+    return true
+  }
+
+  function release(candidate, onReply) {
+    if (!ready || !candidate) return false
+    send({ cmd: "pip-release", tab: candidate.tabId }, onReply)
+    return true
+  }
+
+  function control(candidate, action) {
+    if (!connectedSource(candidate)) return false
+    send({ cmd: "media", tab: candidate.tabId, action: { action: "guarded",
+      media_id: candidate.mediaId, request: clientId + ":deck:" + (++serial), control: action } })
+    return true
   }
 
   function playerMatches(player, m) {
@@ -183,6 +223,7 @@ Item {
     if (m.status === "ok") { enqueue({ cmd: "media-list" }, -1); return }
     if (m.event === "media-changed") update(m.tab, m.media)
     else if (m.event === "tab-closed" || (m.event === "tab-state-changed" && m.to === "asleep")) update(m.id, null)
+    if (m.event === "tab-state-changed") setState(m.id, m.from, m.to)
     else if (m.event === "media-action-finished") {
       for (var requestId in tasks) {
         var task = tasks[requestId]
@@ -214,6 +255,7 @@ Item {
         var failed = root.inFlight
         root.inFlight = null
         root.finish(failed.taskId, false, -1)
+        if (failed.onReply) failed.onReply({ status: "error", message: "Chi disconnected" })
       }
     }
     parser: SplitParser {
@@ -225,10 +267,16 @@ Item {
         try { reply = JSON.parse(line) } catch (_) { reply = { status: "error" } }
         if (request && request.message.cmd === "media-list" && reply.status === "ok") {
           var next = ({})
-          for (var tab of reply.data || []) if (tab.media && tab.media.media_id && tab.media.has_video) next[tab.id] = tab.media
+          var states = ({})
+          for (var tab of reply.data || []) {
+            states[tab.id] = tab.state
+            if (tab.media && tab.media.media_id && tab.media.has_video) next[tab.id] = tab.media
+          }
           root.tabs = next
+          root.states = states
           root.ready = true
         } else if (request && reply.status !== "ok") root.finish(request.taskId, false, -1)
+        if (request && request.onReply) request.onReply(reply)
         if (root.queue.length) root.pump()
         else commands.connected = false
       }

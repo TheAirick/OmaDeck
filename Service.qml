@@ -231,6 +231,7 @@ Item {
         returnRequested: watch.lastReturnRequested, returnConfirmed: watch.lastReturnConfirmed,
         captionsAvailable: watch.captionsAvailable, captionsEnabled: watch.captionsEnabled,
         sourceKind: watch.source ? watch.source.sourceKind : "",
+        chiDeck: watch.chiDeck, chiConnected: bridge ? bridge.chiConnected : false,
         notice: watch.notice, browserConnections: bridge ? bridge.connections.length : 0,
         browserCandidates: bridge ? bridge.connections.filter(function(e) { return !!e.candidate }).length : 0 })
     }

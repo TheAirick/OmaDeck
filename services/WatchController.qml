@@ -35,6 +35,9 @@ Item {
   property int pendingPauseRequest: -1
   property int pendingReturnRequest: -1
   property bool hostAvailable: false
+  // Chi presents its own video (the original tab's player) in videoRect.
+  property bool chiDeck: false
+  readonly property var chi: browserBridge && browserBridge.chiBridge ? browserBridge.chiBridge : null
   readonly property bool shuttingDown: closing && hostProcess.running
   property string lastHostSocketPath: ""
   readonly property bool active: state === "launching" || state === "loading" || state === "pausing"
@@ -57,7 +60,17 @@ Item {
     return player
   }
 
+  function canPresentInChi(candidate) {
+    return !!(candidate && candidate.browser === "chi" && chi && chi.connectedSource(candidate)
+      && chi.states[candidate.tabId] !== "shelved")
+  }
+
   function begin(candidate, rectangle) {
+    if (!active && !hostProcess.running && canPresentInChi(candidate)) return beginChiDeck(candidate, rectangle)
+    return beginEmbedded(candidate, rectangle)
+  }
+
+  function beginEmbedded(candidate, rectangle) {
     if (active || hostProcess.running || !hostAvailable || !candidate || !rectangle || !media) return false
     var player = typeof media.playerForKey === "function"
       ? media.playerForKey(candidate.sourceKey) : null
@@ -105,6 +118,101 @@ Item {
     hostProcess.running = true
     startupDeadline.restart()
     return true
+  }
+
+  function beginChiDeck(candidate, rectangle) {
+    var rect = {
+      left: Math.floor(Number(rectangle.left)), top: Math.floor(Number(rectangle.top)),
+      width: Math.floor(Number(rectangle.width)), height: Math.floor(Number(rectangle.height))
+    }
+    if (!isFinite(rect.left) || !isFinite(rect.top) || !isFinite(rect.width)
+        || !isFinite(rect.height) || rect.width < 480 || rect.height < 270) return false
+    var tabMedia = chi.tabs[candidate.tabId] || {}
+    source = {
+      sourceKey: candidate.sourceKey, videoId: candidate.videoId, seconds: candidate.seconds,
+      sourceWasPlaying: candidate.sourceWasPlaying, sourceKind: "extension",
+      connectionId: candidate.connectionId, tabId: candidate.tabId,
+      mediaId: candidate.mediaId || "", epoch: candidate.epoch, browser: "chi"
+    }
+    chiDeck = true
+    focused = false
+    videoRect = rect
+    videoPosition = Number(tabMedia.position_ms) / 1000 || candidate.seconds
+    videoDuration = Number(tabMedia.duration_ms) / 1000 || 0
+    videoPlaying = tabMedia.playing === true
+    clearPendingSeek()
+    returnSeekTarget = -1
+    captionsEnabled = false
+    captionsAvailable = false
+    sourcePausedByUs = false
+    sourceClosed = false
+    pendingPauseRequest = -1
+    pendingReturnRequest = -1
+    notice = ""
+    closing = false
+    state = "launching"
+    startupDeadline.restart()
+    var placed = chi.place(source, rect, targetScreen, function(reply) {
+      if (!root.chiDeck || root.state !== "launching") return
+      if (reply.status === "ok") { root.chiDeckPresented(); return }
+      // A hidden tab or another PiP: keep the embedded YouTube player path.
+      root.finishChiDeck("")
+      if (!root.hostAvailable || !root.beginEmbedded(candidate, rect))
+        root.notice = "Chi could not show this video here"
+    })
+    if (!placed) { chiDeck = false; state = "idle"; source = null; startupDeadline.stop(); return false }
+    return true
+  }
+
+  // The engine confirms presentation asynchronously; follow Chi's tab state.
+  function chiDeckPresented() {
+    if (!chiDeck || state !== "launching" || !source) return
+    if (chi.states[source.tabId] !== "picture-in-picture") return
+    startupDeadline.stop()
+    state = "playing"
+  }
+
+  function chiMediaUpdated(tabId, m) {
+    if (!chiDeck || !source || tabId !== source.tabId) return
+    if (!m || m.media_id !== source.mediaId) { finishChiDeck("Video changed in Chi"); return }
+    videoPlaying = m.playing === true
+    var duration = Number(m.duration_ms) / 1000
+    if (isFinite(duration) && duration > 0) videoDuration = duration
+    var position = Number(m.position_ms) / 1000
+    if (!isFinite(position) || position < 0) return
+    if (pendingSeekPosition >= 0) {
+      if (Math.abs(position - pendingSeekPosition) > 2) return
+      clearPendingSeek()
+    }
+    videoPosition = position
+  }
+
+  function chiTabStateChanged(tabId, from, to) {
+    if (!chiDeck || !source || tabId !== source.tabId) return
+    if (to === "picture-in-picture") { chiDeckPresented(); return }
+    // Escape, Ctrl+Alt+P, the sidebar or navigation took the video back.
+    if (from === "picture-in-picture" && state !== "returning") finishChiDeck("Video returned to Chi")
+  }
+
+  // Leave Watch without sending Chi anything; its video is already elsewhere.
+  function finishChiDeck(reason) {
+    if (!chiDeck) return
+    chiDeck = false
+    notice = reason || ""
+    stopHost()
+  }
+
+  function releaseChiDeck(pause) {
+    var candidate = source
+    if (pause) chi.control(candidate, { action: "pause" })
+    state = "returning"
+    returnDeadline.restart()
+    if (!chi.release(candidate, function(reply) {
+      if (!root.chiDeck || root.state !== "returning") return
+      returnDeadline.stop()
+      root.finishChiDeck(reply.status === "ok" ? ""
+        : "Chi did not take the video back. Select its tab in Chi.")
+    })) finishChiDeck("Chi disconnected")
   }
 
   function hostAnnouncement(line) {
@@ -230,7 +338,9 @@ Item {
         || rect.width < 160 || rect.width > 3000 || rect.height < 90 || rect.height > 1200) return false
     if (rect.left === videoRect.left && rect.top === videoRect.top
         && rect.width === videoRect.width && rect.height === videoRect.height) return true
-    if (state !== "launching" && !send({ action: "geometry", left: rect.left, top: rect.top,
+    if (chiDeck) {
+      if (!chi.place(source, rect, targetScreen)) return false
+    } else if (state !== "launching" && !send({ action: "geometry", left: rect.left, top: rect.top,
         width: rect.width, height: rect.height })) return false
     videoRect = rect
     return true
@@ -244,6 +354,7 @@ Item {
 
   function togglePlayback() {
     if (state !== "playing") return
+    if (chiDeck) { chi.control(source, { action: videoPlaying ? "pause" : "play" }); return }
     send({ action: videoPlaying ? "pause" : "play" })
   }
 
@@ -257,7 +368,9 @@ Item {
     if (!isFinite(Number(seconds))) return
     var maximum = videoDuration > 0 ? Math.min(604800, videoDuration) : 604800
     var next = Math.max(0, Math.min(maximum, Math.floor(Number(seconds))))
-    if (!isFinite(next) || !send({ action: "seek", seconds: next })) return
+    if (!isFinite(next)) return
+    if (chiDeck ? !chi.control(source, { action: "seek", position_ms: next * 1000 })
+        : !send({ action: "seek", seconds: next })) return
     pendingSeekPosition = next
     videoPosition = next
     seekDeadline.restart()
@@ -291,6 +404,7 @@ Item {
 
   function returnToSource() {
     if (!active) return
+    if (chiDeck) { if (state !== "returning") releaseChiDeck(false); return }
     if (sourceClosed) { stopHost(); return }
     if (state === "returning") return
     if (!source) { stopHost(); return }
@@ -357,11 +471,19 @@ Item {
 
   function abort() {
     if (!active) return
+    // Close, lock and monitor removal pause Chi's video and give it back.
+    if (chiDeck) { if (state !== "returning") releaseChiDeck(true); return }
     // Lock and monitor removal do not restart browser audio behind the owner.
     stopHost()
   }
 
   function fail(reason) {
+    if (chiDeck) {
+      // Never leave the video parked in an unowned rectangle.
+      if (source && chi) chi.release(source)
+      finishChiDeck(reason)
+      return
+    }
     // Before the pause request the browser is still playing independently.
     // Do not seek it back to the initial timestamp on a destination load error.
     if (!sourceClosed && (sourcePausedByUs || pendingPauseRequest > 0)) restoreSource(true)
@@ -394,6 +516,7 @@ Item {
     }
     if (browserBridge) browserBridge.releaseSource(source)
     source = null
+    chiDeck = false
     sourcePausedByUs = false
     sourceClosed = false
     pendingPauseRequest = -1
@@ -486,6 +609,7 @@ Item {
       }
     }
     function onSourceClosed(connectionId, tabId) {
+      if (root.chiDeck) return // Chi ends its own presentation; see chiMediaUpdated.
       if (!root.active || !root.source || root.source.sourceKind !== "extension"
           || root.source.connectionId !== connectionId || root.source.tabId !== tabId) return
       root.sourceClosed = true
@@ -515,9 +639,17 @@ Item {
       root.commitWatch()
     }
     function onConnectionDropped(connectionId) {
+      if (root.chiDeck) return
       if (root.active && root.source && root.source.sourceKind === "extension"
           && root.source.connectionId === connectionId) root.abort()
     }
+  }
+
+  Connections {
+    target: root.chi
+    function onMediaUpdated(tabId, media) { root.chiMediaUpdated(tabId, media) }
+    function onTabStateChanged(tabId, from, to) { root.chiTabStateChanged(tabId, from, to) }
+    function onDropped() { if (root.chiDeck) root.finishChiDeck("Chi disconnected") }
   }
 
   Timer {
@@ -535,6 +667,10 @@ Item {
   Timer {
     id: returnDeadline
     interval: 10000
-    onTriggered: if (root.state === "returning") root.returnFailed(false)
+    onTriggered: {
+      if (root.state !== "returning") return
+      if (root.chiDeck) root.finishChiDeck("Chi did not take the video back. Select its tab in Chi.")
+      else root.returnFailed(false)
+    }
   }
 }

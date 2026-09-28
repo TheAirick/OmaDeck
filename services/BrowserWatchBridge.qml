@@ -8,6 +8,7 @@ Item {
   property bool enabled: true
   property alias chiSocketPath: chi.socketPath
   readonly property bool chiConnected: chi.ready
+  readonly property var chiBridge: chi
   readonly property string runtimeDir: String(Quickshell.env("XDG_RUNTIME_DIR") || "")
   readonly property string socketPath: runtimeDir ? runtimeDir + "/omadeck-browser-watch.sock" : ""
   property var connections: []

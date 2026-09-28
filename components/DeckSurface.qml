@@ -131,7 +131,7 @@ PanelWindow {
       watchController.notice = "Open the YouTube tab, then try again."
       return false
     }
-    if (!watchAvailable) {
+    if (!watchAvailable && !watchController.canPresentInChi(candidate)) {
       watchController.notice = "Watch player unavailable."
       return false
     }

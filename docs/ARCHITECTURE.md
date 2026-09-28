@@ -461,6 +461,13 @@ retained across the handoff. Errors/disconnects cancel queued work; a late
 acknowledgement cannot advance another request. Direct playback in Chi closes
 Watch, and source navigation or same-URL reload invalidates Return.
 
+When the Chi tab is visible or already in PiP, Watch instead asks Chi to
+place that same PiP presentation in the Watch rectangle (`pip-place`). The video
+is then the original tab's player under OmaDeck's transparent hole and touch
+controls; there is no destination player or position hand-off. Return uses
+`pip-release`: back into the tab if it is still where the user left it,
+otherwise ordinary PiP. A shelved tab or a Chi refusal uses the embedded path.
+
 The existing embed restriction messages remain. Unsupported/ambiguous sources
 are not silently routed to a different tab. See `docs/reviews/2026-09-28-chi-watch.md`
 for verification and the activation boundary.
