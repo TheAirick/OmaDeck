@@ -18,6 +18,8 @@ for (const { cycles, nativeAdapter } of [
   try {
     fs.mkdirSync(path.join(dir, 'runtime'), { mode: 0o700 })
     fs.mkdirSync(path.join(dir, 'imports'))
+    fs.mkdirSync(path.join(dir, 'components'))
+    fs.copyFileSync(path.join(__dirname, '../components/CircularSeekIcon.qml'), path.join(dir, 'components/CircularSeekIcon.qml'))
     // Mock appearance only. Discovery and player objects use installed Quickshell.
     fs.cpSync(path.join(__dirname, 'qml/imports/qs'), path.join(dir, 'imports/qs'), { recursive: true })
     for (const file of ['NowPlayingModule.qml', 'MediaArtwork.js'])
@@ -26,6 +28,7 @@ for (const { cycles, nativeAdapter } of [
     fs.cpSync(path.join(__dirname, '../theme'), path.join(dir, 'theme'), { recursive: true })
     const nowPlayingPath = path.join(dir, 'NowPlayingModule.qml')
     fs.writeFileSync(nowPlayingPath, fs.readFileSync(nowPlayingPath, 'utf8')
+      .replace('../components', 'components')
       .replace('../theme', 'theme')
       .replace('../services/WatchSource.js', 'WatchSource.js'))
     fs.copyFileSync(path.join(__dirname, '../services/MprisMediaAdapter.qml'), path.join(dir, 'MprisMediaAdapter.qml'))

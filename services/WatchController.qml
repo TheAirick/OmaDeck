@@ -81,6 +81,7 @@ Item {
       sourceKind: extension ? "extension" : "mpris",
       connectionId: extension ? candidate.connectionId : -1,
       tabId: extension ? candidate.tabId : -1,
+      mediaId: candidate.mediaId || "", epoch: candidate.epoch,
       browser: extension ? candidate.browser : ""
     }
     focused = false
@@ -340,7 +341,7 @@ Item {
   }
 
   function returnFailed(resumeHost) {
-    if (browserBridge) browserBridge.forgetRequest(pendingReturnRequest)
+    if (browserBridge) browserBridge.cancelRequest(pendingReturnRequest)
     pendingReturnRequest = -1
     returnDeadline.stop()
     returnSeekCheck.stop()
@@ -388,9 +389,10 @@ Item {
       else hostProcess.running = false
     }
     if (browserBridge) {
-      browserBridge.forgetRequest(pendingPauseRequest)
-      browserBridge.forgetRequest(pendingReturnRequest)
+      browserBridge.cancelRequest(pendingPauseRequest)
+      browserBridge.cancelRequest(pendingReturnRequest)
     }
+    if (browserBridge) browserBridge.releaseSource(source)
     source = null
     sourcePausedByUs = false
     sourceClosed = false
@@ -476,6 +478,13 @@ Item {
 
   Connections {
     target: root.browserBridge
+    function onSourcePlaying(connectionId, tabId) {
+      if (root.state === "playing" && root.source && root.sourcePausedByUs
+          && root.source.connectionId === connectionId && root.source.tabId === tabId) {
+        root.notice = "Playback resumed in Chi"
+        root.stopHost()
+      }
+    }
     function onSourceClosed(connectionId, tabId) {
       if (!root.active || !root.source || root.source.sourceKind !== "extension"
           || root.source.connectionId !== connectionId || root.source.tabId !== tabId) return

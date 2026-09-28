@@ -17,7 +17,7 @@ Item {
   readonly property string playerKey: player && media && typeof media.playerKey === "function"
     ? media.playerKey(player) : ""
   readonly property var watchCandidate: (deck && deck.browserWatchBridge
-      ? deck.browserWatchBridge.candidateForPlayer(playerKey) : null)
+      ? deck.browserWatchBridge.candidateForPlayer(playerKey, player) : null)
     || WatchSource.candidate(player, playerKey)
   readonly property bool canPlayPause: hasPlayer && !!(player.canTogglePlaying
     || (player.isPlaying ? player.canPause : player.canPlay))

@@ -6,6 +6,8 @@ Item {
   id: root
 
   property bool enabled: true
+  property alias chiSocketPath: chi.socketPath
+  readonly property bool chiConnected: chi.ready
   readonly property string runtimeDir: String(Quickshell.env("XDG_RUNTIME_DIR") || "")
   readonly property string socketPath: runtimeDir ? runtimeDir + "/omadeck-browser-watch.sock" : ""
   property var connections: []
@@ -16,6 +18,16 @@ Item {
   signal pauseResult(int requestId, bool ok, real seconds)
   signal connectionDropped(int connectionId)
   signal sourceClosed(int connectionId, int tabId)
+  signal sourcePlaying(int connectionId, int tabId)
+
+  ChiWatchBridge {
+    id: chi
+    enabled: root.enabled
+    onResult: (requestId, ok, seconds) => root.pauseResult(requestId, ok, seconds)
+    onSourceClosed: tabId => root.sourceClosed(0, tabId)
+    onSourcePlaying: tabId => root.sourcePlaying(0, tabId)
+    onDropped: root.connectionDropped(0)
+  }
 
   function register(socket) {
     if (!socket) return
@@ -101,7 +113,9 @@ Item {
     return ""
   }
 
-  function candidateForPlayer(key) {
+  function candidateForPlayer(key, player) {
+    var chiCandidate = chi.candidateForPlayer(key, player)
+    if (chiCandidate) return chiCandidate
     var browser = browserForPlayerKey(key)
     if (!browser) return null
     var selected = null
@@ -119,6 +133,7 @@ Item {
   }
 
   function connectedSource(candidate) {
+    if (candidate && candidate.browser === "chi") return chi.connectedSource(candidate)
     if (!candidate || candidate.sourceKind !== "extension") return false
     var entry = connection(candidate.connectionId)
     return !!(entry && entry.socket.connected && entry.browser === candidate.browser
@@ -127,6 +142,7 @@ Item {
   }
 
   function matches(candidate) {
+    if (candidate && candidate.browser === "chi") return chi.connectedSource(candidate)
     if (!connectedSource(candidate)) return false
     var entry = connection(candidate.connectionId)
     return !!(entry.candidate
@@ -142,6 +158,8 @@ Item {
     var entry = connection(candidate.connectionId)
     var requestId = nextRequestId
     nextRequestId = nextRequestId >= 2147483647 ? 1 : nextRequestId + 1
+    if (candidate.browser === "chi")
+      return chi.command(candidate, action, seconds, wasPlaying, requestId) ? requestId : -1
     pendingRequests[requestId] = entry.id
     entry.socket.write(JSON.stringify({ type: "command", action: action,
       requestId: requestId, tabId: candidate.tabId, videoId: candidate.videoId,
@@ -149,6 +167,13 @@ Item {
       wasPlaying: wasPlaying === true }) + "\n")
     entry.socket.flush()
     return requestId
+  }
+
+  function releaseSource(candidate) { chi.releaseSource(candidate) }
+
+  function cancelRequest(requestId) {
+    chi.forget(requestId)
+    forgetRequest(requestId)
   }
 
   function forgetRequest(requestId) {

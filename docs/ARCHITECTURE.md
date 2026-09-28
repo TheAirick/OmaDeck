@@ -434,3 +434,33 @@ panel, enabling it sends a configured location—or the public-IP-derived
 location when automatic—to `wttr.in` and Open-Meteo. Provider responses,
 location input, process metadata, and clipboard history are all bounded before
 they reach the long-running QML engine.
+
+
+## Browser Watch handoff
+
+Now Playing's existing **Watch here** button expands the left media surface
+through `WatchMode.qml` and `WatchController.qml`. The separate native
+`omadeck-watch-host` renders YouTube using Qt WebEngine; WebEngine never runs
+inside the long-lived desktop shell. Firefox/Chromium use the existing browser
+extension and `BrowserWatchBridge.qml` socket. Chi uses `ChiWatchBridge.qml`, a
+client of Chi's existing control API, through that same controller contract.
+
+Chi discovery subscribes to passive events and does not evaluate JavaScript,
+wake tabs or change focus. Since WebKit MPRIS omits the page URL, the bridge
+requires Chi identity, exact title/artwork, and unique matches among loaded
+Chi videos and native MPRIS players. Ambiguity hides the offer. No duplicate
+MPRIS player or per-tab output routing is introduced.
+
+Chi candidates carry an opaque media identity and connection epoch. Guarded
+pause/seek/play actions must confirm the same instance and measured playhead.
+Return also waits for the destination's iframe player to report paused before
+resuming Chi. A renewable, expiring media hold prevents Chi's automatic unload
+or refresh from destroying a paused source during Watch; explicit user actions
+still win. Command sockets are short-lived, with one passive event subscription
+retained across the handoff. Errors/disconnects cancel queued work; a late
+acknowledgement cannot advance another request. Direct playback in Chi closes
+Watch, and source navigation or same-URL reload invalidates Return.
+
+The existing embed restriction messages remain. Unsupported/ambiguous sources
+are not silently routed to a different tab. See `docs/reviews/2026-09-28-chi-watch.md`
+for verification and the activation boundary.

@@ -10,6 +10,7 @@ WebEngineView {
   settings.playbackRequiresUserGesture: false
   property bool polling: false
   property bool reportedPrimed: false
+  property bool awaitingReturnSnapshot: false
   property real reportedDuration: 0
 
   Component.onCompleted: {
@@ -35,7 +36,7 @@ WebEngineView {
       'onError:function(e){window.omadeckError=e.data;}}});}',
       'window.omadeckControl=function(action,seconds){if(!player)return;',
       'if(action==="commit"){player.seekTo(seconds,true);player.unMute();}',
-      'else if(action==="play"){player.playVideo();}',
+      'else if(action==="play"){player.unMute();player.playVideo();}',
       'else if(action==="pause"){player.pauseVideo();}',
       'else if(action==="captionsOn"||action==="captionsOff"){captionsWanted=action==="captionsOn";applyCaptions();}',
       'else if(action==="seek"){player.seekTo(seconds,true);}};',
@@ -47,6 +48,7 @@ WebEngineView {
     target: watchBridge
     function onLoadRequested(videoId, seconds) {
       root.reportedPrimed = false
+      root.awaitingReturnSnapshot = false
       root.reportedDuration = 0
       root.polling = true
       try {
@@ -57,8 +59,10 @@ WebEngineView {
     }
     function onControlRequested(action, seconds) {
       if (action === "returnSnapshot") {
-        root.runJavaScript("(function(){if(!player||typeof player.getCurrentTime!=='function')return -1;player.pauseVideo();return player.getCurrentTime();})()",
-          function(result) { if (typeof result === "number" && result >= 0) watchBridge.returnSnapshot(result) })
+        // YouTube commands cross an iframe boundary. An immediate getCurrentTime
+        // is not proof that pause took effect; confirm it in the state poll.
+        root.awaitingReturnSnapshot = true
+        root.runJavaScript("if(player){player.mute();player.pauseVideo();}")
         return
       }
       root.runJavaScript("window.omadeckControl(" + JSON.stringify(action)
@@ -87,6 +91,10 @@ WebEngineView {
         try { value = JSON.parse(result) } catch (error) { return }
         if (value.error) { root.polling = false; watchBridge.playerError(value.error); return }
         if (!value.ready) return
+        if (root.awaitingReturnSnapshot && (value.state === 2 || value.state === 0)) {
+          root.awaitingReturnSnapshot = false
+          watchBridge.returnSnapshot(value.time)
+        }
         if (value.state === 1 && !root.reportedPrimed) {
           root.reportedPrimed = true
           watchBridge.primed(value.time)

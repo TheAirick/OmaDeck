@@ -1236,6 +1236,41 @@ TestCase {
     } finally { playerFixture.metadata = ({}) }
   }
 
+  function test_chiWatchHereUsesExistingButtonAndExactMediaSource() {
+    var deck = createDeck(1600, 450)
+    var bridge = findChild(deck, "chiWatchBridge")
+    verify(bridge !== null)
+    bridge.enabled = false
+    bridge.ready = true
+    var oldIdentity = playerFixture.identity
+    var oldArt = playerFixture.trackArtUrl
+    playerFixture.identity = "Chi"
+    playerFixture.trackArtUrl = "https://i.ytimg.com/vi/M7lc1UVf-VE/hqdefault.jpg"
+    Mp.Mpris.players.values = [playerFixture]
+    try {
+      bridge.update(12, {media_id:"chi:doc", has_video:true,
+        page_url:"https://www.youtube.com/watch?v=M7lc1UVf-VE",
+        title:playerFixture.trackTitle, artwork:playerFixture.trackArtUrl,
+        position_ms:42125, playing:true})
+      var presenter = findChild(deck, "nowPlayingPresenter")
+      tryVerify(function() { return !!presenter.watchCandidate })
+      compare(presenter.watchCandidate.browser, "chi")
+      var button = findChild(deck, "watchHereButton")
+      verify(button.visible && button.enabled)
+      deck.watchController.hostAvailable = true
+      clickItem(deck, button)
+      compare(deck.watchController.state, "launching")
+      compare(deck.watchController.source.tabId, 12)
+      compare(deck.watchController.source.mediaId, "chi:doc")
+      compare(deck.watchController.source.sourceKey, playerFixture.dbusName)
+    } finally {
+      deck.watchController.abort()
+      playerFixture.identity = oldIdentity
+      playerFixture.trackArtUrl = oldArt
+      Mp.Mpris.players.values = []
+    }
+  }
+
   function test_browserBridgeRetainsConnectedSelectionAndTargetsExactCommands() {
     var deck = createDeck(1600, 450)
     var bridge = deck.browserWatchBridge

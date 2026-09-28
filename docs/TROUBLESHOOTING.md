@@ -264,3 +264,18 @@ For a focused, sanitized report, run:
 ```bash
 ~/.config/omarchy/plugins/pretty.omadeck/scripts/omadeck-doctor
 ```
+
+
+## Chi does not offer Watch here
+
+Chi must be running a build with guarded media controls and passive media
+identity. The YouTube source must already be loaded and have native MPRIS
+metadata. Chi needs no Watch browser add-on. If two loaded Chi tabs have the
+same title/artwork, or multiple native players match, the bridge hides Watch
+rather than guessing which tab to pause. Close/unload the duplicate explicitly
+or select a distinct source. Discovery never wakes unloaded tabs itself.
+
+If the source navigates, reloads, closes, or the Chi daemon exits during Watch,
+Return cannot control a replacement document. A failed Return leaves playback
+paused for a deliberate retry. Starting playback directly in Chi closes Watch.
+Embed-blocked videos retain the existing “Keep watching in your browser” notice.
