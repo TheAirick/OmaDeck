@@ -6,6 +6,7 @@ QtObject {
   property var parser: null
   property var sent: []
   signal connectionStateChanged()
+  signal error(int error)
   onConnectedChanged: connectionStateChanged()
   function write(data) { sent = sent.concat([String(data)]) }
   function flush() {}

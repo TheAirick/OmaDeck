@@ -127,7 +127,11 @@ Item {
 
   function pump() {
     if (inFlight || !queue.length) return
-    if (!commands.connected) { commands.connected = true; return }
+    if (!commands.connected) {
+      if (commandsFailed) { commandsFailed = false; renew(commandsLoader) }
+      commands.connected = true
+      return
+    }
     inFlight = queue[0]
     queue = queue.slice(1)
     if (inFlight.taskId > 0 && !tasks[inFlight.taskId]) { inFlight = null; pump(); return }
@@ -245,61 +249,82 @@ Item {
     }
   }
 
-  Socket {
-    id: events
-    path: root.socketPath
-    onConnectedChanged: {
-      if (connected) { root.retryMs = 1000; write('{"cmd":"subscribe"}\n'); flush() }
-      else { commands.connected = false; root.reset() }
-    }
-    parser: SplitParser { splitMarker: "\n"; onRead: line => root.receiveEvent(line) }
-  }
-  Socket {
-    id: commands
-    objectName: "chiWatchCommands"
-    path: root.socketPath
-    onConnectedChanged: {
-      if (connected) root.pump()
-      else if (root.inFlight) {
-        var failed = root.inFlight
-        root.inFlight = null
-        root.finish(failed.taskId, false, -1)
-        if (failed.onReply) failed.onReply({ status: "error", message: "Chi disconnected" })
+  // A Quickshell Socket that has failed (Chi restarting, its socket briefly
+  // gone) never connects again, even after Chi is back; that hid Watch here
+  // until the shell restarted. A failed socket is replaced before reuse.
+  readonly property var events: eventsLoader.item
+  readonly property var commands: commandsLoader.item
+  property bool eventsFailed: false
+  property bool commandsFailed: false
+  function renew(loader) { loader.active = false; loader.active = true }
+
+  Loader {
+    id: eventsLoader
+    sourceComponent: Socket {
+      objectName: "chiWatchEvents"
+      path: root.socketPath
+      onError: root.eventsFailed = true
+      onConnectedChanged: {
+        if (connected) { root.retryMs = 1000; write('{"cmd":"subscribe"}\n'); flush() }
+        else { if (root.commands) root.commands.connected = false; root.reset() }
       }
-    }
-    parser: SplitParser {
-      splitMarker: "\n"
-      onRead: line => {
-        var request = root.inFlight
-        root.inFlight = null
-        var reply
-        try { reply = JSON.parse(line) } catch (_) { reply = { status: "error" } }
-        if (request && request.message.cmd === "media-list" && reply.status === "ok") {
-          var next = ({})
-          var states = ({})
-          for (var tab of reply.data || []) {
-            states[tab.id] = tab.state
-            if (tab.media && tab.media.media_id && tab.media.has_video) next[tab.id] = tab.media
-          }
-          root.tabs = next
-          root.states = states
-          root.ready = true
-        } else if (request && reply.status !== "ok") root.finish(request.taskId, false, -1)
-        if (request && request.onReply) request.onReply(reply)
-        if (root.queue.length) root.pump()
-        else commands.connected = false
-      }
+      parser: SplitParser { splitMarker: "\n"; onRead: line => root.receiveEvent(line) }
     }
   }
+  Loader {
+    id: commandsLoader
+    sourceComponent: Socket {
+      objectName: "chiWatchCommands"
+      path: root.socketPath
+      onError: root.commandsFailed = true
+      onConnectedChanged: {
+        if (connected) root.pump()
+        else if (root.inFlight) {
+          var failed = root.inFlight
+          root.inFlight = null
+          root.finish(failed.taskId, false, -1)
+          if (failed.onReply) failed.onReply({ status: "error", message: "Chi disconnected" })
+        }
+      }
+      parser: SplitParser {
+        splitMarker: "\n"
+        onRead: line => {
+          var request = root.inFlight
+          root.inFlight = null
+          var reply
+          try { reply = JSON.parse(line) } catch (_) { reply = { status: "error" } }
+          if (request && request.message.cmd === "media-list" && reply.status === "ok") {
+            var next = ({})
+            var states = ({})
+            for (var tab of reply.data || []) {
+              states[tab.id] = tab.state
+              if (tab.media && tab.media.media_id && tab.media.has_video) next[tab.id] = tab.media
+            }
+            root.tabs = next
+            root.states = states
+            root.ready = true
+          } else if (request && reply.status !== "ok") root.finish(request.taskId, false, -1)
+          if (request && request.onReply) request.onReply(reply)
+          if (root.queue.length) root.pump()
+          else root.commands.connected = false
+        }
+      }
+    }
+  }
+  // Retry until Chi has answered, not merely until the socket says connected.
   Timer {
+    objectName: "chiWatchRetry"
     interval: root.retryMs
-    running: root.wantsConnection && !events.connected
+    running: root.wantsConnection && !root.ready
     repeat: true
     triggeredOnStart: true
     onTriggered: {
-      events.connected = true
-      if (!events.connected) root.retryMs = Math.min(root.retryMs * 2, 30000)
+      // Back off first: a connect succeeds synchronously and resets it.
+      root.retryMs = Math.min(root.retryMs * 2, 30000)
+      if (root.eventsFailed) { root.eventsFailed = false; root.renew(eventsLoader) }
+      else if (root.events.connected) root.events.connected = false
+      root.events.connected = true
     }
   }
-  onEnabledChanged: if (!enabled) { events.connected = false; commands.connected = false; reset() }
+  onEnabledChanged: if (!enabled) { if (events) events.connected = false; if (commands) commands.connected = false; reset() }
 }

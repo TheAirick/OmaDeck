@@ -18,6 +18,23 @@ TestCase {
     bridge.setNowPlaying(12)
     return bridge
   }
+  function test_retriesUntilChiAnswersEvenIfTheSocketLooksConnected() {
+    Mp.Mpris.players.values = [player]
+    var bridge = createTemporaryObject(factory, this)
+    var events = findChild(bridge, "chiWatchEvents")
+    bridge.retryMs = 50
+    bridge.enabled = true
+    // A connect attempt that never gets an answer (Chi restarting) leaves
+    // the socket "connected": the bridge must still try again.
+    tryVerify(function() { return events.sent.filter(function(m) { return m.indexOf("subscribe") >= 0 }).length >= 2 }, 3000)
+    verify(!bridge.ready)
+    // Once Chi has answered, retries stop.
+    bridge.ready = true
+    var retry = findChild(bridge, "chiWatchRetry")
+    verify(!retry.running)
+    bridge.enabled = false
+  }
+
   function test_candidateFollowsChiNowPlayingNotMprisMetadata() {
     var bridge = fixture()
     var c = bridge.candidateForPlayer("webkit-one", player)
