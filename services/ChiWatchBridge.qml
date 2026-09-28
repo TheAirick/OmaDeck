@@ -6,6 +6,8 @@ import "WatchSource.js" as WatchSource
 
 // A client of Chi's existing control API. Discovery never evaluates page JS,
 // focuses a window or wakes a tab. Media discovery is event driven; no extra player or daemon.
+// The source is Chi's own now-playing tab. WebKit's MPRIS player can stick to an
+// older video, so MPRIS only says the displayed card belongs to Chi.
 Item {
   id: root
   objectName: "chiWatchBridge"
@@ -14,6 +16,9 @@ Item {
   property var tabs: ({})
   // Chi tab states, so Watch can follow its own PiP presentation.
   property var states: ({})
+  // Chi's tab whose unmuted media most recently started playing; -1 for none.
+  property int nowPlaying: -1
+  property int nowPlayingEvents: 0
   property var tasks: ({})
   property var held: null
   property var queue: []
@@ -39,6 +44,7 @@ Item {
     epoch++
     tabs = ({})
     states = ({})
+    nowPlaying = -1
     tasks = ({})
     held = null
     queue = []
@@ -91,28 +97,21 @@ Item {
     return true
   }
 
-  function playerMatches(player, m) {
-    // WebKit has no xesam:url. Require its native Chi identity and both exact
-    // metadata fields; refuse duplicate tabs/players instead of guessing.
-    return !!(player && String(player.identity) === "Chi" && m && m.title && m.artwork
-      && String(player.trackTitle) === m.title && String(player.trackArtUrl) === m.artwork)
+  function setNowPlaying(tabId) {
+    var id = Number(tabId)
+    nowPlaying = tabId === null || tabId === undefined || !isFinite(id) ? -1 : id
   }
 
   function candidateForPlayer(key, player) {
-    if (!ready || !key || !player) return null
-    var matches = []
-    for (var tabId in tabs) {
-      var m = tabs[tabId]
-      var videoId = WatchSource.youtubeVideoId(m.page_url)
-      if (videoId && playerMatches(player, m)) matches.push({ id: Number(tabId), media: m, videoId: videoId })
-    }
-    if (matches.length !== 1) return null
-    var match = matches[0]
-    if (players.filter(function(p) { return root.playerMatches(p, match.media) }).length !== 1) return null
+    // Any Chi card offers Chi's now-playing tab, whatever title MPRIS shows.
+    if (!ready || !key || !player || String(player.identity) !== "Chi") return null
+    var m = tabs[nowPlaying]
+    var videoId = m ? WatchSource.youtubeVideoId(m.page_url) : ""
+    if (!m || !videoId) return null
     return { sourceKind: "extension", browser: "chi", connectionId: 0,
-      tabId: match.id, mediaId: match.media.media_id, epoch: epoch,
-      videoId: match.videoId, seconds: Math.floor(match.media.position_ms / 1000),
-      sourceWasPlaying: match.media.playing, sourceKey: key }
+      tabId: nowPlaying, mediaId: m.media_id, epoch: epoch,
+      videoId: videoId, seconds: Math.floor(m.position_ms / 1000),
+      sourceWasPlaying: m.playing, sourceKey: key }
   }
 
   function connectedSource(candidate) {
@@ -220,7 +219,17 @@ Item {
   function receiveEvent(line) {
     var m
     try { m = JSON.parse(line) } catch (_) { return }
-    if (m.status === "ok") { enqueue({ cmd: "media-list" }, -1); return }
+    if (m.status === "ok") {
+      enqueue({ cmd: "media-list" }, -1)
+      // An event that arrives first is newer than this snapshot.
+      var seen = nowPlayingEvents
+      send({ cmd: "status" }, function(reply) {
+        if (reply.status === "ok" && root.nowPlayingEvents === seen)
+          root.setNowPlaying(reply.data ? reply.data.now_playing : null)
+      })
+      return
+    }
+    if (m.event === "now-playing-changed") { nowPlayingEvents++; setNowPlaying(m.tab); return }
     if (m.event === "media-changed") update(m.tab, m.media)
     else if (m.event === "tab-closed" || (m.event === "tab-state-changed" && m.to === "asleep")) update(m.id, null)
     if (m.event === "tab-state-changed") setState(m.id, m.from, m.to)

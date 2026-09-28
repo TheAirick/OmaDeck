@@ -15,9 +15,10 @@ TestCase {
     Mp.Mpris.players.values = [player]
     bridge.update(12, { media_id: "doc:1", has_video: true, page_url: "https://www.youtube.com/watch?v=M7lc1UVf-VE",
       title: player.trackTitle, artwork: player.trackArtUrl, position_ms: 12345, playing: true })
+    bridge.setNowPlaying(12)
     return bridge
   }
-  function test_exactCandidateAndAmbiguousPlayers() {
+  function test_candidateFollowsChiNowPlayingNotMprisMetadata() {
     var bridge = fixture()
     var c = bridge.candidateForPlayer("webkit-one", player)
     compare(c.tabId, 12)
@@ -25,11 +26,39 @@ TestCase {
     compare(c.mediaId, "doc:1")
     compare(c.browser, "chi")
     verify(bridge.connectedSource(c))
-    Mp.Mpris.players.values = [player, Object.assign({}, player, {dbusName: "webkit-two"})]
+    // WebKit's player can stay on an older, stopped video and duplicate players
+    // can exist: the Chi card still offers the tab that is playing now.
+    var stale = { identity: "Chi", dbusName: "webkit-stale", trackTitle: "Opus", trackArtUrl: "" }
+    Mp.Mpris.players.values = [stale, player]
+    bridge.update(13, { media_id: "doc:2", has_video: true, page_url: "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
+      title: "Second", artwork: null, position_ms: 5000, playing: true })
+    bridge.receiveEvent(JSON.stringify({ event: "now-playing-changed", tab: 13 }))
+    c = bridge.candidateForPlayer("webkit-stale", stale)
+    compare(c.tabId, 13)
+    compare(c.mediaId, "doc:2")
+    compare(c.videoId, "aqz-KE-bpKQ")
+    compare(c.sourceKey, "webkit-stale")
+    // Other players' cards and an empty now-playing record offer nothing.
+    compare(bridge.candidateForPlayer("spotify", { identity: "Spotify", dbusName: "spotify" }), null)
+    bridge.receiveEvent(JSON.stringify({ event: "now-playing-changed", tab: null }))
+    compare(bridge.nowPlaying, -1)
     compare(bridge.candidateForPlayer("webkit-one", player), null)
     Mp.Mpris.players.values = [player]
-    bridge.update(13, bridge.tabs[12])
-    compare(bridge.candidateForPlayer("webkit-one", player), null)
+  }
+  function test_statusSnapshotNeverOverridesANewerEvent() {
+    var bridge = fixture()
+    var commands = findChild(bridge, "chiWatchCommands")
+    bridge.receiveEvent(JSON.stringify({ status: "ok" })) // subscription acknowledged
+    compare(JSON.parse(commands.sent[commands.sent.length - 1]).cmd, "media-list")
+    commands.parser.read(JSON.stringify({ status: "ok", data: [] }))
+    compare(JSON.parse(commands.sent[commands.sent.length - 1]).cmd, "status")
+    bridge.receiveEvent(JSON.stringify({ event: "now-playing-changed", tab: 7 }))
+    commands.parser.read(JSON.stringify({ status: "ok", data: { now_playing: 3 } }))
+    compare(bridge.nowPlaying, 7)
+    bridge.receiveEvent(JSON.stringify({ status: "ok" }))
+    commands.parser.read(JSON.stringify({ status: "ok", data: [] }))
+    commands.parser.read(JSON.stringify({ status: "ok", data: { now_playing: 3 } }))
+    compare(bridge.nowPlaying, 3)
   }
   function test_navigationAndReloadRetireOnlyOriginalIdentity() {
     var bridge = fixture()
@@ -86,6 +115,7 @@ TestCase {
     Mp.Mpris.players.values = [player]
     bridge.update(12, { media_id: "doc:1", has_video: true, page_url: "https://www.youtube.com/watch?v=M7lc1UVf-VE",
       title: player.trackTitle, artwork: player.trackArtUrl, position_ms: 12345, duration_ms: 60000, playing: true })
+    bridge.setNowPlaying(12)
     watch.browserBridge = browser
     return { bridge: bridge, watch: watch, commands: findChild(bridge, "chiWatchCommands"),
       candidate: bridge.candidateForPlayer("webkit-one", player) }

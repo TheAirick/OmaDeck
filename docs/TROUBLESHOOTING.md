@@ -268,12 +268,12 @@ For a focused, sanitized report, run:
 
 ## Chi does not offer Watch here
 
-Chi must be running a build with guarded media controls and passive media
-identity. The YouTube source must already be loaded and have native MPRIS
-metadata. Chi needs no Watch browser add-on. If two loaded Chi tabs have the
-same title/artwork, or multiple native players match, the bridge hides Watch
-rather than guessing which tab to pause. Close/unload the duplicate explicitly
-or select a distinct source. Discovery never wakes unloaded tabs itself.
+Chi must be running a build that reports `now_playing` in `chi status`. Watch
+offers the tab Chi reports there, which must be a loaded YouTube video; `chi
+status` shows which tab that is. Now Playing must show a Chi card (WebKit's
+player). Its title may be stale; that does not change the source. Muted videos
+never become now playing. Chi needs no Watch browser add-on, and discovery never
+wakes unloaded tabs itself.
 
 If the source navigates, reloads, closes, or the Chi daemon exits during Watch,
 Return cannot control a replacement document. A failed Return leaves playback

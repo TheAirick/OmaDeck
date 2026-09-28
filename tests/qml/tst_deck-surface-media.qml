@@ -1252,6 +1252,7 @@ TestCase {
         page_url:"https://www.youtube.com/watch?v=M7lc1UVf-VE",
         title:playerFixture.trackTitle, artwork:playerFixture.trackArtUrl,
         position_ms:42125, playing:true})
+      bridge.setNowPlaying(12)
       var presenter = findChild(deck, "nowPlayingPresenter")
       tryVerify(function() { return !!presenter.watchCandidate })
       compare(presenter.watchCandidate.browser, "chi")

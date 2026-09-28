@@ -446,9 +446,11 @@ extension and `BrowserWatchBridge.qml` socket. Chi uses `ChiWatchBridge.qml`, a
 client of Chi's existing control API, through that same controller contract.
 
 Chi discovery subscribes to passive events and does not evaluate JavaScript,
-wake tabs or change focus. Since WebKit MPRIS omits the page URL, the bridge
-requires Chi identity, exact title/artwork, and unique matches among loaded
-Chi videos and native MPRIS players. Ambiguity hides the offer. No duplicate
+wake tabs or change focus. The source is Chi's `now_playing` tab (from `status`
+and `now-playing-changed`: the tab whose unmuted media most recently started)
+with that tab's `media_id`. WebKit's native MPRIS player can stay on an older
+video, so MPRIS only identifies the displayed Now Playing card as Chi's; its
+title, artwork and player count are not used to pick the tab. No duplicate
 MPRIS player or per-tab output routing is introduced.
 
 Chi candidates carry an opaque media identity and connection epoch. Guarded
@@ -468,6 +470,5 @@ controls; there is no destination player or position hand-off. Return uses
 `pip-release`: back into the tab if it is still where the user left it,
 otherwise ordinary PiP. A shelved tab or a Chi refusal uses the embedded path.
 
-The existing embed restriction messages remain. Unsupported/ambiguous sources
-are not silently routed to a different tab. See `docs/reviews/2026-09-28-chi-watch.md`
+The existing embed restriction messages remain. See `docs/reviews/2026-09-28-chi-watch.md`
 for verification and the activation boundary.
