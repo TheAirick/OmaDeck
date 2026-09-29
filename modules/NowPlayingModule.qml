@@ -14,15 +14,26 @@ Item {
   property var deck: null
   readonly property var player: media ? media.activePlayer : null
   readonly property bool hasPlayer: !!player
+  // WebKit publishes one MPRIS player for all of Chi and it can stay on an
+  // older video (X after muting itself). For Chi, show and control the tab
+  // Chi itself reports as now playing.
+  readonly property var chiBridge: deck && deck.browserWatchBridge ? deck.browserWatchBridge.chiBridge : null
+  readonly property var chiMedia: player && String(player.identity) === "Chi" && chiBridge && chiBridge.ready
+    && chiBridge.nowPlaying >= 0 && chiBridge.tabs[chiBridge.nowPlaying] ? chiBridge.tabs[chiBridge.nowPlaying] : null
+  readonly property string displayTitle: chiMedia ? (chiMedia.title || playbackStatus)
+    : player ? (player.trackTitle || playbackStatus) : playbackStatus
+  readonly property string displayArtist: chiMedia ? (chiMedia.artist || "Chi")
+    : player ? (player.trackArtist || player.identity || "") : ""
   readonly property string playerKey: player && media && typeof media.playerKey === "function"
     ? media.playerKey(player) : ""
   readonly property var watchCandidate: (deck && deck.browserWatchBridge
       ? deck.browserWatchBridge.candidateForPlayer(playerKey, player) : null)
     || WatchSource.candidate(player, playerKey)
-  readonly property bool canPlayPause: hasPlayer && !!(player.canTogglePlaying
+  readonly property bool canPlayPause: !!chiMedia || hasPlayer && !!(player.canTogglePlaying
     || (player.isPlaying ? player.canPause : player.canPlay))
   readonly property string playbackStatus: !media ? "Media service unavailable"
     : !hasPlayer ? "No media player detected"
+    : chiMedia ? (chiMedia.playing ? "Playing" : "Paused")
     : player.isPlaying ? (canPlayPause ? "Playing" : "Playing · controls unavailable")
     : player.playbackState === 0 ? "Stopped"
     : canPlayPause ? "Paused" : "Playback controls unavailable"
@@ -30,6 +41,7 @@ Item {
   function runTransport(action) {
     // Omarchy's untargeted action policy can select a different playing source.
     // Refuse stale identities: its targeted API otherwise falls back globally.
+    if (chiMedia) return action === "playPause" && chiBridge.controlNowPlaying({ action: "toggle" })
     var target = player
     var key = playerKey
     if (!target || !key || !media || typeof media.playerForKey !== "function"
@@ -39,17 +51,21 @@ Item {
     if (action === "next" && !target.canGoNext) return false
     return media.runAction(action, false, key)
   }
-  readonly property bool canSkip: hasPlayer && player.canSeek && player.positionSupported
-  readonly property string trackKey: player ? [player.uniqueId, player.trackTitle || "", player.trackArtist || ""].join("|") : ""
-  readonly property real effectiveLength: player && player.lengthSupported && player.length > 0 ? player.length : cachedLength
+  readonly property bool canSkip: chiMedia ? chiMedia.duration_ms > 0 : hasPlayer && player.canSeek && player.positionSupported
+  readonly property string trackKey: chiMedia ? "chi|" + chiMedia.media_id
+    : player ? [player.uniqueId, player.trackTitle || "", player.trackArtist || ""].join("|") : ""
+  readonly property real effectiveLength: chiMedia ? (chiMedia.duration_ms || 0) / 1000
+    : player && player.lengthSupported && player.length > 0 ? player.length : cachedLength
   readonly property bool canSeek: canSkip && effectiveLength > 0
   readonly property bool showSecondarySeek: true
   property string cachedArtworkKey: ""
   property string cachedArtworkUrl: ""
-  readonly property string publishedArtworkUrl: player && player.trackArtUrl ? String(player.trackArtUrl) : ""
+  readonly property string publishedArtworkUrl: chiMedia
+    ? String(chiMedia.artwork || MediaArtwork.youtubeThumbnail(String(chiMedia.page_url || "")) || "")
+    : player && player.trackArtUrl ? String(player.trackArtUrl) : ""
   readonly property string artworkTrackUrl: MediaArtwork.trackUrl(player)
-  readonly property string artworkKey: player
-    ? [player.trackTitle || "", player.trackArtist || "", artworkTrackUrl].join("|") : ""
+  readonly property string artworkKey: chiMedia ? [displayTitle, displayArtist, String(chiMedia.page_url || "")].join("|")
+    : player ? [player.trackTitle || "", player.trackArtist || "", artworkTrackUrl].join("|") : ""
   readonly property string derivedArtworkUrl: MediaArtwork.youtubeThumbnail(artworkTrackUrl)
   readonly property string artworkUrl: publishedArtworkUrl
     || (cachedArtworkKey === artworkKey ? cachedArtworkUrl : "")
@@ -64,7 +80,10 @@ Item {
   // MPRIS duration metadata disappears. Always clamp against our last real
   // duration instead, or a late seek gets capped to the old playhead.
   function clampPosition(value) { return Math.max(0, Math.min(effectiveLength > 0 ? effectiveLength : value, value)) }
-  function refreshPosition() { if (!seeking) displayedPosition = player && player.positionSupported ? player.position : 0 }
+  function refreshPosition() {
+    if (seeking) return
+    displayedPosition = chiMedia ? (chiMedia.position_ms || 0) / 1000 : player && player.positionSupported ? player.position : 0
+  }
   function tickPosition() {
     if (seeking) return
     // Hold for at most one second plus the 500ms sampling interval. Never
@@ -83,6 +102,14 @@ Item {
   }
   function seekTo(value) {
     if (!canSeek) return
+    if (chiMedia) {
+      var target = clampPosition(value)
+      if (!chiBridge.controlNowPlaying({ action: "seek", position_ms: Math.round(target * 1000) })) return
+      displayedPosition = target
+      optimisticPosition = true
+      optimisticUntil = Date.now() + 1000
+      return
+    }
     // 0.3.1's position setter caches even rejected requests. Seek leaves the
     // getter intact until the player reports Seeked, including without duration.
     player.seek(clampPosition(value) - player.position)
@@ -92,6 +119,7 @@ Item {
   }
   function skip(seconds) {
     if (!canSkip) return
+    if (chiMedia) { seekTo(displayedPosition + seconds); return }
     player.seek(seconds)
     displayedPosition = clampPosition(displayedPosition + seconds)
     optimisticPosition = true
@@ -252,7 +280,7 @@ Item {
 
         Text {
           width: parent.width
-          text: root.player ? (root.player.trackTitle || root.playbackStatus) : root.playbackStatus
+          text: root.displayTitle
           color: Color.foreground
           font.family: Style.font.family
           font.pixelSize: Style.font.subtitle
@@ -264,7 +292,7 @@ Item {
           width: parent.width
           text: root.deck && root.deck.watchController.notice && !root.deck.watchController.active
               ? root.deck.watchController.notice
-              : root.player ? [root.player.trackArtist || root.player.identity || "", root.playbackStatus].filter(Boolean).join(" · ")
+              : root.player ? [root.displayArtist, root.playbackStatus].filter(Boolean).join(" · ")
             : root.media ? "Compatible players appear here." : "Waiting for Omarchy media."
           color: DeckColors.secondaryText
           font.family: Style.font.family

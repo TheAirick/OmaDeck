@@ -106,6 +106,59 @@ TestCase {
     mouseClick(module, point.x, point.y)
   }
 
+  Component {
+    id: chiBridgeComponent
+    QtObject {
+      property bool ready: true
+      property int nowPlaying: 107
+      property var tabs: ({ 107: { media_id: "doc:yt", title: "YouTube video", artist: "Channel", artwork: "",
+        page_url: "https://www.youtube.com/watch?v=lVpSU49cdQ0", playing: false, position_ms: 30000, duration_ms: 600000 } })
+      property var controls: []
+      signal mediaUpdated(int tabId, var media)
+      function controlNowPlaying(action) { controls.push(JSON.stringify(action)); return true }
+    }
+  }
+  Component {
+    id: browserBridgeComponent
+    QtObject { property var chiBridge: null; function candidateForPlayer() { return null } }
+  }
+  Component {
+    id: deckComponent
+    QtObject {
+      property var browserWatchBridge: null
+      property var watchController: ({ notice: "", active: false, shuttingDown: false })
+      function startWatch() {}
+    }
+  }
+
+  function test_chiCardFollowsChiNowPlayingNotTheStaleWebKitPlayer() {
+    var fixture = fixtureFor("playing", testCase)
+    // WebKit's single player is stuck on X, which muted itself.
+    fixture.player.identity = "Chi"
+    fixture.player.trackTitle = "Home / X"
+    fixture.player.trackArtist = ""
+    var chi = createTemporaryObject(chiBridgeComponent, testCase)
+    var bridge = createTemporaryObject(browserBridgeComponent, testCase, { chiBridge: chi })
+    var deck = createTemporaryObject(deckComponent, testCase, { browserWatchBridge: bridge })
+    var module = createTemporaryObject(nowPlayingComponent, testCase, { width: 780, height: 520, media: fixture.media, deck: deck })
+    verify(module !== null)
+    wait(1)
+    compare(module.displayTitle, "YouTube video")
+    compare(module.displayArtist, "Channel")
+    compare(module.playbackStatus, "Paused")
+    compare(module.effectiveLength, 600)
+    compare(module.displayedPosition, 30)
+    verify(module.artworkUrl.indexOf("lVpSU49cdQ0") >= 0, module.artworkUrl)
+    verify(module.runTransport("playPause"))
+    module.seekTo(95)
+    compare(JSON.stringify(chi.controls), JSON.stringify([JSON.stringify({ action: "toggle" }), JSON.stringify({ action: "seek", position_ms: 95000 })]))
+    compare(fixture.media.actions.length, 0, "the stale WebKit player is never driven")
+    compare(fixture.player.seeks.length, 0)
+    // Another browser's player keeps its own metadata and transport.
+    fixture.player.identity = "Firefox"
+    compare(module.displayTitle, "Home / X")
+  }
+
   function test_transportAndSeekForwarding() {
     var fixture = fixtureFor("playing", testCase)
     var module = createTemporaryObject(nowPlayingComponent, testCase, {

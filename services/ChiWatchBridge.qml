@@ -97,6 +97,16 @@ Item {
     return true
   }
 
+  // The Now Playing card's transport for Chi's now-playing tab. Guarded by
+  // the shown media identity, so a control never reaches a different video.
+  function controlNowPlaying(action) {
+    var media = ready && nowPlaying >= 0 ? tabs[nowPlaying] : null
+    if (!media || !media.media_id) return false
+    send({ cmd: "media", tab: nowPlaying, action: { action: "guarded", media_id: media.media_id,
+      request: clientId + ":card:" + (++serial), control: action } })
+    return true
+  }
+
   function setNowPlaying(tabId) {
     var id = Number(tabId)
     nowPlaying = tabId === null || tabId === undefined || !isFinite(id) ? -1 : id
