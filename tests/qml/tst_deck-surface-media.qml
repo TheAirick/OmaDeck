@@ -1,5 +1,6 @@
 import QtQuick
 import QtTest
+import Quickshell as Qs
 import Quickshell.Services.Pipewire as Pw
 import Quickshell.Services.Mpris as Mp
 import Quickshell.Hyprland as Hl
@@ -916,6 +917,7 @@ TestCase {
   function test_pointerTransportTargetsTheMediaService() {
     mediaFixture.actions = []
     playerFixture.seeks = []
+    Qs.Quickshell.detached = []
     var deck = createDeck()
     wait(100)
     var presenter = findChild(deck, "nowPlayingPresenter")
@@ -927,7 +929,10 @@ TestCase {
     clickItem(presenter, findChild(presenter, "seekBackwardControl"))
     clickItem(presenter, findChild(presenter, "seekForwardControl"))
     clickItem(presenter, findByProperty(presenter, "iconText", "󰒭"))
-    compare(JSON.stringify(mediaFixture.actions), JSON.stringify(["playPause", "previous", "next"]))
+    // Play/pause goes straight to the player as MPRIS PlayPause.
+    compare(JSON.stringify(Qs.Quickshell.detached), JSON.stringify([["/usr/bin/busctl", "--user", "call",
+      playerFixture.dbusName, "/org/mpris/MediaPlayer2", "org.mpris.MediaPlayer2.Player", "PlayPause"]]))
+    compare(JSON.stringify(mediaFixture.actions), JSON.stringify(["previous", "next"]))
     compare(JSON.stringify(playerFixture.seeks), JSON.stringify([-10, 10]))
     presenter.seekTo(95)
     compare(playerFixture.position, 42)

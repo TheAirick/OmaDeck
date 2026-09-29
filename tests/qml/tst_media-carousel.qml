@@ -1,5 +1,6 @@
 import QtQuick
 import QtTest
+import Quickshell
 import "../../services" as Stores
 
 TestCase {
@@ -8,12 +9,14 @@ TestCase {
 
   Component { id: playerComponent; QtObject {
     property string identity: "Spotify"; property string dbusName: "org.mpris.MediaPlayer2.spotify"
-    property string trackTitle: "Song"; property string trackArtist: "Artist"; property bool isPlaying: false } }
+    property string trackTitle: "Song"; property string trackArtist: "Artist"; property bool isPlaying: false
+    property bool canControl: true } }
   Component { id: sourceComponent; QtObject {
     property var players: []; property var activePlayer: players.length ? players[0] : null
     function playerKey(p) { return p ? p.dbusName : "" }
     function playerForKey(k) { for (var p of players) if (p.dbusName === k) return p; return null }
-    function runAction() { return true } } }
+    property var actions: []
+    function runAction(action) { actions = actions.concat([action]); return true } } }
   Component { id: chiComponent; QtObject {
     property bool ready: true; property var recent: [107, 9]
     property var tabs: ({ 107: { media_id: "yt", title: "YouTube", playing: false }, 9: { media_id: "x", title: "X", playing: false } })
@@ -76,5 +79,20 @@ TestCase {
     compare(f.carousel.count, 1)
     verify(f.carousel.activePlayer === f.chiPlayer)
     compare(f.carousel.selectedChiTab, -1)
+  }
+
+  function test_playPauseSendsMprisPlayPauseToTheSelectedPlayer() {
+    var f = fixture()
+    Quickshell.detached = []
+    verify(f.carousel.runAction("playPause", false, "org.mpris.MediaPlayer2.spotify"))
+    compare(JSON.stringify(Quickshell.detached), JSON.stringify([["/usr/bin/busctl", "--user", "call",
+      "org.mpris.MediaPlayer2.spotify", "/org/mpris/MediaPlayer2", "org.mpris.MediaPlayer2.Player", "PlayPause"]]))
+    compare(f.source.actions.length, 0)
+    // Other actions, and players that refuse control, keep the media service's path.
+    verify(f.carousel.runAction("next", false, "org.mpris.MediaPlayer2.spotify"))
+    f.spotify.canControl = false
+    verify(f.carousel.runAction("playPause", false, "org.mpris.MediaPlayer2.spotify"))
+    compare(JSON.stringify(f.source.actions), JSON.stringify(["next", "playPause"]))
+    compare(Quickshell.detached.length, 1)
   }
 }

@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import Quickshell.Services.Mpris
 
 // The Now Playing card's sources: every desktop media player, with Chi's
@@ -42,7 +43,16 @@ QtObject {
   }
   function playerKey(player) { return keyOf(player) }
   function playerForKey(key) { return source && typeof source.playerForKey === "function" ? source.playerForKey(key) : null }
+  // Play/pause goes out as MPRIS PlayPause, as playerctl and media keys send
+  // it. Quickshell only sends Play or Pause, and Stremio advertises both but
+  // handles PlayPause alone.
   function runAction(action, showFeedback, key) {
+    var player = action === "playPause" ? playerForKey(key) : null
+    if (player && player.canControl && player.dbusName) {
+      Quickshell.execDetached(["/usr/bin/busctl", "--user", "call", String(player.dbusName),
+        "/org/mpris/MediaPlayer2", "org.mpris.MediaPlayer2.Player", "PlayPause"])
+      return true
+    }
     return !!source && typeof source.runAction === "function" && source.runAction(action, showFeedback, key)
   }
 
