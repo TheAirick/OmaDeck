@@ -146,6 +146,11 @@ TestCase {
     compare(module.displayTitle, "YouTube video")
     compare(module.displayArtist, "Channel")
     compare(module.playbackStatus, "Paused")
+    // The stale WebKit player says "Playing"; the button follows Chi.
+    compare(findChild(module, "playPauseControl").Accessible.name, "Play")
+    chi.tabs = Object.assign({}, chi.tabs, { 107: Object.assign({}, chi.tabs[107], { playing: true }) })
+    compare(findChild(module, "playPauseControl").Accessible.name, "Pause")
+    chi.tabs = Object.assign({}, chi.tabs, { 107: Object.assign({}, chi.tabs[107], { playing: false }) })
     compare(module.effectiveLength, 600)
     compare(module.displayedPosition, 30)
     verify(module.artworkUrl.indexOf("lVpSU49cdQ0") >= 0, module.artworkUrl)

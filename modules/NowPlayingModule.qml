@@ -20,6 +20,8 @@ Item {
   readonly property var chiBridge: deck && deck.browserWatchBridge ? deck.browserWatchBridge.chiBridge : null
   readonly property var chiMedia: player && String(player.identity) === "Chi" && chiBridge && chiBridge.ready
     && chiBridge.nowPlaying >= 0 && chiBridge.tabs[chiBridge.nowPlaying] ? chiBridge.tabs[chiBridge.nowPlaying] : null
+  // WebKit's player can keep reporting "Playing" for a video Chi has paused.
+  readonly property bool isPlaying: chiMedia ? !!chiMedia.playing : !!(player && player.isPlaying)
   readonly property string displayTitle: chiMedia ? (chiMedia.title || playbackStatus)
     : player ? (player.trackTitle || playbackStatus) : playbackStatus
   readonly property string displayArtist: chiMedia ? (chiMedia.artist || "Chi")
@@ -350,8 +352,8 @@ Item {
           objectName: "playPauseControl"
           // Status already lives on the artwork. Native touch is delivered as
           // mouse events, so hover tooltips can outlive the finger contact.
-          Accessible.name: root.player && root.player.isPlaying ? "Pause" : "Play"
-          iconText: root.player && root.player.isPlaying ? "󰏤" : "󰐊"
+          Accessible.name: root.isPlaying ? "Pause" : "Play"
+          iconText: root.isPlaying ? "󰏤" : "󰐊"
           iconSize: Style.font.displayLarge * 2; foreground: Color.accent
           width: Style.space(72); height: Style.space(72)
           horizontalPadding: 0; verticalPadding: 0
