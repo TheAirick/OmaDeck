@@ -468,7 +468,8 @@ place that same PiP presentation in the Watch rectangle (`pip-place`). The video
 is then the original tab's player under OmaDeck's transparent hole and touch
 controls; there is no destination player or position hand-off. Return uses
 `pip-release`: back into the tab if it is still where the user left it,
-otherwise ordinary PiP. A shelved tab or a Chi refusal uses the embedded path.
+otherwise ordinary PiP. Hidden (shelved) tabs are placed too; only a Chi refusal
+uses the embedded path.
 
 The existing embed restriction messages remain. See `docs/reviews/2026-09-28-chi-watch.md`
 for verification and the activation boundary.

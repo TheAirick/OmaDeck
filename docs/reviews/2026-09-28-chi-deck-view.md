@@ -11,7 +11,8 @@ Agreed rules: a video is in one place at a time. Return (`pip-release`) goes
 back into the tab when you are still on it, otherwise to ordinary PiP so the
 current window is not disturbed; a paused video stays paused. Close pauses
 first. Chi taking the video back (Escape, sidebar, navigation) ends Watch.
-A shelved tab or a Chi refusal falls back to the existing embedded player.
+Hidden (shelved) tabs are placed as well (Chi `a14c3a5`); only a Chi refusal falls
+back to the existing embedded player.
 Drawer and focus changes move the Chi window. The saved PiP spot is untouched.
 
 Chi counterpart: `pip-place` / `pip-release` on Chi `main` (`f584c78`; see its

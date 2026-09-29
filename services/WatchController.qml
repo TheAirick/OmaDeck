@@ -60,9 +60,9 @@ Item {
     return player
   }
 
+  // Chi places visible, hidden (shelved) and PiP tabs alike.
   function canPresentInChi(candidate) {
-    return !!(candidate && candidate.browser === "chi" && chi && chi.connectedSource(candidate)
-      && chi.states[candidate.tabId] !== "shelved")
+    return !!(candidate && candidate.browser === "chi" && chi && chi.connectedSource(candidate))
   }
 
   function begin(candidate, rectangle) {
@@ -155,7 +155,7 @@ Item {
     var placed = chi.place(source, rect, targetScreen, function(reply) {
       if (!root.chiDeck || root.state !== "launching") return
       if (reply.status === "ok") { root.chiDeckPresented(); return }
-      // A hidden tab or another PiP: keep the embedded YouTube player path.
+      // Chi refused (for example another PiP is open): use the embedded player.
       root.finishChiDeck("")
       if (!root.hostAvailable || !root.beginEmbedded(candidate, rect))
         root.notice = "Chi could not show this video here"

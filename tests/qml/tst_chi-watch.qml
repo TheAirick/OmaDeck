@@ -215,16 +215,29 @@ TestCase {
     compare(lastSent(f).cmd, "pip-release")
     reply(f, { status: "ok", data: "picture-in-picture" })
     compare(f.watch.state, "idle")
-    // A background (shelved) tab keeps the existing embedded path.
-    f.bridge.receiveEvent(JSON.stringify({ event: "tab-state-changed", id: 12, from: "tiled", to: "shelved" }))
-    verify(!f.watch.canPresentInChi(f.candidate))
-    // Chi can also refuse (for example another PiP is open).
-    f.bridge.receiveEvent(JSON.stringify({ event: "tab-state-changed", id: 12, from: "shelved", to: "tiled" }))
+    // Chi can refuse (for example another PiP is open).
     verify(f.watch.begin(f.candidate, { left: 16, top: 16, width: 704, height: 396 }))
     reply(f, { status: "error", message: "return the current picture-in-picture video first" })
     verify(!f.watch.chiDeck)
     compare(f.watch.state, "idle") // no native host in this fixture
     compare(f.watch.notice, "Chi could not show this video here")
+  }
+
+  function test_hiddenBackgroundTabAlsoUsesChiOwnVideo() {
+    var f = deckFixture()
+    f.bridge.receiveEvent(JSON.stringify({ event: "tab-state-changed", id: 12, from: "tiled", to: "shelved" }))
+    verify(f.watch.canPresentInChi(f.candidate))
+    verify(f.watch.begin(f.candidate, { left: 16, top: 16, width: 704, height: 396 }))
+    verify(f.watch.chiDeck)
+    compare(lastSent(f).cmd, "pip-place")
+    reply(f)
+    f.bridge.receiveEvent(JSON.stringify({ event: "tab-state-changed", id: 12, from: "shelved", to: "picture-in-picture" }))
+    compare(f.watch.state, "playing")
+    f.watch.returnToSource()
+    f.bridge.receiveEvent(JSON.stringify({ event: "tab-state-changed", id: 12, from: "picture-in-picture", to: "shelved" }))
+    reply(f, { status: "ok", data: "picture-in-picture" })
+    compare(f.watch.state, "idle")
+    compare(f.watch.notice, "")
   }
 
   Component { id: signalSpy; SignalSpy {} }
