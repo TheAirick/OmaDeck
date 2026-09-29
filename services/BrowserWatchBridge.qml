@@ -114,8 +114,8 @@ Item {
     return ""
   }
 
-  function candidateForPlayer(key, player) {
-    var chiCandidate = chi.candidateForPlayer(key, player)
+  function candidateForPlayer(key, player, chiTab) {
+    var chiCandidate = chi.candidateForPlayer(key, player, chiTab)
     if (chiCandidate) return chiCandidate
     var browser = browserForPlayerKey(key)
     if (!browser) return null

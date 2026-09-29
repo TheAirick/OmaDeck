@@ -19,7 +19,10 @@ test("MediaModule hosts one lifecycle-free NowPlayingModule boundary", () => {
   const nowPlayingModule = source("modules/NowPlayingModule.qml")
 
   assert.equal((mediaModule.match(/NowPlayingModule\s*\{/g) || []).length, 1)
-  assert.match(mediaModule, /NowPlayingModule\s*\{[\s\S]*media:\s*root\.media/)
+  // The card receives the service through the source carousel (swipe between
+  // players and Chi's recent videos); the carousel wraps root.media.
+  assert.match(mediaModule, /MediaCarousel\s*\{[\s\S]*source:\s*root\.media/)
+  assert.match(mediaModule, /NowPlayingModule\s*\{[\s\S]*media:\s*carousel/)
   assert.match(nowPlayingModule, /property var media:\s*null/)
   assert.match(nowPlayingModule, /readonly property var player:\s*media \? media\.activePlayer : null/)
 

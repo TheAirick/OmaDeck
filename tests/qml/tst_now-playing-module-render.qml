@@ -131,6 +131,47 @@ TestCase {
     }
   }
 
+  Component {
+    id: carouselMediaComponent
+    QtObject {
+      property var activePlayer: null
+      property int count: 3
+      property int index: 0
+      property int selectedChiTab: -1
+      property var calls: []
+      function playerKey(player) { return player ? player.dbusName : "" }
+      function playerForKey(key) { return activePlayer && activePlayer.dbusName === key ? activePlayer : null }
+      function runAction() { return true }
+      function next() { calls.push("next") }
+      function previous() { calls.push("previous") }
+      function select(i) { calls.push("select " + i) }
+    }
+  }
+
+  function test_swipeAndDotsSwitchSources() {
+    var fixture = fixtureFor("playing", testCase)
+    var media = createTemporaryObject(carouselMediaComponent, testCase, { activePlayer: fixture.player })
+    var module = createTemporaryObject(nowPlayingComponent, testCase, { width: 780, height: 520, media: media })
+    verify(module !== null)
+    wait(1)
+    var dots = findChild(module, "nowPlayingSourceDots")
+    verify(dots.visible)
+    var art = findChild(module, "nowPlayingArtwork")
+    var y = art.height / 2
+    mouseDrag(art, art.width * 0.7, y, -art.width * 0.4, 0)
+    mouseDrag(art, art.width * 0.3, y, art.width * 0.4, 0)
+    compare(JSON.stringify(media.calls), JSON.stringify(["next", "previous"]))
+    var second = dots.children[1]
+    var point = second.mapToItem(module, second.width / 2, second.height / 2)
+    mouseClick(module, point.x, point.y)
+    compare(media.calls[2], "select 1")
+    // A single source shows no dots and ignores swipes.
+    media.count = 1
+    verify(!dots.visible)
+    mouseDrag(art, art.width * 0.7, y, -art.width * 0.4, 0)
+    compare(media.calls.length, 3)
+  }
+
   function test_chiCardFollowsChiNowPlayingNotTheStaleWebKitPlayer() {
     var fixture = fixtureFor("playing", testCase)
     // WebKit's single player is stuck on X, which muted itself.

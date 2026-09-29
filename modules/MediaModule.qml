@@ -18,6 +18,14 @@ Item {
     enabled: !root.providedMedia && !root.hostMedia
   }
 
+  // The card shows one source at a time and swipes between all of them;
+  // Watch and other consumers keep the service itself.
+  MediaCarousel {
+    id: carousel
+    source: root.media
+    chi: root.deck && root.deck.browserWatchBridge ? root.deck.browserWatchBridge.chiBridge : null
+  }
+
   DeckCard {
     id: nowPlayingCard
     objectName: "nowPlayingPanelCard"
@@ -28,7 +36,7 @@ Item {
       id: playerSurface
       anchors.fill: parent
       clip: true
-      media: root.media
+      media: carousel
       deck: root.deck
     }
   }

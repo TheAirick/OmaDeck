@@ -15,11 +15,16 @@ Item {
   readonly property var player: media ? media.activePlayer : null
   readonly property bool hasPlayer: !!player
   // WebKit publishes one MPRIS player for all of Chi and it can stay on an
-  // older video (X after muting itself). For Chi, show and control the tab
-  // Chi itself reports as now playing.
+  // older video (X after muting itself). For Chi, show and control the Chi
+  // tab the source carousel selected, else the one Chi reports as now playing.
   readonly property var chiBridge: deck && deck.browserWatchBridge ? deck.browserWatchBridge.chiBridge : null
+  readonly property int chiTab: media && typeof media.selectedChiTab === "number" && media.selectedChiTab >= 0
+    ? media.selectedChiTab : (chiBridge ? chiBridge.nowPlaying : -1)
   readonly property var chiMedia: player && String(player.identity) === "Chi" && chiBridge && chiBridge.ready
-    && chiBridge.nowPlaying >= 0 && chiBridge.tabs[chiBridge.nowPlaying] ? chiBridge.tabs[chiBridge.nowPlaying] : null
+    && chiTab >= 0 && chiBridge.tabs[chiTab] ? chiBridge.tabs[chiTab] : null
+  // Sources to swipe between (players and Chi's recent videos).
+  readonly property int sourceCount: media && typeof media.count === "number" ? media.count : (hasPlayer ? 1 : 0)
+  readonly property int sourceIndex: media && typeof media.index === "number" ? media.index : 0
   // WebKit's player can keep reporting "Playing" for a video Chi has paused.
   readonly property bool isPlaying: chiMedia ? !!chiMedia.playing : !!(player && player.isPlaying)
   readonly property string displayTitle: chiMedia ? (chiMedia.title || playbackStatus)
@@ -29,7 +34,7 @@ Item {
   readonly property string playerKey: player && media && typeof media.playerKey === "function"
     ? media.playerKey(player) : ""
   readonly property var watchCandidate: (deck && deck.browserWatchBridge
-      ? deck.browserWatchBridge.candidateForPlayer(playerKey, player) : null)
+      ? deck.browserWatchBridge.candidateForPlayer(playerKey, player, chiTab) : null)
     || WatchSource.candidate(player, playerKey)
   readonly property bool canPlayPause: !!chiMedia || hasPlayer && !!(player.canTogglePlaying
     || (player.isPlaying ? player.canPause : player.canPlay))
@@ -43,7 +48,7 @@ Item {
   function runTransport(action) {
     // Omarchy's untargeted action policy can select a different playing source.
     // Refuse stale identities: its targeted API otherwise falls back globally.
-    if (chiMedia) return action === "playPause" && chiBridge.controlNowPlaying({ action: "toggle" })
+    if (chiMedia) return action === "playPause" && chiBridge.controlNowPlaying({ action: "toggle" }, chiTab)
     var target = player
     var key = playerKey
     if (!target || !key || !media || typeof media.playerForKey !== "function"
@@ -106,7 +111,7 @@ Item {
     if (!canSeek) return
     if (chiMedia) {
       var target = clampPosition(value)
-      if (!chiBridge.controlNowPlaying({ action: "seek", position_ms: Math.round(target * 1000) })) return
+      if (!chiBridge.controlNowPlaying({ action: "seek", position_ms: Math.round(target * 1000) }, chiTab)) return
       displayedPosition = target
       optimisticPosition = true
       optimisticUntil = Date.now() + 1000
@@ -226,6 +231,41 @@ Item {
         asynchronous: true
         cache: true
         visible: status === Image.Ready
+      }
+      // Swipe the artwork to switch sources; the dots show where you are.
+      DragHandler {
+        objectName: "nowPlayingSourceSwipe"
+        target: null
+        xAxis.enabled: true
+        yAxis.enabled: false
+        enabled: root.sourceCount > 1
+        property real swipe: 0
+        onActiveTranslationChanged: if (active) swipe = activeTranslation.x
+        onActiveChanged: {
+          if (active) { swipe = 0; return }
+          if (Math.abs(swipe) < Style.space(48)) return
+          if (swipe < 0) root.media.next()
+          else root.media.previous()
+        }
+      }
+      Row {
+        objectName: "nowPlayingSourceDots"
+        anchors.bottom: parent.bottom
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottomMargin: Style.space(6)
+        spacing: Style.space(6)
+        visible: root.sourceCount > 1
+        Repeater {
+          model: root.sourceCount
+          Rectangle {
+            required property int index
+            width: Style.space(7)
+            height: width
+            radius: width / 2
+            color: index === root.sourceIndex ? Color.accent : Qt.rgba(1, 1, 1, 0.45)
+            TapHandler { onTapped: root.media.select(index) }
+          }
+        }
       }
       Text {
         anchors.centerIn: parent

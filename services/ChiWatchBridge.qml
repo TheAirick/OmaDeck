@@ -18,6 +18,9 @@ Item {
   property var states: ({})
   // Chi's tab whose unmuted media most recently started playing; -1 for none.
   property int nowPlaying: -1
+  // Chi tabs whose media started with sound, most recent first (nowPlaying
+  // leads). A pause never reorders it.
+  property var recent: []
   property int nowPlayingEvents: 0
   property var tasks: ({})
   property var held: null
@@ -45,6 +48,7 @@ Item {
     tabs = ({})
     states = ({})
     nowPlaying = -1
+    recent = []
     tasks = ({})
     held = null
     queue = []
@@ -99,27 +103,33 @@ Item {
 
   // The Now Playing card's transport for Chi's now-playing tab. Guarded by
   // the shown media identity, so a control never reaches a different video.
-  function controlNowPlaying(action) {
-    var media = ready && nowPlaying >= 0 ? tabs[nowPlaying] : null
+  function controlNowPlaying(action, tab) {
+    var id = tab === undefined || tab === null || tab < 0 ? nowPlaying : Number(tab)
+    var media = ready && id >= 0 ? tabs[id] : null
     if (!media || !media.media_id) return false
-    send({ cmd: "media", tab: nowPlaying, action: { action: "guarded", media_id: media.media_id,
+    send({ cmd: "media", tab: id, action: { action: "guarded", media_id: media.media_id,
       request: clientId + ":card:" + (++serial), control: action } })
     return true
   }
 
-  function setNowPlaying(tabId) {
+  function setNowPlaying(tabId, recentTabs) {
     var id = Number(tabId)
     nowPlaying = tabId === null || tabId === undefined || !isFinite(id) ? -1 : id
+    var list = Array.isArray(recentTabs) ? recentTabs.map(Number).filter(isFinite) : []
+    // An older daemon sends no list: keep at least the now-playing tab.
+    recent = list.length ? list : (nowPlaying >= 0 ? [nowPlaying] : [])
   }
 
-  function candidateForPlayer(key, player) {
-    // Any Chi card offers Chi's now-playing tab, whatever title MPRIS shows.
+  // `tab` picks one of Chi's sources (the card's selection); by default the
+  // tab Chi reports as now playing, whatever title MPRIS shows.
+  function candidateForPlayer(key, player, tab) {
     if (!ready || !key || !player || String(player.identity) !== "Chi") return null
-    var m = tabs[nowPlaying]
+    var id = tab === undefined || tab === null || tab < 0 ? nowPlaying : Number(tab)
+    var m = tabs[id]
     var videoId = m ? WatchSource.youtubeVideoId(m.page_url) : ""
     if (!m || !videoId) return null
     return { sourceKind: "extension", browser: "chi", connectionId: 0,
-      tabId: nowPlaying, mediaId: m.media_id, epoch: epoch,
+      tabId: id, mediaId: m.media_id, epoch: epoch,
       videoId: videoId, seconds: Math.floor(m.position_ms / 1000),
       sourceWasPlaying: m.playing, sourceKey: key }
   }
@@ -239,11 +249,11 @@ Item {
       var seen = nowPlayingEvents
       send({ cmd: "status" }, function(reply) {
         if (reply.status === "ok" && root.nowPlayingEvents === seen)
-          root.setNowPlaying(reply.data ? reply.data.now_playing : null)
+          root.setNowPlaying(reply.data ? reply.data.now_playing : null, reply.data ? reply.data.recent_media : null)
       })
       return
     }
-    if (m.event === "now-playing-changed") { nowPlayingEvents++; setNowPlaying(m.tab); return }
+    if (m.event === "now-playing-changed") { nowPlayingEvents++; setNowPlaying(m.tab, m.recent); return }
     if (m.event === "media-changed") update(m.tab, m.media)
     else if (m.event === "tab-closed" || (m.event === "tab-state-changed" && m.to === "asleep")) update(m.id, null)
     if (m.event === "tab-state-changed") setState(m.id, m.from, m.to)
