@@ -210,6 +210,7 @@ Item {
       height: Style.space(32)
 
       Text {
+        textFormat: Text.PlainText
         anchors.centerIn: parent
         text: volumeControl.muted ? "󰝟" : volumeControl.glyph
         color: volumeControl.muted ? DeckColors.secondaryText : Color.accent
@@ -229,6 +230,7 @@ Item {
       spacing: 0
 
       Text {
+        textFormat: Text.PlainText
         width: parent.width
         horizontalAlignment: Text.AlignHCenter
         text: volumeControl.label
@@ -239,6 +241,7 @@ Item {
         elide: Text.ElideRight
       }
       Text {
+        textFormat: Text.PlainText
         width: parent.width
         horizontalAlignment: Text.AlignHCenter
         text: Math.round(volumeControl.level * 100) + "%"

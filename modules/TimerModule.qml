@@ -127,6 +127,7 @@ Item {
         spacing: Style.spacing.labelGap
 
         Text {
+          textFormat: Text.PlainText
           visible: !root.companionMode || root.height >= Style.space(110)
           anchors.horizontalCenter: parent.horizontalCenter
           text: root.timerStatus === "completed" ? "Time's up"

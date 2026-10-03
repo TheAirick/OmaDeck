@@ -83,6 +83,7 @@ Item {
 
             Text {
               id: workspaceNumber
+              textFormat: Text.PlainText
               anchors.left: parent.left
               anchors.verticalCenter: parent.verticalCenter
               text: String(workspaceTile.modelData.id)
@@ -98,6 +99,7 @@ Item {
               anchors.verticalCenter: parent.verticalCenter
               spacing: Style.spacing.labelGap
               Text {
+                textFormat: Text.PlainText
                 width: parent.width
                 text: workspaceTile.focused ? "Current" : workspaceTile.occupied
                   ? workspaceTile.modelData.windows.length + (workspaceTile.modelData.windows.length === 1 ? " window" : " windows") : "Empty"
@@ -107,6 +109,7 @@ Item {
                 elide: Text.ElideRight
               }
               Text {
+                textFormat: Text.PlainText
                 width: parent.width
                 text: workspaceTile.modelData.monitor
                 visible: text !== ""
@@ -171,6 +174,7 @@ Item {
             anchors.fill: windowsList
             visible: !workspaceTile.occupied
             Text {
+              textFormat: Text.PlainText
               anchors.centerIn: parent
               width: parent.width
               text: "Tap to switch"

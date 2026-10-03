@@ -17,6 +17,7 @@ Button {
     anchors.verticalCenter: parent.verticalCenter
     width: Math.max(0, parent.width - Style.space(18) - Style.spacing.controlGap * 2)
     Text {
+      textFormat: Text.PlainText
       width: parent.width
       text: root.heading
       color: DeckColors.secondaryTextOn(root.color)
@@ -34,6 +35,7 @@ Button {
     }
   }
   Text {
+    textFormat: Text.PlainText
     anchors.right: parent.right
     anchors.rightMargin: Style.spacing.controlGap
     anchors.verticalCenter: parent.verticalCenter

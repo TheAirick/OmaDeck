@@ -71,6 +71,7 @@ Item {
   }
 
   Text {
+    textFormat: Text.PlainText
     visible: root.editing
     anchors.right: parent.right
     anchors.bottom: parent.bottom
@@ -150,6 +151,7 @@ Item {
     radius: Style.cornerRadius
     z: 11
     Text {
+      textFormat: Text.PlainText
       anchors.centerIn: parent
       text: root.dropEdge === "center" ? "Swap" : "Place here"
       color: Color.foreground

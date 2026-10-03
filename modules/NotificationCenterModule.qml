@@ -84,6 +84,7 @@ Item {
       height: Style.space(48)
       spacing: Style.spacing.controlGap
       Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         width: Math.max(0, parent.width - clearButton.width - refreshButton.width
           - (controlsButton.visible ? controlsButton.width + parent.spacing : 0) - parent.spacing * 2)
@@ -130,6 +131,7 @@ Item {
       visible: root.clearArmed
       height: visible ? implicitHeight : 0
       Text {
+        textFormat: Text.PlainText
         text: "Clear all notifications and history?"
         width: parent.width
         color: Color.foreground
@@ -193,6 +195,7 @@ Item {
         visible: root.entries.length === 0
         spacing: Style.spacing.controlGap
         Text {
+          textFormat: Text.PlainText
           anchors.horizontalCenter: parent.horizontalCenter
           text: "󰂚"
           color: DeckColors.secondaryText
@@ -200,6 +203,7 @@ Item {
           font.pixelSize: Style.font.displayLarge
         }
         Text {
+          textFormat: Text.PlainText
           width: parent.width
           text: root.controller && root.controller.loading ? "Loading notifications…"
             : root.controller && root.controller.historyError ? "Notifications unavailable" : "You’re all caught up"
@@ -210,6 +214,7 @@ Item {
           wrapMode: Text.Wrap
         }
         Text {
+          textFormat: Text.PlainText
           width: parent.width
           text: "New notifications will appear here."
           color: DeckColors.secondaryText
@@ -285,6 +290,7 @@ Item {
             source: root.iconFor(root.selectedEntry)
             fillMode: Image.PreserveAspectFit
             Text {
+              textFormat: Text.PlainText
               anchors.centerIn: parent
               visible: readerIcon.status !== Image.Ready
               text: root.selectedEntry && root.selectedEntry.glyph ? root.selectedEntry.glyph : "󰂚"
@@ -307,6 +313,7 @@ Item {
               wrapMode: Text.Wrap
             }
             Text {
+              textFormat: Text.PlainText
               width: parent.width
               text: root.selectedEntry && root.selectedEntry.timestamp > 0
                 ? Qt.formatDateTime(new Date(root.selectedEntry.timestamp), "ddd, MMM d · h:mm AP") : "Recent"
@@ -380,6 +387,7 @@ Item {
         width: parent.width
         height: Style.space(48)
         Text {
+          textFormat: Text.PlainText
           anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
           text: "Quick controls"
           color: Color.foreground

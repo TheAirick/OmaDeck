@@ -167,6 +167,7 @@ Item {
         spacing: Style.spacing.rowGap
 
         Text {
+          textFormat: Text.PlainText
           text: "Categories"
           color: DeckColors.secondaryText
           font.family: Style.font.family
@@ -231,6 +232,7 @@ Item {
 
             Text {
               id: categoryTitle
+              textFormat: Text.PlainText
               width: parent.width
               text: root.selectedEntry.label
               color: Color.foreground
@@ -242,6 +244,7 @@ Item {
 
             Text {
               id: categoryDescription
+              textFormat: Text.PlainText
               width: parent.width
               text: root.selectedEntry.description
               color: DeckColors.secondaryText
@@ -260,6 +263,7 @@ Item {
 
             Text {
               id: noticeText
+              textFormat: Text.PlainText
               anchors.centerIn: parent
               text: root.notice
               color: root.notice.indexOf("Could not") === 0 ? Color.urgent : Color.accent
@@ -331,6 +335,7 @@ Item {
                 spacing: Style.spacing.controlGap
 
                 Text {
+                  textFormat: Text.PlainText
                   height: Style.space(20)
                   text: "DASHBOARD"
                   color: DeckColors.secondaryText
@@ -353,6 +358,7 @@ Item {
                 }
 
                 Text {
+                  textFormat: Text.PlainText
                   height: Style.space(28)
                   text: "CLOCK"
                   color: DeckColors.secondaryText
@@ -384,6 +390,7 @@ Item {
                 }
 
                 Text {
+                  textFormat: Text.PlainText
                   height: Style.space(28)
                   text: "WEATHER"
                   color: DeckColors.secondaryText

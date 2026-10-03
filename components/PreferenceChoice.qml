@@ -28,6 +28,7 @@ Item {
       spacing: Style.spacing.xs
 
       Text {
+        textFormat: Text.PlainText
         width: parent.width
         text: root.label
         color: Color.foreground
@@ -38,6 +39,7 @@ Item {
       }
 
       Text {
+        textFormat: Text.PlainText
         visible: root.description !== ""
         width: parent.width
         text: root.description
@@ -79,6 +81,7 @@ Item {
 
           Text {
             id: optionLabel
+            textFormat: Text.PlainText
             anchors.centerIn: parent
             width: parent.width - Style.spacing.controlPaddingX * 1.5
             wrapMode: Text.Wrap

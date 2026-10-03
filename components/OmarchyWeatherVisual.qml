@@ -52,6 +52,7 @@ Item {
 
           Text {
             id: heroIcon
+            textFormat: Text.PlainText
             objectName: "omarchyWeatherHeroIcon"
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: Style.space(5)
@@ -67,6 +68,7 @@ Item {
 
             Text {
               id: heroTemperature
+              textFormat: Text.PlainText
               objectName: "omarchyWeatherHeroTemperature"
               text: root.tempNumber ? root.tempNumber(root.safeWeather.temperatureC) : "—"
               color: Color.foreground
@@ -75,6 +77,7 @@ Item {
               font.bold: true
             }
             Text {
+              textFormat: Text.PlainText
               text: "°" + root.unitLetter
               color: Color.foreground
               font.family: Style.font.family
@@ -99,6 +102,7 @@ Item {
             spacing: Style.space(6)
 
             Text {
+              textFormat: Text.PlainText
               anchors.verticalCenter: parent.verticalCenter
               text: ""
               color: DeckColors.secondaryText
@@ -106,6 +110,7 @@ Item {
               font.pixelSize: Style.font.body
             }
             Text {
+              textFormat: Text.PlainText
               anchors.verticalCenter: parent.verticalCenter
               width: Math.max(0, parent.width - x)
               text: String(root.safeWeather.location || "Current location").toUpperCase()
@@ -169,6 +174,7 @@ Item {
               spacing: Style.space(10)
 
               Text {
+                textFormat: Text.PlainText
                 anchors.verticalCenter: parent.verticalCenter
                 text: root.glyphFor ? root.glyphFor(forecastCell.modelData.condition, true) : "—"
                 color: Color.foreground
@@ -179,6 +185,7 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: Style.space(2)
                 Text {
+                  textFormat: Text.PlainText
                   text: root.dayName ? root.dayName(forecastCell.modelData.date).toUpperCase() : "DAY"
                   color: DeckColors.secondaryText
                   font.family: Style.font.family
@@ -188,12 +195,14 @@ Item {
                 Row {
                   spacing: Style.space(6)
                   Text {
+                    textFormat: Text.PlainText
                     text: root.temp ? root.temp(forecastCell.modelData.highC, false) : "—"
                     color: Color.foreground
                     font.family: Style.font.family
                     font.pixelSize: Style.font.body
                   }
                   Text {
+                    textFormat: Text.PlainText
                     text: root.temp ? root.temp(forecastCell.modelData.lowC, false) : "—"
                     color: DeckColors.secondaryText
                     font.family: Style.font.family
@@ -214,6 +223,7 @@ Item {
     spacing: Style.space(5)
 
     Text {
+      textFormat: Text.PlainText
       text: parent.label
       color: DeckColors.secondaryText
       font.family: Style.font.family
@@ -221,6 +231,7 @@ Item {
       font.letterSpacing: 1
     }
     Text {
+      textFormat: Text.PlainText
       text: parent.value
       color: Color.foreground
       font.family: Style.font.family

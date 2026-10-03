@@ -249,3 +249,48 @@ test("System list rows survive refreshes that do not change the list", () => {
   assert.match(system, /Repeater \{ model: root\.clipboardRows/)
   assert.doesNotMatch(system, /Repeater \{ model: root\.stats\./)
 })
+
+// Qt's default AutoText renders anything that looks like HTML. Copied text,
+// window titles, page and media titles are not ours: as rich text an <img>
+// would fetch a remote URL just by being displayed.
+function qmlFiles(dir) {
+  return fs.readdirSync(path.join(root, dir), { withFileTypes: true }).flatMap(entry => {
+    const relative = path.join(dir, entry.name)
+    if (entry.isDirectory()) return qmlFiles(relative)
+    return entry.name.endsWith(".qml") ? [relative] : []
+  })
+}
+
+function textItemsWithoutPlainText(text) {
+  const missing = []
+  const pattern = /(?<![A-Za-z0-9_.])Text\s*\{/g
+  for (let match; (match = pattern.exec(text));) {
+    const open = match.index + match[0].length - 1
+    let depth = 0, own = "", i = open
+    for (; i < text.length; i++) {
+      const c = text[i]
+      if (c === '"' || c === "'" || c === "`") {
+        const quote = c
+        for (i++; i < text.length && text[i] !== quote; i += text[i] === "\\" ? 2 : 1) if (depth === 1) own += " "
+        continue
+      }
+      if (text.startsWith("//", i)) { i = text.indexOf("\n", i); if (i < 0) break; continue }
+      if (c === "{") depth++
+      else if (c === "}" && --depth === 0) break
+      else if (depth === 1) own += c
+    }
+    if (!/\btextFormat\s*:\s*Text\.PlainText\b/.test(own))
+      missing.push(text.slice(0, match.index).split("\n").length)
+  }
+  return missing
+}
+
+test("every OmaDeck Text item renders plain text, never HTML from other sources", () => {
+  const files = ["Service.qml", ...["components", "modules", "services", "theme"].flatMap(qmlFiles)]
+  const missing = files.flatMap(file => textItemsWithoutPlainText(source(file)).map(line => `${file}:${line}`))
+  assert.deepEqual(missing, [])
+  assert.deepEqual(textItemsWithoutPlainText('Text { text: "<img src=x>" }'), [1], "the check itself must catch a bare Text")
+  const system = source("modules/SystemModule.qml")
+  assert.match(system, /Text \{ textFormat: Text\.PlainText; width: parent\.width; text: strip\.summary/)
+  assert.match(system, /Text \{ textFormat: Text\.PlainText; width: parent\.width; text: root\.clipboardPreview\(clipboardRow\.modelData\)/)
+})

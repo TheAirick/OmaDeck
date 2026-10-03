@@ -45,6 +45,7 @@ Item {
     spacing: Style.spacing.rowGap
 
     Text {
+      textFormat: Text.PlainText
       width: Style.space(28)
       anchors.verticalCenter: parent.verticalCenter
       text: root.iconText
@@ -55,6 +56,7 @@ Item {
     }
 
     Text {
+      textFormat: Text.PlainText
       width: parent.width - x
       anchors.verticalCenter: parent.verticalCenter
       text: root.label

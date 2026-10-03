@@ -28,7 +28,7 @@ Item {
     Item {
       width: parent.width; height: Style.space(48)
       Button { text: "Cancel"; height: parent.height; bordered: false; onClicked: root.cancelled() }
-      Text { anchors.centerIn: parent; text: root.label; color: Color.foreground; font.family: Style.font.family; font.pixelSize: Style.font.subtitle }
+      Text { textFormat: Text.PlainText; anchors.centerIn: parent; text: root.label; color: Color.foreground; font.family: Style.font.family; font.pixelSize: Style.font.subtitle }
       Button { anchors.right: parent.right; text: "Done"; height: parent.height; bordered: false; onClicked: root.accepted(editor.text) }
     }
     Rectangle {

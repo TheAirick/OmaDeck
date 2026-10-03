@@ -23,6 +23,7 @@ Item {
   }
   Text {
     id: glyph
+    textFormat: Text.PlainText
     anchors.left: parent.left
     anchors.verticalCenter: parent.verticalCenter
     width: Style.space(32)
@@ -39,6 +40,7 @@ Item {
     anchors.verticalCenter: parent.verticalCenter
     spacing: Style.spacing.labelGap
     Text {
+      textFormat: Text.PlainText
       width: parent.width
       text: root.label
       color: root.available ? Color.foreground : DeckColors.secondaryText
@@ -48,6 +50,7 @@ Item {
       elide: Text.ElideRight
     }
     Text {
+      textFormat: Text.PlainText
       width: parent.width
       text: root.available ? root.status : "Unavailable"
       color: DeckColors.secondaryText

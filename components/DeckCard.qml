@@ -40,6 +40,7 @@ BorderSurface {
 
       Text {
         id: titleText
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         width: subtitleText.visible ? implicitWidth : parent.width
         text: root.title
@@ -52,6 +53,7 @@ BorderSurface {
 
       Text {
         id: subtitleText
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         visible: root.headerWidth >= titleText.implicitWidth + implicitWidth + headerRow.spacing
         width: parent.width - x

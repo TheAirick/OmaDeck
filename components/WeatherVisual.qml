@@ -69,6 +69,7 @@ Item {
   }
 
   Text {
+    textFormat: Text.PlainText
     visible: !root.available
     anchors.centerIn: parent
     text: root.loading ? "󰔟  Updating weather…" : "󰖪  Weather unavailable"
@@ -131,6 +132,7 @@ Item {
           Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
           Text {
+            textFormat: Text.PlainText
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: Style.space(3)
             text: root.glyphFor(root.condition, root.isDay)
@@ -145,6 +147,7 @@ Item {
 
             Text {
               id: heroTemperature
+              textFormat: Text.PlainText
               text: root.tempNumber(root.weather.temperatureC)
               color: Color.foreground
               font.family: Style.font.family
@@ -152,6 +155,7 @@ Item {
               font.bold: true
             }
             Text {
+              textFormat: Text.PlainText
               text: "°" + root.unitLetter
               color: Color.foreground
               font.family: Style.font.family
@@ -205,6 +209,7 @@ Item {
           spacing: Style.spacing.controlGap
 
           Text {
+            textFormat: Text.PlainText
             anchors.verticalCenter: parent.verticalCenter
             text: ""
             color: DeckColors.secondaryText
@@ -212,6 +217,7 @@ Item {
             font.pixelSize: Style.font.caption
           }
           Text {
+            textFormat: Text.PlainText
             anchors.verticalCenter: parent.verticalCenter
             width: Math.max(0, parent.width - x - highLow.width - Style.spacing.controlGap)
             text: String(root.weather.location || "Current location").toUpperCase()
@@ -223,6 +229,7 @@ Item {
           }
           Text {
             id: highLow
+            textFormat: Text.PlainText
             anchors.verticalCenter: parent.verticalCenter
             text: "H " + root.temp(root.weather.highC, false) + "   L " + root.temp(root.weather.lowC, false)
             color: DeckColors.secondaryText
@@ -270,6 +277,7 @@ Item {
                 spacing: Style.spacing.labelGap
 
                 Text {
+                  textFormat: Text.PlainText
                   anchors.verticalCenter: parent.verticalCenter
                   text: root.glyphFor(modelData.condition, true)
                   color: Color.foreground
@@ -280,6 +288,7 @@ Item {
                   anchors.verticalCenter: parent.verticalCenter
                   spacing: Style.space(2)
                   Text {
+                    textFormat: Text.PlainText
                     text: root.dayName(modelData.date)
                     color: DeckColors.secondaryText
                     font.family: Style.font.family
@@ -287,6 +296,7 @@ Item {
                     font.letterSpacing: 0.8
                   }
                   Text {
+                    textFormat: Text.PlainText
                     text: root.temp(modelData.highC, false) + "  " + root.temp(modelData.lowC, false)
                     color: Color.foreground
                     font.family: Style.font.family
@@ -329,6 +339,7 @@ Item {
             spacing: Style.spacing.labelGap
 
             Text {
+              textFormat: Text.PlainText
               anchors.verticalCenter: parent.verticalCenter
               anchors.verticalCenterOffset: Style.space(3)
               text: root.glyphFor(root.condition, root.isDay)
@@ -337,6 +348,7 @@ Item {
               font.pixelSize: Math.min(Style.space(42), constrainedCurrentLine.height * 0.72)
             }
             Text {
+              textFormat: Text.PlainText
               anchors.verticalCenter: parent.verticalCenter
               text: root.temp(root.weather.temperatureC, true)
               color: Color.foreground
@@ -347,6 +359,7 @@ Item {
           }
 
           Text {
+            textFormat: Text.PlainText
             anchors.left: constrainedCurrent.right
             anchors.leftMargin: Style.spacing.controlGap
             anchors.right: parent.right
@@ -418,6 +431,7 @@ Item {
                 anchors.centerIn: parent
                 spacing: Style.spacing.labelGap
                 Text {
+                  textFormat: Text.PlainText
                   anchors.verticalCenter: parent.verticalCenter
                   text: root.glyphFor(modelData.condition, true)
                   color: Color.foreground
@@ -428,6 +442,7 @@ Item {
                   anchors.verticalCenter: parent.verticalCenter
                   spacing: Style.space(2)
                   Text {
+                    textFormat: Text.PlainText
                     text: root.dayName(modelData.date)
                     color: DeckColors.secondaryText
                     font.family: Style.font.family
@@ -435,6 +450,7 @@ Item {
                     font.letterSpacing: 0.7
                   }
                   Text {
+                    textFormat: Text.PlainText
                     text: root.temp(modelData.highC, false) + "  " + root.temp(modelData.lowC, false)
                     color: Color.foreground
                     font.family: Style.font.family
@@ -457,6 +473,7 @@ Item {
       spacing: Style.spacing.panelGap
 
       Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         text: root.glyphFor(root.condition, root.isDay)
         color: Color.foreground
@@ -467,6 +484,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         spacing: Style.spacing.labelGap
         Text {
+          textFormat: Text.PlainText
           text: root.temp(root.weather.temperatureC, true)
           color: Color.foreground
           font.family: Style.font.family
@@ -474,12 +492,14 @@ Item {
           font.bold: true
         }
         Text {
+          textFormat: Text.PlainText
           text: root.weather.conditionLabel + (root.effectiveDetail === "compact" ? "" : "  ·  " + root.weather.location)
           color: DeckColors.secondaryText
           font.family: Style.font.family
           font.pixelSize: Style.font.body
         }
         Text {
+          textFormat: Text.PlainText
           visible: root.effectiveDetail === "full"
           text: "Feels " + root.temp(root.weather.feelsLikeC, true) + "  ·  " + root.wind(root.weather.windKph) + "  ·  " + Math.round(Number(root.weather.humidity || 0)) + "% humidity"
           color: DeckColors.secondaryText
@@ -498,6 +518,7 @@ Item {
       spacing: Style.spacing.controlGap
 
       Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         text: root.glyphFor(root.condition, root.isDay)
         color: Color.foreground
@@ -505,6 +526,7 @@ Item {
         font.pixelSize: Style.font.displayLarge
       }
       Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         text: root.temp(root.weather.temperatureC, true)
         color: Color.foreground
@@ -513,6 +535,7 @@ Item {
         font.bold: true
       }
       Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         text: root.weather.conditionLabel
         color: DeckColors.secondaryText
@@ -520,6 +543,7 @@ Item {
         font.pixelSize: Style.font.body
       }
       Text {
+        textFormat: Text.PlainText
         visible: root.effectiveDetail !== "compact"
         anchors.verticalCenter: parent.verticalCenter
         text: "H " + root.temp(root.weather.highC, false) + "  L " + root.temp(root.weather.lowC, false)
@@ -536,6 +560,7 @@ Item {
     spacing: Style.space(3)
 
     Text {
+      textFormat: Text.PlainText
       text: parent.label
       color: DeckColors.secondaryText
       font.family: Style.font.family
@@ -543,6 +568,7 @@ Item {
       font.letterSpacing: 0.8
     }
     Text {
+      textFormat: Text.PlainText
       text: parent.value
       color: Color.foreground
       font.family: Style.font.family

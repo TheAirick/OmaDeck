@@ -63,6 +63,7 @@ Item {
       }
 
       Text {
+        textFormat: Text.PlainText
         height: root.touchTarget
         text: ":"
         color: DeckColors.secondaryText
@@ -85,6 +86,7 @@ Item {
       }
 
       Text {
+        textFormat: Text.PlainText
         height: root.touchTarget
         text: ":"
         color: DeckColors.secondaryText

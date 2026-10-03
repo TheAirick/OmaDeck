@@ -133,6 +133,7 @@ Column {
     visible: root.editingMonitor !== null && (root.setupStep === "" || root.setupStep === "inputs")
     spacing: Style.spacing.controlGap
     Text {
+      textFormat: Text.PlainText
       width: parent.width
       text: root.setupStep === "inputs" ? "3 / 3 · Choose inputs for " + (root.editingMonitor ? root.editingMonitor.label : "your monitor") : "INPUT BUTTONS · CHOOSE UP TO FOUR"
       color: DeckColors.secondaryText
@@ -140,6 +141,7 @@ Column {
       font.pixelSize: Style.font.caption
     }
     Text {
+      textFormat: Text.PlainText
       width: parent.width
       visible: root.setupStep === "inputs"
       text: "Keep only the ports with a cable connected. Under Button labels, choose a port and the computer or device plugged into it. Its name and icon will appear in Command Center."
@@ -237,6 +239,7 @@ Column {
     visible: root.setupStep === ""
     spacing: Style.spacing.controlGap
     Text {
+      textFormat: Text.PlainText
       width: parent.width
       visible: root.detected.length > 0
       text: "DETECTED MONITORS"

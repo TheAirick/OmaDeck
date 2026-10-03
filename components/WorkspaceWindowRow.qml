@@ -40,6 +40,7 @@ BorderSurface {
       visible: status === Image.Ready
     }
     Text {
+      textFormat: Text.PlainText
       anchors.centerIn: appIcon
       visible: !appIcon.visible
       text: "󰀻"
@@ -99,6 +100,7 @@ BorderSurface {
     Accessible.name: "Return " + (root.windowRow.appName || "application") + " to workspace " + root.returnWorkspaceId
     Accessible.onPressAction: if (enabled) root.returnRequested()
     Text {
+      textFormat: Text.PlainText
       anchors.centerIn: parent
       text: "Return"
       color: root.returnWorkspaceId > 0 ? Color.foreground : DeckColors.secondaryText

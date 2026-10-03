@@ -141,6 +141,7 @@ Item {
     }
 
     Text {
+      textFormat: Text.PlainText
       width: parent.width - x - pageActions.width - Style.spacing.controlGap
       anchors.verticalCenter: parent.verticalCenter
       text: root.catalogOpen ? "Add applications & shortcuts"
@@ -228,6 +229,7 @@ Item {
           spacing: Style.spacing.labelGap
 
           Text {
+            textFormat: Text.PlainText
             visible: !launcherIcon.visible
             anchors.horizontalCenter: parent.horizontalCenter
             text: launcherCell.modelData.iconText
@@ -249,6 +251,7 @@ Item {
           }
 
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             text: launcherCell.modelData.name
             color: Color.foreground
@@ -268,6 +271,7 @@ Item {
     }
 
     Text {
+      textFormat: Text.PlainText
       anchors.centerIn: parent
       visible: root.entries.length === 0
       text: root.catalogOpen ? "Everything is already pinned" : "Tap Add to pin an application or shortcut"

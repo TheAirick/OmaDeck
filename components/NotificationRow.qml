@@ -41,6 +41,7 @@ Item {
     visible: status === Image.Ready
   }
   Text {
+    textFormat: Text.PlainText
     anchors.centerIn: appIcon
     visible: !appIcon.visible
     text: root.entry.glyph || "󰂚"
@@ -67,6 +68,7 @@ Item {
       }
       Text {
         id: rowTime
+        textFormat: Text.PlainText
         text: root.timeText
         color: DeckColors.secondaryText
         font.family: Style.font.family

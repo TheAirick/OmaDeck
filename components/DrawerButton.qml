@@ -24,6 +24,7 @@ BorderSurface {
     spacing: Style.spacing.labelGap
 
     Text {
+      textFormat: Text.PlainText
       anchors.horizontalCenter: parent.horizontalCenter
       text: root.iconText
       color: Color.accent
@@ -32,6 +33,7 @@ BorderSurface {
     }
 
     Text {
+      textFormat: Text.PlainText
       anchors.horizontalCenter: parent.horizontalCenter
       text: root.label
       color: Color.foreground

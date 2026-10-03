@@ -61,6 +61,7 @@ Item {
       visible: root.watch && (root.watch.state === "launching" || root.watch.state === "loading")
       color: "black"
       Text {
+        textFormat: Text.PlainText
         anchors.centerIn: parent
         text: "Opening video…"
         color: Color.foreground
@@ -146,6 +147,7 @@ Item {
             }
           }
           Text {
+            textFormat: Text.PlainText
             text: root.watch ? root.formatTime(root.watch.videoPosition) : "0:00"
             color: Color.foreground
             font.family: Style.font.family
@@ -163,6 +165,7 @@ Item {
             onReleased: value => { root.revealControls(); root.watch.seekTo(value) }
           }
           Text {
+            textFormat: Text.PlainText
             text: root.watch ? root.formatTime(root.watch.videoDuration) : "0:00"
             color: Color.foreground
             font.family: Style.font.family
@@ -205,6 +208,7 @@ Item {
         }
       }
       Text {
+        textFormat: Text.PlainText
         anchors.top: parent.top; anchors.left: parent.left
         anchors.margins: Style.spacing.panelPadding
         width: Math.max(0, parent.width - Style.space(220))

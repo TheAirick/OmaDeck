@@ -69,6 +69,7 @@ BorderSurface {
         width: parent.width - Style.spacing.controlGap
         spacing: Style.spacing.labelGap
         Text {
+          textFormat: Text.PlainText
           anchors.horizontalCenter: parent.horizontalCenter
           text: "󰍹"
           color: DeckColors.secondaryTextOn(root.color)
@@ -129,6 +130,7 @@ BorderSurface {
           width: parent.width - Style.spacing.controlGap
           spacing: Style.spacing.labelGap
           Text {
+            textFormat: Text.PlainText
             objectName: "monitorSourceIcon:" + sourceButton.source.code
             anchors.horizontalCenter: parent.horizontalCenter
             text: root.sourceIcon(sourceButton.source.label)

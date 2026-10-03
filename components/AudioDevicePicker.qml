@@ -51,6 +51,7 @@ Item {
 
   Text {
     id: status
+    textFormat: Text.PlainText
     anchors.top: navigation.bottom
     anchors.topMargin: Style.spacing.controlGap
     width: parent.width
@@ -132,6 +133,7 @@ Item {
             font.pixelSize: Style.font.body
           }
           Text {
+            textFormat: Text.PlainText
             anchors.right: parent.right
             anchors.rightMargin: Style.spacing.controlPaddingX
             anchors.verticalCenter: parent.verticalCenter

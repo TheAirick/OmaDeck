@@ -34,6 +34,7 @@ Item {
   }
 
   Text {
+    textFormat: Text.PlainText
     anchors.centerIn: parent
     text: root.text
     color: stepTap.pressed ? Color.accent : Color.foreground

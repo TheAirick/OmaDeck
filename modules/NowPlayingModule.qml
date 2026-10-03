@@ -176,6 +176,7 @@ Item {
       spacing: Style.spacing.controlGap
 
       Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         width: Style.space(44)
         text: root.formatTime(root.displayedPosition)
@@ -197,6 +198,7 @@ Item {
         onReleased: value => { root.seekTo(value); root.seeking = false }
       }
       Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         width: Style.space(44)
         text: root.effectiveLength > 0 ? root.formatTime(root.effectiveLength) : "—:—"
@@ -268,6 +270,7 @@ Item {
         }
       }
       Text {
+        textFormat: Text.PlainText
         anchors.centerIn: parent
         visible: artworkImage.status !== Image.Ready
         text: "󰝚"
@@ -321,6 +324,7 @@ Item {
         spacing: Style.spacing.labelGap
 
         Text {
+          textFormat: Text.PlainText
           width: parent.width
           text: root.displayTitle
           color: Color.foreground
@@ -331,6 +335,7 @@ Item {
           elide: Text.ElideRight
         }
         Text {
+          textFormat: Text.PlainText
           width: parent.width
           text: root.deck && root.deck.watchController.notice && !root.deck.watchController.active
               ? root.deck.watchController.notice

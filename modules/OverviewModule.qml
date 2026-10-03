@@ -88,6 +88,7 @@ Item {
           Accessible.name: scratchpad.showing ? "Hide scratchpad" : "Show scratchpad"
           Accessible.onPressAction: workspaceController.toggleScratchpad()
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             text: "Scratchpad · " + workspaceController.parkedWindows.length
             color: Color.foreground
@@ -97,6 +98,7 @@ Item {
             elide: Text.ElideRight
           }
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             text: workspaceController.parkedWindows.length
               ? (scratchpad.showing ? "Showing · tap to hide" : "Hidden · tap to show")

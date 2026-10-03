@@ -30,6 +30,7 @@ Item {
     spacing: Style.spacing.rowGap
 
     Text {
+      textFormat: Text.PlainText
       visible: root.iconText !== ""
       width: visible ? Style.space(34) : 0
       anchors.verticalCenter: parent.verticalCenter
@@ -70,6 +71,7 @@ Item {
 
     Text {
       id: actionLabel
+      textFormat: Text.PlainText
       anchors.verticalCenter: parent.verticalCenter
       text: root.actionText
       color: DeckColors.secondaryText
@@ -80,6 +82,7 @@ Item {
 
     Text {
       id: chevron
+      textFormat: Text.PlainText
       width: Style.space(22)
       anchors.verticalCenter: parent.verticalCenter
       text: "󰅂"

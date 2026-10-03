@@ -144,6 +144,7 @@ Item {
             width: Style.space(32); height: width; source: String(modelData.iconSource || ""); fillMode: Image.PreserveAspectFit
           }
           Text {
+            textFormat: Text.PlainText
             anchors.centerIn: appIcon; visible: appIcon.status !== Image.Ready
             text: modelData.iconText || "󰀻"; color: Color.accent; font.family: Style.font.family; font.pixelSize: Style.font.iconLarge
           }
@@ -160,6 +161,7 @@ Item {
           TapHandler { id: appTap; onTapped: root.choose(modelData) }
         }
         Text {
+          textFormat: Text.PlainText
           anchors.centerIn: parent; width: parent.width; horizontalAlignment: Text.AlignHCenter
           visible: root.rows.length === 0
           text: root.query ? "No matching apps or buttons" : "Add an app or create a command button"
@@ -236,7 +238,7 @@ Item {
       Column {
         id: form
         width: parent.width; spacing: Style.spacing.controlGap
-        Text { width: parent.width; text: "Save a command to run with one tap. Saving doesn’t run it."; color: DeckColors.secondaryText; font.family: Style.font.family; font.pixelSize: Style.font.caption; wrapMode: Text.Wrap }
+        Text { textFormat: Text.PlainText; width: parent.width; text: "Save a command to run with one tap. Saving doesn’t run it."; color: DeckColors.secondaryText; font.family: Style.font.family; font.pixelSize: Style.font.caption; wrapMode: Text.Wrap }
         Repeater {
           model: [ {key: "name", label: "Name", placeholder: "e.g. Backup files"}, {key: "command", label: "Command or script", placeholder: "e.g. bash ~/Scripts/backup.sh"}, {key: "directory", label: "Working folder", placeholder: "Home folder (default)"} ]
           PreferenceAction {
@@ -255,7 +257,7 @@ Item {
           checked: root.draft.terminal === true
           onClicked: root.setDraft("terminal", !checked)
         }
-        Text { text: "Icon"; color: Color.foreground; font.family: Style.font.family; font.pixelSize: Style.font.body }
+        Text { textFormat: Text.PlainText; text: "Icon"; color: Color.foreground; font.family: Style.font.family; font.pixelSize: Style.font.body }
         Flow {
           width: parent.width; spacing: Style.spacing.controlGap
           Repeater {

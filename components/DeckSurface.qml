@@ -601,6 +601,7 @@ PanelWindow {
     height: root.reservedTop - root.innerGap
     z: 200
     Text {
+      textFormat: Text.PlainText
       anchors.left: parent.left
       anchors.leftMargin: Style.spacing.controlPaddingX
       anchors.verticalCenter: parent.verticalCenter

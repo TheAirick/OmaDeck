@@ -117,6 +117,7 @@ Item {
 
   Text {
     id: interactionHint
+    textFormat: Text.PlainText
     objectName: "commandCenterInteractionHint"
     visible: root.page === "home" && root.useThreeColumns
       && controlStack.y + controlStack.height + height + Style.spacing.panelGap * 2 < root.height

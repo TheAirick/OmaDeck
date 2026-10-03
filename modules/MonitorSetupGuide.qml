@@ -18,6 +18,7 @@ Column {
   spacing: Style.spacing.panelGap
 
   Text {
+    textFormat: Text.PlainText
     width: parent.width
     text: root.step === "computer" ? "1 / 3 · Prepare this computer" : "2 / 3 · Connect your monitor"
     color: Color.foreground
@@ -46,6 +47,7 @@ Column {
     wrapMode: Text.WordWrap
   }
   Text {
+    textFormat: Text.PlainText
     width: parent.width
     visible: root.step === "computer" && root.status && !root.ready && !root.status.canPrepare
     text: "Automatic setup needs Omarchy’s package tools. Update Omarchy, reopen OmaDeck, and check again."
@@ -88,6 +90,7 @@ Column {
     visible: root.step === "monitor" && !root.working
     spacing: Style.spacing.controlGap
     Text {
+      textFormat: Text.PlainText
       width: parent.width
       visible: !!(root.controller && root.controller.scanned && root.controller.detectedMonitors.length === 0)
       text: "No controllable monitor responded. Check that DDC/CI is enabled and this computer’s input is selected. If you use a dock, adapter, or KVM, try a direct display cable. Built-in laptop screens are not supported."

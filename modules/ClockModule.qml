@@ -44,6 +44,7 @@ Item {
       spacing: Style.spacing.labelGap
 
       Text {
+        textFormat: Text.PlainText
         objectName: "clockTime"
         anchors.horizontalCenter: parent.horizontalCenter
         text: root.timeText()
@@ -53,6 +54,7 @@ Item {
         font.weight: Font.DemiBold
       }
       Text {
+        textFormat: Text.PlainText
         anchors.horizontalCenter: parent.horizontalCenter
         text: root.timerSummary()
         color: root.timerStatus !== "idle" ? Color.accent : DeckColors.secondaryText
